@@ -11,7 +11,7 @@ set test_type = dual_weighted_residual_mesh_adaptation
 set sipg_penalty_factor = 20.0
 
 subsection linear solver
-#set linear_solver_type = direct
+set linear_solver_type = direct
   subsection gmres options
     set linear_residual_tolerance = 1e-4
     set max_iterations = 2000
@@ -23,7 +23,7 @@ end
 
 subsection mesh adaptation
     set critical_residual_val = 1.0e-9
-    set total_refinement_steps = 4
+    set total_refinement_steps = 0
     set refinement_fraction = 0.05
     set coarsening_fraction = 0.025
     set use_goal_oriented_mesh_adaptation = true
@@ -31,7 +31,7 @@ end
 
 subsection ODE solver
   #output solution
-  #set output_solution_every_x_steps = 1
+  set output_solution_every_x_steps = 1
 
   # Maximum nonlinear solver iterations
   set nonlinear_max_iterations            = 500
@@ -86,7 +86,7 @@ subsection manufactured solution convergence study
   set grid_progression_add  = 0
 
   # Initial grid of size (initial_grid_size)^dim
-  set initial_grid_size = 4 #4
+  set initial_grid_size = 5 #4
 
   # Number of grids in grid study
   set number_of_grids   = 1 #3

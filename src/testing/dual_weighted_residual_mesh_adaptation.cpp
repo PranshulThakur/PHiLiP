@@ -81,7 +81,35 @@ int DualWeightedResidualMeshAdaptation<dim, nstate> :: run_test () const
             ZeroInitialCondition<dim,double> initial_conditions(nstate);
             const auto mapping = *(dg->high_order_grid->mapping_fe_field);
             dealii::VectorTools::interpolate(mapping, dg->dof_handler, initial_conditions, dg->solution);
-            
+   
+   using VectorType       = typename dealii::LinearAlgebra::distributed::Vector<double>;
+     using DoFHandlerType   = typename dealii::DoFHandler<dim>;
+     using SolutionTransfer = typename MeshTypeHelper<Triangulation>::template SolutionTransfer<dim,VectorType,DoFHandlerType>;
+    SolutionTransfer solution_transfer(dg->dof_handler);
+     solution_transfer.prepare_for_coarsening_and_refinement(dg->solution);
+ 
+     dg->high_order_grid->prepare_for_coarsening_and_refinement();
+     dg->triangulation->prepare_coarsening_and_refinement();
+ 
+     for (auto cell = dg->dof_handler.begin_active(); cell != dg->dof_handler.end(); ++cell)
+         if (cell->is_locally_owned()) 
+         {
+            dealii::Point<dim> smallest_cell_coord = cell->center();
+            if (smallest_cell_coord[0] > 0.5)
+             cell->set_future_fe_index(cell->active_fe_index()+1);
+        }
+ 
+     dg->triangulation->execute_coarsening_and_refinement();
+     dg->high_order_grid->execute_coarsening_and_refinement();
+ 
+     dg->allocate_system();
+     dg->solution.zero_out_ghosts();
+ 
+         solution_transfer.interpolate(dg->solution);
+     
+     
+     dg->solution.update_ghost_values();
+             
             // generate ODE solver
             std::shared_ptr< ODE::ODESolverBase<dim,double,Triangulation> > ode_solver = ODE::ODESolverFactory<dim,double,Triangulation>::create_ODESolver(dg);
 
