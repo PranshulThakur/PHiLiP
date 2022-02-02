@@ -27,7 +27,7 @@
 
 #include "ode_solver/ode_solver_factory.h"
 #include "mesh/mesh_adaptation.h"
-
+ #include "physics/physics_factory.h"
 namespace PHiLiP {
 namespace Tests {
 
@@ -43,11 +43,13 @@ int DualWeightedResidualMeshAdaptation<dim, nstate> :: run_test () const
     const Parameters::AllParameters param = *(TestsBase::all_parameters);
     using ManParam = Parameters::ManufacturedConvergenceStudyParam;
     ManParam manu_grid_conv_param = param.manufactured_convergence_study_param;
-
+std::shared_ptr< Physics::PhysicsBase<dim,nstate,double> > physics_double
+         = Physics::PhysicsFactory<dim,nstate,double>::create_Physics(&param);
     const unsigned int p_start             = manu_grid_conv_param.degree_start;
     const unsigned int p_end               = manu_grid_conv_param.degree_end;
     const unsigned int n_grids       = manu_grid_conv_param.number_of_grids;
     const unsigned int initial_grid_size           = manu_grid_conv_param.initial_grid_size;
+    const unsigned int m_degree = 3;
     
     for (unsigned int poly_degree = p_start; poly_degree <= p_end; ++poly_degree)
     {
@@ -71,7 +73,7 @@ int DualWeightedResidualMeshAdaptation<dim, nstate> :: run_test () const
                 = DGFactory<dim,double,Triangulation>::create_discontinuous_galerkin(
                  &param,
                  poly_degree,
-                 poly_degree+1,
+                 poly_degree+m_degree,
                  poly_degree,
                  grid);
 
@@ -96,7 +98,7 @@ int DualWeightedResidualMeshAdaptation<dim, nstate> :: run_test () const
          {
             dealii::Point<dim> smallest_cell_coord = cell->center();
             if (smallest_cell_coord[0] > 0.5)
-             cell->set_future_fe_index(cell->active_fe_index()+1);
+             cell->set_future_fe_index(cell->active_fe_index()+m_degree);
         }
  
      dg->triangulation->execute_coarsening_and_refinement();
@@ -115,6 +117,63 @@ int DualWeightedResidualMeshAdaptation<dim, nstate> :: run_test () const
 
             std::cout<<"In loop"<<std::endl;
             ode_solver->steady_state();
+            
+            //compute errors starts 
+            int overintegrate = 10;
+             dealii::QGauss<dim> quad_extra(dg->max_degree+overintegrate);
+             dealii::FEValues<dim,dim> fe_values_extra(*(dg->high_order_grid->mapping_fe_field), dg->fe_collection[poly_degree], quad_extra,
+                     dealii::update_values | dealii::update_JxW_values | dealii::update_quadrature_points);
+             const unsigned int n_quad_pts = fe_values_extra.n_quadrature_points;
+             std::array<double,nstate> soln_at_q;
+
+             double linf_norm = 0.0;
+             double l2_norm = 0.0;
+
+             std::vector<dealii::types::global_dof_index> dofs_indices(fe_values_extra.dofs_per_cell);
+
+
+             for(auto cell = dg->dof_handler.begin_active(); cell < dg->dof_handler.end(); ++cell){
+                 if(!cell->is_locally_owned()) continue;
+
+                 fe_values_extra.reinit(cell);
+                 cell->get_dof_indices(dofs_indices);
+
+                 double cell_l2error = 0.0;
+                 std::array<double,nstate> cell_linf;
+                 std::fill(cell_linf.begin(), cell_linf.end(), 0);
+
+                 for(unsigned int iquad = 0; iquad < n_quad_pts; ++iquad){
+                     std::fill(soln_at_q.begin(), soln_at_q.end(), 0);
+                     for(unsigned int idof = 0; idof < fe_values_extra.dofs_per_cell; ++idof){
+                         const unsigned int istate = fe_values_extra.get_fe().system_to_component_index(idof).first;
+                         soln_at_q[istate] += dg->solution[dofs_indices[idof]] * fe_values_extra.shape_value_component(idof, iquad, istate);
+                     }
+
+                     const dealii::Point<dim> qpoint = (fe_values_extra.quadrature_point(iquad));
+
+                     for(unsigned int istate = 0; istate < nstate; ++ istate){
+                         const double uexact = physics_double->manufactured_solution_function->value(qpoint, istate);
+                         cell_l2error += pow(soln_at_q[istate] - uexact, 2) * fe_values_extra.JxW(iquad);
+                         cell_linf[istate] = std::max(cell_linf[istate], abs(soln_at_q[istate]-uexact));
+                     }
+                 }
+
+
+                 l2_norm += cell_l2error;
+                 for(unsigned int istate = 0; istate < nstate; ++ istate){
+                     linf_norm = std::max(linf_norm, cell_linf[istate]);
+                 }
+             }
+             const double l2_norm_mpi = std::sqrt(dealii::Utilities::MPI::sum(l2_norm, mpi_communicator));
+             const double linf_norm_mpi = dealii::Utilities::MPI::max(linf_norm, mpi_communicator);
+    
+            pcout<<"p_left = "<<poly_degree<<std::endl;
+            pcout<<"p_right = "<<dg->max_degree<<std::endl;
+             pcout<<"L2 Norm Error = "<<l2_norm_mpi<<std::endl;
+             pcout<<"Linf Norm Error = "<<linf_norm_mpi<<std::endl;
+
+
+             // Compute error ends
             
             if (param.mesh_adaptation_param.total_refinement_steps > 0)
                  {

@@ -11,7 +11,7 @@ set test_type = dual_weighted_residual_mesh_adaptation
 set sipg_penalty_factor = 20.0
 
 subsection linear solver
-set linear_solver_type = direct
+#set linear_solver_type = direct
   subsection gmres options
     set linear_residual_tolerance = 1e-4
     set max_iterations = 2000
@@ -26,12 +26,12 @@ subsection mesh adaptation
     set total_refinement_steps = 0
     set refinement_fraction = 0.05
     set coarsening_fraction = 0.025
-    set use_goal_oriented_mesh_adaptation = true
+  #  set use_goal_oriented_mesh_adaptation = true
 end
 
 subsection ODE solver
   #output solution
-  set output_solution_every_x_steps = 1
+  #set output_solution_every_x_steps = 1
 
   # Maximum nonlinear solver iterations
   set nonlinear_max_iterations            = 500
