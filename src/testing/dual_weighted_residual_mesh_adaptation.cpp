@@ -49,7 +49,7 @@ std::shared_ptr< Physics::PhysicsBase<dim,nstate,double> > physics_double
     const unsigned int p_end               = manu_grid_conv_param.degree_end;
     const unsigned int n_grids       = manu_grid_conv_param.number_of_grids;
     const unsigned int initial_grid_size           = manu_grid_conv_param.initial_grid_size;
-    const unsigned int m_degree = 3;
+    const unsigned int m_degree = 0;
     
     for (unsigned int poly_degree = p_start; poly_degree <= p_end; ++poly_degree)
     {
@@ -168,7 +168,7 @@ std::shared_ptr< Physics::PhysicsBase<dim,nstate,double> > physics_double
              const double linf_norm_mpi = dealii::Utilities::MPI::max(linf_norm, mpi_communicator);
     
             pcout<<"p_left = "<<poly_degree<<std::endl;
-            pcout<<"p_right = "<<dg->max_degree<<std::endl;
+            pcout<<"p_right = "<<dg->get_max_fe_degree()<<std::endl;
              pcout<<"L2 Norm Error = "<<l2_norm_mpi<<std::endl;
              pcout<<"Linf Norm Error = "<<linf_norm_mpi<<std::endl;
 
