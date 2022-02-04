@@ -49,7 +49,7 @@ std::shared_ptr< Physics::PhysicsBase<dim,nstate,double> > physics_double
     const unsigned int p_end               = manu_grid_conv_param.degree_end;
     const unsigned int n_grids       = manu_grid_conv_param.number_of_grids;
     const unsigned int initial_grid_size           = manu_grid_conv_param.initial_grid_size;
-    const unsigned int m_degree = 0;
+    const unsigned int m_degree = 1;
     
     for (unsigned int poly_degree = p_start; poly_degree <= p_end; ++poly_degree)
     {
@@ -130,6 +130,7 @@ std::shared_ptr< Physics::PhysicsBase<dim,nstate,double> > physics_double
              double l2_norm = 0.0;
 
              std::vector<dealii::types::global_dof_index> dofs_indices(fe_values_extra.dofs_per_cell);
+             dealii::Point<dim> coord_max_error;
 
 
              for(auto cell = dg->dof_handler.begin_active(); cell < dg->dof_handler.end(); ++cell){
@@ -160,8 +161,14 @@ std::shared_ptr< Physics::PhysicsBase<dim,nstate,double> > physics_double
 
 
                  l2_norm += cell_l2error;
+                 const double linf_norm_prev = linf_norm;
                  for(unsigned int istate = 0; istate < nstate; ++ istate){
                      linf_norm = std::max(linf_norm, cell_linf[istate]);
+                 }
+
+                 if(linf_norm_prev != linf_norm)
+                 {
+                    coord_max_error = cell->center();
                  }
              }
              const double l2_norm_mpi = std::sqrt(dealii::Utilities::MPI::sum(l2_norm, mpi_communicator));
@@ -169,8 +176,10 @@ std::shared_ptr< Physics::PhysicsBase<dim,nstate,double> > physics_double
     
             pcout<<"p_left = "<<poly_degree<<std::endl;
             pcout<<"p_right = "<<dg->get_max_fe_degree()<<std::endl;
-             pcout<<"L2 Norm Error = "<<l2_norm_mpi<<std::endl;
-             pcout<<"Linf Norm Error = "<<linf_norm_mpi<<std::endl;
+            pcout<<"L2 Norm Error = "<<l2_norm_mpi<<std::endl;
+            pcout<<"Linf Norm Error = "<<linf_norm_mpi<<std::endl;
+            pcout<<"x_inf_max = "<<coord_max_error[0]<<std::endl;
+            pcout<<"y_inf_max = "<<coord_max_error[1]<<std::endl;
 
 
              // Compute error ends
