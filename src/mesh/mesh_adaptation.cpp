@@ -11,14 +11,14 @@ MeshAdaptation<dim,real,MeshType>::MeshAdaptation(std::shared_ptr< DGBase<dim, r
     , coarsening_fraction(dg->all_parameters->mesh_adaptation_param.coarsening_fraction)
     , pcout(std::cout, dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD)==0)
     {
-        mesh_error = MeshErrorFactory<dim, 5, real, MeshType> :: create_mesh_error(dg);
+        //mesh_error = MeshErrorFactory<dim, 5, real, MeshType> :: create_mesh_error(dg);
     }
 
 
 template <int dim, typename real, typename MeshType>
 void MeshAdaptation<dim,real,MeshType>::adapt_mesh(std::shared_ptr< DGBase<dim, real, MeshType> > dg)
 {
-    cellwise_errors = mesh_error->compute_cellwise_errors(dg);
+   // cellwise_errors = mesh_error->compute_cellwise_errors(dg);
 
     fixed_fraction_isotropic_refinement_and_coarsening(dg);
     current_refinement_cycle++;

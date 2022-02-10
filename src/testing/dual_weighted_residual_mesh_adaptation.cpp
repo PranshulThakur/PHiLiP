@@ -49,8 +49,9 @@ std::shared_ptr< Physics::PhysicsBase<dim,nstate,double> > physics_double
     const unsigned int p_end               = manu_grid_conv_param.degree_end;
     const unsigned int n_grids       = manu_grid_conv_param.number_of_grids;
     const unsigned int initial_grid_size           = manu_grid_conv_param.initial_grid_size;
-    const unsigned int m_degree = 1;
-    
+    const unsigned int m_degree = 0;
+    double global_point[dim];
+    double dx;
     for (unsigned int poly_degree = p_start; poly_degree <= p_end; ++poly_degree)
     {
         for (unsigned int igrid=0; igrid<n_grids; ++igrid) 
@@ -119,24 +120,31 @@ std::shared_ptr< Physics::PhysicsBase<dim,nstate,double> > physics_double
             ode_solver->steady_state();
             
             //compute errors starts 
-            int overintegrate = 10;
-             dealii::QGauss<dim> quad_extra(dg->max_degree+overintegrate);
-             dealii::FEValues<dim,dim> fe_values_extra(*(dg->high_order_grid->mapping_fe_field), dg->fe_collection[poly_degree], quad_extra,
-                     dealii::update_values | dealii::update_JxW_values | dealii::update_quadrature_points);
-             const unsigned int n_quad_pts = fe_values_extra.n_quadrature_points;
+    //       int overintegrate = 10;
+     dealii::hp::MappingCollection<dim> mapping_collection(mapping);
+             dealii::hp::FEValues<dim,dim> fe_values_extra_net(mapping_collection, dg->fe_collection, dg->volume_quadrature_collection,
+                   dealii::update_values | dealii::update_JxW_values | dealii::update_quadrature_points);
+           //  const unsigned int n_quad_pts = fe_values_extra.n_quadrature_points;
              std::array<double,nstate> soln_at_q;
 
              double linf_norm = 0.0;
              double l2_norm = 0.0;
 
-             std::vector<dealii::types::global_dof_index> dofs_indices(fe_values_extra.dofs_per_cell);
              dealii::Point<dim> coord_max_error;
 
 
              for(auto cell = dg->dof_handler.begin_active(); cell < dg->dof_handler.end(); ++cell){
-                 if(!cell->is_locally_owned()) continue;
+                 if(!cell->is_locally_owned()) 
+                    continue;
 
-                 fe_values_extra.reinit(cell);
+            // dealii::QGauss<dim> quad_extra(cell->active_fe_index()+overintegrate);
+            // dealii::FEValues<dim,dim> fe_values_extra(*(dg->high_order_grid->mapping_fe_field), dg->fe_collection[cell->active_fe_index()], quad_extra,
+             //        dealii::update_values | dealii::update_JxW_values | dealii::update_quadrature_points);
+                 fe_values_extra_net.reinit(cell);
+                 const dealii::FEValues<dim,dim> &fe_values_extra = fe_values_extra_net.get_present_fe_values();
+             const unsigned int n_quad_pts = fe_values_extra.n_quadrature_points;
+             std::vector<dealii::types::global_dof_index> dofs_indices(fe_values_extra.dofs_per_cell);
+
                  cell->get_dof_indices(dofs_indices);
 
                  double cell_l2error = 0.0;
@@ -155,7 +163,9 @@ std::shared_ptr< Physics::PhysicsBase<dim,nstate,double> > physics_double
                      for(unsigned int istate = 0; istate < nstate; ++ istate){
                          const double uexact = physics_double->manufactured_solution_function->value(qpoint, istate);
                          cell_l2error += pow(soln_at_q[istate] - uexact, 2) * fe_values_extra.JxW(iquad);
-                         cell_linf[istate] = std::max(cell_linf[istate], abs(soln_at_q[istate]-uexact));
+                         if(cell_linf[istate] < abs(soln_at_q[istate]-uexact))
+                        // cell_linf[istate] = std::max(cell_linf[istate], abs(soln_at_q[istate]-uexact));
+                            cell_linf[istate] = abs(soln_at_q[istate]-uexact);
                      }
                  }
 
@@ -163,28 +173,52 @@ std::shared_ptr< Physics::PhysicsBase<dim,nstate,double> > physics_double
                  l2_norm += cell_l2error;
                  const double linf_norm_prev = linf_norm;
                  for(unsigned int istate = 0; istate < nstate; ++ istate){
-                     linf_norm = std::max(linf_norm, cell_linf[istate]);
+                    if(linf_norm  < cell_linf[istate])
+                     linf_norm = cell_linf[istate];
                  }
+
 
                  if(linf_norm_prev != linf_norm)
                  {
                     coord_max_error = cell->center();
                  }
+
+
              }
+                 dealii::Utilities::MPI::MinMaxAvg minindexstore;
+                 minindexstore = dealii::Utilities::MPI::min_max_avg(linf_norm, mpi_communicator);
+                 int n_proc_max = minindexstore.max_index;
+
+                  const int iproc = dealii::Utilities::MPI::this_mpi_process(mpi_communicator);
+                 if(iproc == n_proc_max)
+                 {
+                    for (int i=0; i<dim; i++)
+                    global_point[i] = coord_max_error[i];
+
+                  }
+
+
+                 MPI_Bcast(global_point, dim, MPI_DOUBLE, n_proc_max, mpi_communicator); // Update values in all processors
+                dx = dealii::GridTools::maximal_cell_diameter(*grid);
              const double l2_norm_mpi = std::sqrt(dealii::Utilities::MPI::sum(l2_norm, mpi_communicator));
              const double linf_norm_mpi = dealii::Utilities::MPI::max(linf_norm, mpi_communicator);
-    
+             pcout<<std::endl;
+             pcout<<"h = "<<dx<<std::endl;
             pcout<<"p_left = "<<poly_degree<<std::endl;
             pcout<<"p_right = "<<dg->get_max_fe_degree()<<std::endl;
             pcout<<"L2 Norm Error = "<<l2_norm_mpi<<std::endl;
             pcout<<"Linf Norm Error = "<<linf_norm_mpi<<std::endl;
-            pcout<<"x_inf_max = "<<coord_max_error[0]<<std::endl;
-            pcout<<"y_inf_max = "<<coord_max_error[1]<<std::endl;
+            pcout<<"x_inf_max = "<<global_point[0]<<std::endl;
+            pcout<<"y_inf_max = "<<global_point[1]<<std::endl;
 
 
              // Compute error ends
+        } // for loop of igrid
+    } // loop of poly_degree
+
+    return 0; // Mesh adaptation test passed.
             
-            if (param.mesh_adaptation_param.total_refinement_steps > 0)
+        /*    if (param.mesh_adaptation_param.total_refinement_steps > 0)
                  {
                     dealii::Point<dim> smallest_cell_coord = dg->high_order_grid->smallest_cell_coordinates();
                     pcout<<" x = "<<smallest_cell_coord[0]<<" y = "<<smallest_cell_coord[1]<<std::endl;
@@ -200,11 +234,7 @@ std::shared_ptr< Physics::PhysicsBase<dim,nstate,double> > physics_double
                         return 1; // Mesh adaptation failed.
                     }
                  }
-        } // for loop of igrid
-    } // loop of poly_degree
-
-    return 0; // Mesh adaptation test passed.
-    
+    */
 }
 
 #if PHILIP_DIM!=1

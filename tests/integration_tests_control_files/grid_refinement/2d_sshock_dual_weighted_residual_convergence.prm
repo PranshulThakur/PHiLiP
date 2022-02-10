@@ -10,6 +10,8 @@ set test_type = dual_weighted_residual_mesh_adaptation
 
 set sipg_penalty_factor = 20.0
 
+set overintegration = 10
+
 subsection linear solver
 #set linear_solver_type = direct
   subsection gmres options
@@ -31,7 +33,7 @@ end
 
 subsection ODE solver
   #output solution
-  set output_solution_every_x_steps = 1
+  #set output_solution_every_x_steps = 1
 
   # Maximum nonlinear solver iterations
   set nonlinear_max_iterations            = 500
@@ -60,7 +62,7 @@ end
 
 subsection manufactured solution convergence study
   set use_manufactured_source_term = true
-  set manufactured_solution_type   = s_shock_solution
+  set manufactured_solution_type   = sine_solution #s_shock_solution
 
   # setting the default diffusion tensor
   set diffusion_00 = 12
@@ -76,17 +78,17 @@ subsection manufactured solution convergence study
   set diffusion_coefficient = 0.0115573
   
   # Last degree used for convergence study
-  set degree_end        = 3
+  set degree_end        = 2
 
   # Starting degree for convergence study
-  set degree_start      = 3
+  set degree_start      = 2
 
   set grid_progression  = 2
 
   set grid_progression_add  = 0
 
   # Initial grid of size (initial_grid_size)^dim
-  set initial_grid_size = 5 #4
+  set initial_grid_size = 7 #4
 
   # Number of grids in grid study
   set number_of_grids   = 1 #3
