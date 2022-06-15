@@ -17,8 +17,8 @@ set conv_num_flux = roe
 set use_split_form = false
 
 subsection artificial dissipation
-	set add_artificial_dissipation = true
-	set artificial_dissipation_type = enthalpy_conserving_laplacian
+	set add_artificial_dissipation = false
+	set artificial_dissipation_type = physical
 	set artificial_dissipation_test_type = residual_convergence
 	set use_enthalpy_error = true
 	set mu_artificial_dissipation = 1.0
@@ -47,7 +47,7 @@ end
 subsection ODE solver
     set output_solution_every_x_steps = 1
   # Maximum nonlinear solver iterations
-  set nonlinear_max_iterations            = 500
+  set nonlinear_max_iterations            = 400
 
   # Nonlinear solver residual tolerance
   set nonlinear_steady_residual_tolerance = 1e-11
