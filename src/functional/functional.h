@@ -180,7 +180,7 @@ protected:
         std::vector<dealii::types::global_dof_index> cell_soln_dofs_indices,
         std::vector<dealii::types::global_dof_index> cell_metric_dofs_indices);
 
-protected:
+public:
     /// Checks which derivatives actually need to be recomputed.
     /** If the stored solution and mesh are the same as the one used to previously
      *  compute the derivative, then we do not need to recompute them.

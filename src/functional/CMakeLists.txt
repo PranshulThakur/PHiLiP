@@ -5,6 +5,7 @@ SET(SOURCE
     adjoint.cpp
     lift_drag.cpp
     target_wall_pressure.cpp
+    objective_function_for_mesh_adaptation.cpp
     )
 
 foreach(dim RANGE 1 3)
