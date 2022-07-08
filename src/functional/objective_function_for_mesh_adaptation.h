@@ -22,12 +22,13 @@ public:
     dealii::LinearAlgebra::distributed::Vector<real> dFdUhH_tilde;
     dealii::TrilinosWrappers::SparseMatrix d2FdXdX;
     dealii::ConditionalOStream pcout;
-
+    const dealii::UpdateFlags volume_update_flags = dealii::update_values | dealii::update_gradients | dealii::update_quadrature_points | dealii::update_JxW_values;
+    const dealii::UpdateFlags face_update_flags = dealii::update_values | dealii::update_gradients | dealii::update_quadrature_points | dealii::update_JxW_values | dealii::update_normal_vectors;
+    
     ObjectiveFunctionMeshAdaptation(std::shared_ptr<DGBase<dim,real,MeshType>> _dg);
 
 
-    template <typename real2>
-    real2 evaluate_objective_function();
+    real2 evaluate_objective_function_and_derivatives();
 
     template <typename real2>
     void evaluate_objective_function_derivative();
