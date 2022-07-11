@@ -4,12 +4,51 @@
 namespace PHiLiP {
 
 template <int dim, int nstate, typename real, typename MeshType>
-ObjectiveFunctionMeshAdaptation<dim,nstate,real,MeshType>::ObjectiveFunctionMeshAdaptation(std::shared_ptr<DGBase<dim,real,MeshType>> _dg)
+ ObjectiveFunctionMeshAdaptation<dim,nstate,real,MeshType>::ObjectiveFunctionMeshAdaptation(
+    std::shared_ptr<DGBase<dim,real,MeshType>> _dg, 
+    dealii::LinearAlgebra::distributed::Vector<real> & _solution_fine,  
+    dealii::LinearAlgebra::distributed::Vector<real> & _solution_tilde)
     : dg(_dg)
+    , solution_fine(_solution_fine)
+    , solution_tilde(_solution_tilde)
     , pcout(std::cout, dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD)==0)
-{}
+{
+    functional = FunctionalFactory<dim,nstate,real,MeshType>::create_Functional(dg->all_parameters->functional_param, dg);
+
+    std::shared_ptr<Physics::ModelBase<dim,nstate,FadFadType>> model_fad_fad = Physics::ModelFactory<dim,nstate,FadFadType>::create_Model(dg->all_parameters);
+    physics_fad_fad = Physics::PhysicsFactory<dim,nstate,FadFadType>::create_Physics(dg->all_parameters,model_fad_fad);
+}
 
 
+template <int dim, int nstate, typename real, typename MeshType>
+void ObjectiveFunctionMeshAdaptation<dim,nstate,real,MeshType>::allocate_derivatives()
+{
+    // Allocate first derivatives
+    const dealii::IndexSet &locally_owned_solution_dofs = dg->dof_handler.locally_owned_dofs();
+    derivative_objfunc_wrt_solution_fine.reinit(locally_owned_solution_dofs, MPI_COMM_WORLD);
+    derivative_objfunc_wrt_solution_tilde.reinit(locally_owned_solution_dofs, MPI_COMM_WORLD);
+
+    dealii::IndexSet locally_owned_grid_dofs, locally_relevant_grid_dofs, ghost_grid_dofs;
+    const dealii::IndexSet &locally_owned_grid_dofs = dg->dof_handler_grid.locally_owned_dofs();
+    dealii::DoFTools::extract_locally_relevant_dofs(dg->high_order_grid->dof_handler_grid, locally_relevant_grid_dofs);
+    ghost_grid_dofs = locally_relevant_grid_dofs;
+    ghost_grid_dofs.subtract_set(locally_owned_grid_dofs);
+    derivative_objfunc_wrt_metric_nodes.reinit(locally_owned_grid_dofs, ghost_grid_dofs, MPI_COMM_WORLD);
+
+    // Allocate second derivatives
+    dealii::SparsityPattern d2F_dWdW_sparsity_pattern = dg->get_d2RdWdW_sparsity_pattern();
+    dealii::SparsityPattern d2F_dWdX_sparsity_pattern = dg->get_d2RdWdX_sparsity_pattern();
+    dealii::SparsityPattern d2F_dXdX_sparsity_pattern = dg->get_d2RdXdX_sparsity_pattern();
+
+    d2F_dWfine_dWfine.reinit(locally_owned_solution_dofs, locally_owned_solution_dofs, d2F_dWdW_sparsity_pattern, MPI_COMM_WORLD);
+    d2F_dWfine_dWtilde.reinit(locally_owned_solution_dofs, locally_owned_solution_dofs, d2F_dWdW_sparsity_pattern, MPI_COMM_WORLD);
+    d2F_dWfine_dX.reinit(locally_owned_solution_dofs, locally_owned_grid_dofs, d2F_dWdX_sparsity_pattern, MPI_COMM_WORLD);
+
+    d2F_dWtilde_dWtilde.reinit(locally_owned_solution_dofs, locally_owned_solution_dofs, d2F_dWdW_sparsity_pattern, MPI_COMM_WORLD);
+    d2F_dWtilde_dX.reinit(locally_owned_solution_dofs, locally_owned_grid_dofs, d2F_dWdX_sparsity_pattern, MPI_COMM_WORLD);
+
+    d2F_dX_dX.reinit(locally_owned_grid_dofs, locally_owned_grid_dofs, d2F_dXdX_sparsity_pattern, MPI_COMM_WORLD);
+}
 
 template <int dim, int nstate, typename real, typename MeshType>
 real ObjectiveFunctionMeshAdaptation<dim,nstate,real,MeshType>::evaluate_objective_function_and_derivatives()
@@ -29,17 +68,12 @@ real ObjectiveFunctionMeshAdaptation<dim,nstate,real,MeshType>::evaluate_objecti
     std::vector<FadFadType> soln_coeff_fine(max_dofs_per_cell);     // Solution interpolated to p+1, then taylor expanded.
     std::vector<FadFadType> soln_coeff_tilde(max_dofs_per_cell);     // Solution taylor expanded, then interpolated to p+1.
 
-    std::vector<real>   local_derivative_objfunc_wrt_solution_fine(max_dofs_per_cell);
-    std::vector<real>   local_derivative_objfunc_wrt_solution_tilde(max_dofs_per_cell);
-
-    std::vector<real>   local_derivative_objfunc_wrt_metric_nodes(n_metric_dofs_cell);
-
     const auto mapping = (*(dg->high_order_grid->mapping_fe_field));
     
     dealii::hp::MappingCollection<dim> mapping_collection(mapping);
     dealii::hp::FEFaceValues<dim,dim> fe_values_collection_face(mapping_collection, dg->fe_collection, dg->face_quadrature_collection, face_update_flags);
 
-    // Include a function to allocate derivatives.
+    allocate_derivatives();
 
     dg->solution.update_ghost_values();
 
@@ -239,6 +273,35 @@ real ObjectiveFunctionMeshAdaptation<dim,nstate,real,MeshType>::evaluate_objecti
     return global_objective_function_value; 
 }
 
+template <int dim, int nstate, typename real, typename MeshType>
+template <typename real2>
+real2 ObjectiveFunctionMeshAdaptation<dim,nstate,real,MeshType> :: evaluate_volume_cell_objective_function(
+    const Physics::PhysicsBase<dim,nstate,real2> &physics,
+    const std::vector< real2 > &soln_coeff_fine,
+    const std::vector< real2 > &soln_coeff_tilde,
+    const dealii::FESystem<dim> &fe_solution,
+    const std::vector< real2 > &coords_coeff,
+    const dealii::FESystem<dim> &fe_metric,
+    const dealii::Quadrature<dim> &volume_quadrature) const
+{
+    return 0;
+}
+
+template <int dim, int nstate, typename real, typename MeshType>
+template <typename real2>
+real2 ObjectiveFunctionMeshAdaptation<dim,nstate,real,MeshType> :: evaluate_boundary_cell_functional(
+    const Physics::PhysicsBase<dim,nstate,real2> &physics,
+    const unsigned int boundary_id,
+    const std::vector< real2 > &soln_coeff_fine,
+    const std::vector< real2 > &soln_coeff_tilde,
+    const dealii::FESystem<dim> &fe_solution,
+    const std::vector< real2 > &coords_coeff,
+    const dealii::FESystem<dim> &fe_metric,
+    const unsigned int face_number,
+    const dealii::Quadrature<dim-1> &face_quadrature) const
+{
+    return 0;
+}
 
 template <int dim, int nstate, typename real, typename MeshType>
 void ObjectiveFunctionMeshAdaptation<dim,nstate,real,MeshType>::evaluate_objective_function_hessian()
