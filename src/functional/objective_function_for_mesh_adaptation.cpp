@@ -28,8 +28,8 @@ void ObjectiveFunctionMeshAdaptation<dim,nstate,real,MeshType>::allocate_derivat
     derivative_objfunc_wrt_solution_fine.reinit(locally_owned_solution_dofs, MPI_COMM_WORLD);
     derivative_objfunc_wrt_solution_tilde.reinit(locally_owned_solution_dofs, MPI_COMM_WORLD);
 
-    dealii::IndexSet locally_owned_grid_dofs, locally_relevant_grid_dofs, ghost_grid_dofs;
-    const dealii::IndexSet &locally_owned_grid_dofs = dg->dof_handler_grid.locally_owned_dofs();
+    const dealii::IndexSet &locally_owned_grid_dofs = dg->high_order_grid->dof_handler_grid.locally_owned_dofs();
+    dealii::IndexSet locally_relevant_grid_dofs, ghost_grid_dofs;
     dealii::DoFTools::extract_locally_relevant_dofs(dg->high_order_grid->dof_handler_grid, locally_relevant_grid_dofs);
     ghost_grid_dofs = locally_relevant_grid_dofs;
     ghost_grid_dofs.subtract_set(locally_owned_grid_dofs);
@@ -128,7 +128,7 @@ real ObjectiveFunctionMeshAdaptation<dim,nstate,real,MeshType>::evaluate_objecti
         {
             const real value_coord_coeff = dg->high_order_grid->volume_nodes[cell_metric_dofs_indices[idof]];
             coords_coeff[idof] = value_coord_coeff;
-            coors_coeff[idof].diff(n_current_independent_variable++, n_total_independent_variables);
+            coords_coeff[idof].diff(n_current_independent_variable++, n_total_independent_variables);
         }
 
 //============================================================================================================================================================
@@ -153,16 +153,16 @@ real ObjectiveFunctionMeshAdaptation<dim,nstate,real,MeshType>::evaluate_objecti
         {
             const real value_coord_coeff = dg->high_order_grid->volume_nodes[cell_metric_dofs_indices[idof]];
             coords_coeff[idof].val() = value_coord_coeff;
-            coors_coeff[idof].val().diff(n_current_independent_variable++, n_total_independent_variables);
+            coords_coeff[idof].val().diff(n_current_independent_variable++, n_total_independent_variables);
         }
 //============================================================================================================================================================
         // Evaluate objective function on the cell.
         const dealii::Quadrature<dim> &volume_quadratures_cell = dg->volume_quadrature_collection[current_quad_index];
         const dealii::Quadrature<dim-1> &face_quadratures = dg->face_quadrature_collection[current_quad_index];
         FadFadType local_objective_function_fadfad = this->evaluate_volume_cell_objective_function(*physics_fad_fad, soln_coeff_fine, soln_coeff_tilde, fe_solution, 
-                                                                                              coords_coeff, fe_metric, volume_quadrature_cell);
+                                                                                              coords_coeff, fe_metric, volume_quadratures_cell);
         
-        for(unsignd int iface = 0; iface < dealii::GeometryInfo<dim>::faces_per_cell; ++iface)
+        for(unsigned int iface = 0; iface < dealii::GeometryInfo<dim>::faces_per_cell; ++iface)
         {
             auto face = soln_cell->face(iface);
 
@@ -182,26 +182,35 @@ real ObjectiveFunctionMeshAdaptation<dim,nstate,real,MeshType>::evaluate_objecti
         unsigned int i_variable = 0;
 
         // First derivative wrt solution fine
+        //std::vector<real> dF_dWfine_local(n_soln_dofs_cell);
         for(unsigned int idof = 0; idof < n_soln_dofs_cell; idof++) // i_variable is Wfine (solution fine)
         {
+            //dF_dWfine_local[idof] = local_objective_function_fadfad.dx(i_variable++).val();
             const real dF_dWfinei = local_objective_function_fadfad.dx(i_variable++).val();
-            derivative_objfunc_wrt_solution_fine.add(cell_soln_dofs_indices[idof], dF_dWfinei);
+            derivative_objfunc_wrt_solution_fine(cell_soln_dofs_indices[idof]) = dF_dWfinei;
         }
+        //derivative_objfunc_wrt_solution_fine.add(cell_soln_dofs_indices, dF_dWfine_local);
 
 
         // First derivative wrt solution tilde
+        //std::vector<real> dF_dWtilde_local(n_soln_dofs_cell);
         for(unsigned int idof = 0; idof < n_soln_dofs_cell; idof++) // i_variable is Wtilde (solution tilde)
         {
+            //dF_dWtilde_local[idof] = local_objective_function_fadfad.dx(i_variable++).val();
             const real dF_dWtildei = local_objective_function_fadfad.dx(i_variable++).val();
-            derivative_objfunc_wrt_solution_tilde.add(cell_soln_dofs_indices[idof], dF_dWtildei);
+            derivative_objfunc_wrt_solution_tilde(cell_soln_dofs_indices[idof]) = dF_dWtildei;
         }
+        //derivative_objfunc_wrt_solution_tilde.add(cell_soln_dofs_indices, dF_dWtilde_local);
 
         // First derivative wrt metric nodes
+        //std::vector<real> dF_dX_local(n_metric_dofs_cell);
         for(unsigned int idof = 0; idof < n_metric_dofs_cell; idof++) // i_variable is X (metric nodes)
         {
+            //dF_dX_local[idof] = local_objective_function_fadfad.dx(i_variable++).val();
             const real dF_dXi = local_objective_function_fadfad.dx(i_variable++).val();
-            derivative_objfunc_wrt_metric_nodes.add(cell_metric_dofs_indices[idof], dF_dXi);
+            derivative_objfunc_wrt_metric_nodes(cell_metric_dofs_indices[idof]) = dF_dXi;
         }
+        //derivative_objfunc_wrt_metric_nodes.add(cell_metric_dofs_indices, dF_dX_local);
 
 //=========================================================================================================================================================================
         // Evaluate second derivatives
@@ -244,7 +253,7 @@ real ObjectiveFunctionMeshAdaptation<dim,nstate,real,MeshType>::evaluate_objecti
 
         }
 
-        for(unsigned int i_dof = 0; i_dof < n_metric_dofs_cell; i_dof++) // i_variable is X
+        for(unsigned int idof = 0; idof < n_metric_dofs_cell; idof++) // i_variable is X
         {
             const FadType dF_dXi = local_objective_function_fadfad.dx(i_variable++);
             unsigned int j_variable = 2*n_soln_dofs_cell;
@@ -284,12 +293,16 @@ real2 ObjectiveFunctionMeshAdaptation<dim,nstate,real,MeshType> :: evaluate_volu
     const dealii::FESystem<dim> &fe_metric,
     const dealii::Quadrature<dim> &volume_quadrature) const
 {
-    return 0;
+    real2 cell_functional_value_fine = functional->evaluate_volume_cell_functional(physics, soln_coeff_fine, fe_solution, coords_coeff, fe_metric, volume_quadrature);
+    real2 cell_functional_value_tilde = functional->evaluate_volume_cell_functional(physics, soln_coeff_tilde, fe_solution, coords_coeff, fe_metric, volume_quadrature);
+    
+    real2 cell_objecive_function_value = pow((cell_functional_value_fine - cell_functional_value_tilde), 2);
+    return cell_objecive_function_value;
 }
 
 template <int dim, int nstate, typename real, typename MeshType>
 template <typename real2>
-real2 ObjectiveFunctionMeshAdaptation<dim,nstate,real,MeshType> :: evaluate_boundary_cell_functional(
+real2 ObjectiveFunctionMeshAdaptation<dim,nstate,real,MeshType> :: evaluate_boundary_cell_objective_function(
     const Physics::PhysicsBase<dim,nstate,real2> &physics,
     const unsigned int boundary_id,
     const std::vector< real2 > &soln_coeff_fine,
@@ -300,7 +313,11 @@ real2 ObjectiveFunctionMeshAdaptation<dim,nstate,real,MeshType> :: evaluate_boun
     const unsigned int face_number,
     const dealii::Quadrature<dim-1> &face_quadrature) const
 {
-    return 0;
+    real2 cell_functional_value_fine = functional->evaluate_boundary_cell_functional(physics, boundary_id, soln_coeff_fine, fe_solution, coords_coeff, fe_metric, face_number, face_quadrature);
+    real2 cell_functional_value_tilde = functional->evaluate_boundary_cell_functional(physics, boundary_id, soln_coeff_tilde, fe_solution, coords_coeff, fe_metric, face_number, face_quadrature);
+    
+    real2 cell_objecive_function_value = pow((cell_functional_value_fine - cell_functional_value_tilde), 2);
+    return cell_objecive_function_value;
 }
 
 template <int dim, int nstate, typename real, typename MeshType>
@@ -311,13 +328,21 @@ void ObjectiveFunctionMeshAdaptation<dim,nstate,real,MeshType>::evaluate_objecti
     dealii::DoFTools::extract_locally_relevant_dofs(dg->high_order_grid->dof_handler_grid, locally_relevant_dofs);
     ghost_dofs = locally_relevant_dofs;
     ghost_dofs.subtract_set(locally_owned_dofs);
-    dFdX.reinit(locally_owned_dofs, ghost_dofs, MPI_COMM_WORLD);
-    std::cout<<"Size of dFdX = "<<dFdX.size()<<std::endl;
+    derivative_objfunc_wrt_metric_nodes.reinit(locally_owned_dofs, ghost_dofs, MPI_COMM_WORLD);
+    std::cout<<"Size of dFdX = "<<derivative_objfunc_wrt_metric_nodes.size()<<std::endl;
 }
 
-template class ObjectiveFunctionMeshAdaptation<PHILIP_DIM, PHILIP_DIM, double, dealii::Triangulation<PHILIP_DIM>>;
+template class ObjectiveFunctionMeshAdaptation<PHILIP_DIM, 1, double, dealii::Triangulation<PHILIP_DIM>>;
+template class ObjectiveFunctionMeshAdaptation<PHILIP_DIM, 2, double, dealii::Triangulation<PHILIP_DIM>>;
+template class ObjectiveFunctionMeshAdaptation<PHILIP_DIM, 3, double, dealii::Triangulation<PHILIP_DIM>>;
+template class ObjectiveFunctionMeshAdaptation<PHILIP_DIM, 4, double, dealii::Triangulation<PHILIP_DIM>>;
+template class ObjectiveFunctionMeshAdaptation<PHILIP_DIM, 5, double, dealii::Triangulation<PHILIP_DIM>>;
 #if PHILIP_DIM != 1
-template class ObjectiveFunctionMeshAdaptation<PHILIP_DIM, PHILIP_DIM, double,  dealii::parallel::distributed::Triangulation<PHILIP_DIM>>;
+template class ObjectiveFunctionMeshAdaptation<PHILIP_DIM, 1, double,  dealii::parallel::distributed::Triangulation<PHILIP_DIM>>;
+template class ObjectiveFunctionMeshAdaptation<PHILIP_DIM, 2, double,  dealii::parallel::distributed::Triangulation<PHILIP_DIM>>;
+template class ObjectiveFunctionMeshAdaptation<PHILIP_DIM, 3, double,  dealii::parallel::distributed::Triangulation<PHILIP_DIM>>;
+template class ObjectiveFunctionMeshAdaptation<PHILIP_DIM, 4, double,  dealii::parallel::distributed::Triangulation<PHILIP_DIM>>;
+template class ObjectiveFunctionMeshAdaptation<PHILIP_DIM, 5, double,  dealii::parallel::distributed::Triangulation<PHILIP_DIM>>;
 #endif
 
 } // namespace PHiLiP

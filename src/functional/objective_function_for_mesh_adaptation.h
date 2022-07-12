@@ -2,6 +2,12 @@
 #define __MESH_OBJ_FUNCTION_H__
 
 #include "functional.h"
+#include "physics/physics.h"
+#include "physics/physics_factory.h"
+#include "physics/model.h"
+#include "physics/model_factory.h"
+#include "dg/dg.h"
+#include "functional.h"
 
 namespace PHiLiP {
 
@@ -22,12 +28,12 @@ public:
     std::shared_ptr<Functional<dim, nstate, real, MeshType> > functional;
     std::shared_ptr<Physics::PhysicsBase<dim,nstate,FadFadType>> physics_fad_fad;
 
-    dealii::ConditionalOStream pcout;
     const dealii::UpdateFlags volume_update_flags = dealii::update_values | dealii::update_gradients | dealii::update_quadrature_points | dealii::update_JxW_values;
     const dealii::UpdateFlags face_update_flags = dealii::update_values | dealii::update_gradients | dealii::update_quadrature_points | dealii::update_JxW_values | dealii::update_normal_vectors;
     
     dealii::LinearAlgebra::distributed::Vector<real> derivative_objfunc_wrt_solution_fine;
     dealii::LinearAlgebra::distributed::Vector<real> derivative_objfunc_wrt_solution_tilde;
+    dealii::LinearAlgebra::distributed::Vector<real> derivative_objfunc_wrt_metric_nodes;
     
     dealii::TrilinosWrappers::SparseMatrix d2F_dWfine_dWfine;
     dealii::TrilinosWrappers::SparseMatrix d2F_dWfine_dWtilde;
@@ -38,8 +44,10 @@ public:
     
     dealii::TrilinosWrappers::SparseMatrix d2F_dX_dX;
     
-    dealii::LinearAlgebra::distributed::Vector<real> solution_fine,
-    dealii::LinearAlgebra::distributed::Vector<real> solution_tilde    
+    dealii::LinearAlgebra::distributed::Vector<real> solution_fine;
+    dealii::LinearAlgebra::distributed::Vector<real> solution_tilde;    
+    
+    dealii::ConditionalOStream pcout;
 
     ObjectiveFunctionMeshAdaptation(std::shared_ptr<DGBase<dim,real,MeshType>> _dg, 
                                     dealii::LinearAlgebra::distributed::Vector<real> & _solution_fine,  
@@ -63,7 +71,7 @@ public:
         const dealii::Quadrature<dim> &volume_quadrature) const;
 
     template <typename real2>
-    real2 evaluate_boundary_cell_functional(
+    real2 evaluate_boundary_cell_objective_function(
         const Physics::PhysicsBase<dim,nstate,real2> &physics,
         const unsigned int boundary_id,
         const std::vector< real2 > &soln_coeff_fine,

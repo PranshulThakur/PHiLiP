@@ -58,7 +58,8 @@ int main (int argc, char* argv[])
     const unsigned int poly_degree = 10;
 
     std::shared_ptr < DGBase<PHILIP_DIM, double> > dg = DGFactory<PHILIP_DIM,double>::create_discontinuous_galerkin(&all_parameters, poly_degree,poly_degree,1, grid);
-    ObjectiveFunctionMeshAdaptation<PHILIP_DIM,PHILIP_DIM,double,Triangulation> objfunc(dg);
+    dealii::LinearAlgebra::distributed::Vector<double> solution_fine, solution_tilde;
+    ObjectiveFunctionMeshAdaptation<PHILIP_DIM,PHILIP_DIM,double,Triangulation> objfunc(dg, solution_fine, solution_tilde);
     objfunc.evaluate_objective_function_hessian();
 
     std::cout<<"Active cells = "<<grid->n_active_cells()<<std::endl;
