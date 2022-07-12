@@ -182,35 +182,26 @@ real ObjectiveFunctionMeshAdaptation<dim,nstate,real,MeshType>::evaluate_objecti
         unsigned int i_variable = 0;
 
         // First derivative wrt solution fine
-        //std::vector<real> dF_dWfine_local(n_soln_dofs_cell);
         for(unsigned int idof = 0; idof < n_soln_dofs_cell; idof++) // i_variable is Wfine (solution fine)
         {
-            //dF_dWfine_local[idof] = local_objective_function_fadfad.dx(i_variable++).val();
             const real dF_dWfinei = local_objective_function_fadfad.dx(i_variable++).val();
             derivative_objfunc_wrt_solution_fine(cell_soln_dofs_indices[idof]) = dF_dWfinei;
         }
-        //derivative_objfunc_wrt_solution_fine.add(cell_soln_dofs_indices, dF_dWfine_local);
 
 
         // First derivative wrt solution tilde
-        //std::vector<real> dF_dWtilde_local(n_soln_dofs_cell);
         for(unsigned int idof = 0; idof < n_soln_dofs_cell; idof++) // i_variable is Wtilde (solution tilde)
         {
-            //dF_dWtilde_local[idof] = local_objective_function_fadfad.dx(i_variable++).val();
             const real dF_dWtildei = local_objective_function_fadfad.dx(i_variable++).val();
             derivative_objfunc_wrt_solution_tilde(cell_soln_dofs_indices[idof]) = dF_dWtildei;
         }
-        //derivative_objfunc_wrt_solution_tilde.add(cell_soln_dofs_indices, dF_dWtilde_local);
 
         // First derivative wrt metric nodes
-        //std::vector<real> dF_dX_local(n_metric_dofs_cell);
         for(unsigned int idof = 0; idof < n_metric_dofs_cell; idof++) // i_variable is X (metric nodes)
         {
-            //dF_dX_local[idof] = local_objective_function_fadfad.dx(i_variable++).val();
             const real dF_dXi = local_objective_function_fadfad.dx(i_variable++).val();
             derivative_objfunc_wrt_metric_nodes(cell_metric_dofs_indices[idof]) = dF_dXi;
         }
-        //derivative_objfunc_wrt_metric_nodes.add(cell_metric_dofs_indices, dF_dX_local);
 
 //=========================================================================================================================================================================
         // Evaluate second derivatives
