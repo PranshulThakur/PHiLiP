@@ -287,7 +287,7 @@ real2 ObjectiveFunctionMeshAdaptation<dim,nstate,real,MeshType> :: evaluate_volu
     real2 cell_functional_value_fine = functional->evaluate_volume_cell_functional(physics, soln_coeff_fine, fe_solution, coords_coeff, fe_metric, volume_quadrature);
     real2 cell_functional_value_tilde = functional->evaluate_volume_cell_functional(physics, soln_coeff_tilde, fe_solution, coords_coeff, fe_metric, volume_quadrature);
     
-    real2 cell_objecive_function_value = pow((cell_functional_value_fine - cell_functional_value_tilde), 2);
+    real2 cell_objecive_function_value = std::pow((cell_functional_value_fine - cell_functional_value_tilde), 2);
     return cell_objecive_function_value;
 }
 

@@ -46,7 +46,7 @@ int main (int argc, char* argv[])
                     dealii::Triangulation<PHILIP_DIM>::smoothing_on_refinement |
                     dealii::Triangulation<PHILIP_DIM>::smoothing_on_coarsening));
 
-    unsigned int grid_refinement_val = 4;
+    unsigned int grid_refinement_val = 1;
     dealii::GridGenerator::hyper_cube(*grid);
     grid->refine_global(grid_refinement_val);
 
@@ -55,16 +55,37 @@ int main (int argc, char* argv[])
     Parameters::AllParameters::declare_parameters (parameter_handler);
     Parameters::AllParameters all_parameters;
     all_parameters.parse_parameters (parameter_handler);
-    const unsigned int poly_degree = 10;
+    const unsigned int poly_degree = 2;
 
     std::shared_ptr < DGBase<PHILIP_DIM, double> > dg = DGFactory<PHILIP_DIM,double>::create_discontinuous_galerkin(&all_parameters, poly_degree,poly_degree,1, grid);
-    dealii::LinearAlgebra::distributed::Vector<double> solution_fine, solution_tilde;
-    ObjectiveFunctionMeshAdaptation<PHILIP_DIM,PHILIP_DIM,double,Triangulation> objfunc(dg, solution_fine, solution_tilde);
-    objfunc.evaluate_objective_function_hessian();
-
+    dg->allocate_system();
+    dealii::LinearAlgebra::distributed::Vector<double> solution_fine(dg->n_dofs()), solution_tilde(dg->n_dofs());
     std::cout<<"Active cells = "<<grid->n_active_cells()<<std::endl;
+    std::cout<<"N_dofs = "<<dg->n_dofs()<<std::endl;
 
+    for(unsigned int idof=0; idof < dg->n_dofs(); idof++)
+    {
+        solution_fine[idof] = idof*idof + 3.0;
+        solution_tilde[idof] = idof*idof*idof + 4.0;
+    }
 
+    std::cout<<"Solution fine = "<<std::endl;
+    solution_fine.print(std::cout, 3, true, false);
+
+    ObjectiveFunctionMeshAdaptation<PHILIP_DIM,PHILIP_DIM,double,Triangulation> objfunc(dg, solution_fine, solution_tilde);
+    //objfunc.evaluate_objective_function_hessian();
+    double val = objfunc.evaluate_objective_function_and_derivatives();
+
+    std::cout<<"derivative wrt solution fine = "<<std::endl;
+    objfunc.derivative_objfunc_wrt_solution_fine.print(std::cout, 3, true, false);
+
+    std::cout<<"derivative wrt solution tilde = "<<std::endl;
+    objfunc.derivative_objfunc_wrt_solution_tilde.print(std::cout, 3, true, false);
+
+    std::cout<<"derivative wrt metric nodes = "<<std::endl;
+    objfunc.derivative_objfunc_wrt_metric_nodes.print(std::cout, 3, true, false);
+
+    std::cout<<"Objective function value = "<<val<<std::endl;
 
        
 /*
