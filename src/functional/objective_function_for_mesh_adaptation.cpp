@@ -185,7 +185,7 @@ real ObjectiveFunctionMeshAdaptation<dim,nstate,real,MeshType>::evaluate_objecti
         for(unsigned int idof = 0; idof < n_soln_dofs_cell; idof++) // i_variable is Wfine (solution fine)
         {
             const real dF_dWfinei = local_objective_function_fadfad.dx(i_variable++).val();
-            derivative_objfunc_wrt_solution_fine(cell_soln_dofs_indices[idof]) = dF_dWfinei;
+            derivative_objfunc_wrt_solution_fine(cell_soln_dofs_indices[idof]) += dF_dWfinei;
         }
 
 
@@ -193,14 +193,14 @@ real ObjectiveFunctionMeshAdaptation<dim,nstate,real,MeshType>::evaluate_objecti
         for(unsigned int idof = 0; idof < n_soln_dofs_cell; idof++) // i_variable is Wtilde (solution tilde)
         {
             const real dF_dWtildei = local_objective_function_fadfad.dx(i_variable++).val();
-            derivative_objfunc_wrt_solution_tilde(cell_soln_dofs_indices[idof]) = dF_dWtildei;
+            derivative_objfunc_wrt_solution_tilde(cell_soln_dofs_indices[idof]) += dF_dWtildei;
         }
 
         // First derivative wrt metric nodes
         for(unsigned int idof = 0; idof < n_metric_dofs_cell; idof++) // i_variable is X (metric nodes)
         {
             const real dF_dXi = local_objective_function_fadfad.dx(i_variable++).val();
-            derivative_objfunc_wrt_metric_nodes(cell_metric_dofs_indices[idof]) = dF_dXi;
+            derivative_objfunc_wrt_metric_nodes(cell_metric_dofs_indices[idof]) += dF_dXi; // += adds contribution from adjacent cells.
         }
 
 //=========================================================================================================================================================================
@@ -286,8 +286,9 @@ real2 ObjectiveFunctionMeshAdaptation<dim,nstate,real,MeshType> :: evaluate_volu
 {
     real2 cell_functional_value_fine = functional->evaluate_volume_cell_functional(physics, soln_coeff_fine, fe_solution, coords_coeff, fe_metric, volume_quadrature);
     real2 cell_functional_value_tilde = functional->evaluate_volume_cell_functional(physics, soln_coeff_tilde, fe_solution, coords_coeff, fe_metric, volume_quadrature);
+    real2 eta_cell = cell_functional_value_fine - cell_functional_value_tilde;
     
-    real2 cell_objecive_function_value = std::pow((cell_functional_value_fine - cell_functional_value_tilde), 2);
+    real2 cell_objecive_function_value = std::pow(eta_cell, 2);
     return cell_objecive_function_value;
 }
 
@@ -306,8 +307,9 @@ real2 ObjectiveFunctionMeshAdaptation<dim,nstate,real,MeshType> :: evaluate_boun
 {
     real2 cell_functional_value_fine = functional->evaluate_boundary_cell_functional(physics, boundary_id, soln_coeff_fine, fe_solution, coords_coeff, fe_metric, face_number, face_quadrature);
     real2 cell_functional_value_tilde = functional->evaluate_boundary_cell_functional(physics, boundary_id, soln_coeff_tilde, fe_solution, coords_coeff, fe_metric, face_number, face_quadrature);
+    real2 eta_cell = cell_functional_value_fine - cell_functional_value_tilde;
     
-    real2 cell_objecive_function_value = pow((cell_functional_value_fine - cell_functional_value_tilde), 2);
+    real2 cell_objecive_function_value = std::pow(eta_cell, 2);
     return cell_objecive_function_value;
 }
 

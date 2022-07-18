@@ -46,7 +46,7 @@ int main (int argc, char* argv[])
                     dealii::Triangulation<PHILIP_DIM>::smoothing_on_refinement |
                     dealii::Triangulation<PHILIP_DIM>::smoothing_on_coarsening));
 
-    unsigned int grid_refinement_val = 1;
+    unsigned int grid_refinement_val = 3;
     dealii::GridGenerator::hyper_cube(*grid);
     grid->refine_global(grid_refinement_val);
 
@@ -66,14 +66,19 @@ int main (int argc, char* argv[])
     for(unsigned int idof=0; idof < dg->n_dofs(); idof++)
     {
         solution_fine[idof] = idof*idof + 3.0;
-        solution_tilde[idof] = idof*idof*idof + 4.0;
+        //solution_tilde[idof] = idof*idof*idof + 4.0;
     }
 
     std::cout<<"Solution fine = "<<std::endl;
     solution_fine.print(std::cout, 3, true, false);
+    if(dg->solution.size() != solution_fine.size())
+    {
+        std::cout<<"size does not match"<<std::endl;
+        std::abort();
+    }
+    dg->solution = solution_fine;
 
     ObjectiveFunctionMeshAdaptation<PHILIP_DIM,PHILIP_DIM,double,Triangulation> objfunc(dg, solution_fine, solution_tilde);
-    //objfunc.evaluate_objective_function_hessian();
     double val = objfunc.evaluate_objective_function_and_derivatives();
 
     std::cout<<"derivative wrt solution fine = "<<std::endl;
@@ -87,6 +92,30 @@ int main (int argc, char* argv[])
 
     std::cout<<"Objective function value = "<<val<<std::endl;
 
+    auto functional = FunctionalFactory<PHILIP_DIM,PHILIP_DIM,double,Triangulation>::create_Functional(dg->all_parameters->functional_param, dg);
+    functional->evaluate_functional(true,true,true);
+    functional->dIdX.print(std::cout, 3, true, false);
+    functional->dIdw.print(std::cout, 3, true, false);
+
+    dealii::TrilinosWrappers::SparseMatrix d2;
+    d2.copy_from(functional->d2IdWdX);
+    d2.add(-1.0,objfunc.d2F_dWfine_dX);
+    std::cout<<"Frobenius norm = "<<d2.frobenius_norm()<<std::endl;
+
+//****************************************************************************************************************************
+   /*
+   auto cell1 = grid->begin_active();
+    //cell1++;
+    std::cout<<"Cell 1 vertex = "<<cell1->vertex(1)[0]<<std::endl;
+    double step_size = 1.0e-5;
+    cell1->vertex(1)[0] += step_size;
+    std::shared_ptr < DGBase<PHILIP_DIM, double> > dg2 = DGFactory<PHILIP_DIM,double>::create_discontinuous_galerkin(&all_parameters, poly_degree,poly_degree,1, grid);
+    dg2->allocate_system();
+    ObjectiveFunctionMeshAdaptation<PHILIP_DIM,PHILIP_DIM,double,Triangulation> objfunc2(dg2, solution_fine, solution_tilde);
+    double val2 = objfunc2.evaluate_objective_function_and_derivatives();
+    std::cout<<" FD value = "<<(val2 - val)/step_size<<std::endl;
+    std::cout<<"val2 = "<<val2<<"   val1 = "<<val<<std::endl;
+*/
        
 /*
     using FadType = Sacado::Fad::DFad<double>;
