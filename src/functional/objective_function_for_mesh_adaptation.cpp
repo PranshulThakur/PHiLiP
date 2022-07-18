@@ -325,6 +325,21 @@ void ObjectiveFunctionMeshAdaptation<dim,nstate,real,MeshType>::evaluate_objecti
     std::cout<<"Size of dFdX = "<<derivative_objfunc_wrt_metric_nodes.size()<<std::endl;
 }
 
+template <int dim, int nstate, typename real, typename MeshType>
+void ObjectiveFunctionMeshAdaptation<dim,nstate,real,MeshType>::truncate_first_derivative(dealii::LinearAlgebra::distributed::Vector<real> &vector_in)
+{
+   unsigned int vector_size = vector_in.size(); // NOTE: Change for parallel processing
+   dealii::LinearAlgebra::distributed::Vector<real> vector_out (vector_size - 2);
+
+   for(unsigned int i=1; i<vector_size-1; i++)
+   {
+       vector_out(i-1) = vector_in(i);
+   }
+
+    vector_in = vector_out;
+}
+
+
 template class ObjectiveFunctionMeshAdaptation<PHILIP_DIM, 1, double, dealii::Triangulation<PHILIP_DIM>>;
 template class ObjectiveFunctionMeshAdaptation<PHILIP_DIM, 2, double, dealii::Triangulation<PHILIP_DIM>>;
 template class ObjectiveFunctionMeshAdaptation<PHILIP_DIM, 3, double, dealii::Triangulation<PHILIP_DIM>>;

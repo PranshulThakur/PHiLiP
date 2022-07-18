@@ -82,7 +82,11 @@ public:
         const unsigned int face_number,
         const dealii::Quadrature<dim-1> &face_quadrature) const;
 
+    void truncate_first_derivative(dealii::LinearAlgebra::distributed::Vector<real> &vector_in);
+
+    void truncate_second_derivative(dealii::TrilinosWrappers::SparseMatrix &d2F, bool is_dX_dX);
 };
+
 
 } // namespace PHiLiP
 

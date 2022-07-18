@@ -66,7 +66,7 @@ int main (int argc, char* argv[])
     for(unsigned int idof=0; idof < dg->n_dofs(); idof++)
     {
         solution_fine[idof] = idof*idof + 3.0;
-        //solution_tilde[idof] = idof*idof*idof + 4.0;
+        solution_tilde[idof] = idof*idof*idof + 4.0;
     }
 
     std::cout<<"Solution fine = "<<std::endl;
@@ -90,8 +90,13 @@ int main (int argc, char* argv[])
     std::cout<<"derivative wrt metric nodes = "<<std::endl;
     objfunc.derivative_objfunc_wrt_metric_nodes.print(std::cout, 3, true, false);
 
-    std::cout<<"Objective function value = "<<val<<std::endl;
+    objfunc.truncate_first_derivative(objfunc.derivative_objfunc_wrt_metric_nodes);
+    
+    std::cout<<"Truncated derivative wrt metric nodes = "<<std::endl;
+    objfunc.derivative_objfunc_wrt_metric_nodes.print(std::cout, 3, true, false);
 
+    std::cout<<"Objective function value = "<<val<<std::endl;
+/*
     auto functional = FunctionalFactory<PHILIP_DIM,PHILIP_DIM,double,Triangulation>::create_Functional(dg->all_parameters->functional_param, dg);
     functional->evaluate_functional(true,true,true);
     functional->dIdX.print(std::cout, 3, true, false);
@@ -101,7 +106,7 @@ int main (int argc, char* argv[])
     d2.copy_from(*functional->d2IdWdX);
     d2.add(-1.0,objfunc.d2F_dWfine_dX);
     std::cout<<"Frobenius norm = "<<d2.frobenius_norm()<<std::endl;
-
+*/
 //****************************************************************************************************************************
    /*
    auto cell1 = grid->begin_active();
