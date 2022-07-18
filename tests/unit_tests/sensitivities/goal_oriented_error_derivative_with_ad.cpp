@@ -98,7 +98,7 @@ int main (int argc, char* argv[])
     functional->dIdw.print(std::cout, 3, true, false);
 
     dealii::TrilinosWrappers::SparseMatrix d2;
-    d2.copy_from(functional->d2IdWdX);
+    d2.copy_from(*functional->d2IdWdX);
     d2.add(-1.0,objfunc.d2F_dWfine_dX);
     std::cout<<"Frobenius norm = "<<d2.frobenius_norm()<<std::endl;
 
