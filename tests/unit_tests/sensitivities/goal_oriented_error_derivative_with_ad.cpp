@@ -46,7 +46,7 @@ int main (int argc, char* argv[])
                     dealii::Triangulation<PHILIP_DIM>::smoothing_on_refinement |
                     dealii::Triangulation<PHILIP_DIM>::smoothing_on_coarsening));
 
-    unsigned int grid_refinement_val = 3;
+    unsigned int grid_refinement_val = 1;
     dealii::GridGenerator::hyper_cube(*grid);
     grid->refine_global(grid_refinement_val);
 
@@ -90,12 +90,26 @@ int main (int argc, char* argv[])
     std::cout<<"derivative wrt metric nodes = "<<std::endl;
     objfunc.derivative_objfunc_wrt_metric_nodes.print(std::cout, 3, true, false);
 
-    objfunc.truncate_first_derivative(objfunc.derivative_objfunc_wrt_metric_nodes);
+/*    objfunc.truncate_first_derivative(objfunc.derivative_objfunc_wrt_metric_nodes);
     
     std::cout<<"Truncated derivative wrt metric nodes = "<<std::endl;
     objfunc.derivative_objfunc_wrt_metric_nodes.print(std::cout, 3, true, false);
-
+*/
     std::cout<<"Objective function value = "<<val<<std::endl;
+
+    std::cout<<"d2F_dWfine_dX = "<<std::endl;
+    unsigned int rows = objfunc.d2F_dX_dX.m();
+    unsigned int cols = objfunc.d2F_dX_dX.n();
+    for(unsigned int i=0; i<rows; i++)
+    {
+        for(unsigned int j=0; j<cols; j++)
+        {
+            std::cout<<objfunc.d2F_dX_dX.el(i,j)<<"   ";
+        }
+        std::cout<<std::endl;
+
+    }
+
 /*
     auto functional = FunctionalFactory<PHILIP_DIM,PHILIP_DIM,double,Triangulation>::create_Functional(dg->all_parameters->functional_param, dg);
     functional->evaluate_functional(true,true,true);
@@ -108,18 +122,20 @@ int main (int argc, char* argv[])
     std::cout<<"Frobenius norm = "<<d2.frobenius_norm()<<std::endl;
 */
 //****************************************************************************************************************************
-   /*
-   auto cell1 = grid->begin_active();
+ /*  auto cell1 = grid->begin_active();
     //cell1++;
-    std::cout<<"Cell 1 vertex = "<<cell1->vertex(1)[0]<<std::endl;
+    std::cout<<"Cell 1 vertex = "<<cell1->vertex(0)[0]<<std::endl;
     double step_size = 1.0e-5;
-    cell1->vertex(1)[0] += step_size;
+    cell1->vertex(0)[0] += step_size;
     std::shared_ptr < DGBase<PHILIP_DIM, double> > dg2 = DGFactory<PHILIP_DIM,double>::create_discontinuous_galerkin(&all_parameters, poly_degree,poly_degree,1, grid);
     dg2->allocate_system();
     ObjectiveFunctionMeshAdaptation<PHILIP_DIM,PHILIP_DIM,double,Triangulation> objfunc2(dg2, solution_fine, solution_tilde);
-    double val2 = objfunc2.evaluate_objective_function_and_derivatives();
-    std::cout<<" FD value = "<<(val2 - val)/step_size<<std::endl;
-    std::cout<<"val2 = "<<val2<<"   val1 = "<<val<<std::endl;
+    objfunc2.evaluate_objective_function_and_derivatives();
+    dealii::LinearAlgebra::distributed::Vector<double> diff_vector =  objfunc2.derivative_objfunc_wrt_metric_nodes;
+    diff_vector -=  objfunc.derivative_objfunc_wrt_metric_nodes;
+    diff_vector /= step_size;
+    std::cout<<"2nd derivative wrt metric nodes = "<<std::endl;
+    diff_vector.print(std::cout, 3, true, false);
 */
        
 /*

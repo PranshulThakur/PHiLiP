@@ -339,6 +339,21 @@ void ObjectiveFunctionMeshAdaptation<dim,nstate,real,MeshType>::truncate_first_d
     vector_in = vector_out;
 }
 
+template <int dim, int nstate, typename real, typename MeshType>
+void ObjectiveFunctionMeshAdaptation<dim,nstate,real,MeshType>::truncate_second_derivative(dealii::TrilinosWrappers::SparseMatrix &d2F, bool is_dX_dX)
+{
+    
+
+    if(is_dX_dX)
+    {
+
+
+    }
+    else
+    {
+
+    }
+}
 
 template class ObjectiveFunctionMeshAdaptation<PHILIP_DIM, 1, double, dealii::Triangulation<PHILIP_DIM>>;
 template class ObjectiveFunctionMeshAdaptation<PHILIP_DIM, 2, double, dealii::Triangulation<PHILIP_DIM>>;
