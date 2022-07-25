@@ -90,11 +90,11 @@ int main (int argc, char* argv[])
     std::cout<<"derivative wrt metric nodes = "<<std::endl;
     objfunc.derivative_objfunc_wrt_metric_nodes.print(std::cout, 3, true, false);
 
-/*    objfunc.truncate_first_derivative(objfunc.derivative_objfunc_wrt_metric_nodes);
+    objfunc.truncate_first_derivative(objfunc.derivative_objfunc_wrt_metric_nodes);
     
     std::cout<<"Truncated derivative wrt metric nodes = "<<std::endl;
     objfunc.derivative_objfunc_wrt_metric_nodes.print(std::cout, 3, true, false);
-*/
+
     std::cout<<"Objective function value = "<<val<<std::endl;
 
     std::cout<<"d2F_dX_dX = "<<std::endl;
