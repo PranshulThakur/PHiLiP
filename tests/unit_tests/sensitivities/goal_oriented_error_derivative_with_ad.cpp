@@ -46,7 +46,7 @@ int main (int argc, char* argv[])
                     dealii::Triangulation<PHILIP_DIM>::smoothing_on_refinement |
                     dealii::Triangulation<PHILIP_DIM>::smoothing_on_coarsening));
 
-    unsigned int grid_refinement_val = 1;
+    unsigned int grid_refinement_val = 3;
     dealii::GridGenerator::hyper_cube(*grid);
     grid->refine_global(grid_refinement_val);
 
@@ -97,9 +97,24 @@ int main (int argc, char* argv[])
 */
     std::cout<<"Objective function value = "<<val<<std::endl;
 
-    std::cout<<"d2F_dWfine_dX = "<<std::endl;
+    std::cout<<"d2F_dX_dX = "<<std::endl;
     unsigned int rows = objfunc.d2F_dX_dX.m();
     unsigned int cols = objfunc.d2F_dX_dX.n();
+    for(unsigned int i=0; i<rows; i++)
+    {
+        for(unsigned int j=0; j<cols; j++)
+        {
+            std::cout<<objfunc.d2F_dX_dX.el(i,j)<<"   ";
+        }
+        std::cout<<std::endl;
+
+    }
+
+    objfunc.truncate_second_derivative(objfunc.d2F_dX_dX, true);
+    std::cout<<std::endl<<"d2F_dX_dX_truncated = "<<std::endl;
+    rows = objfunc.d2F_dX_dX.m();
+    cols = objfunc.d2F_dX_dX.n();
+    std::cout<<"N_rows = "<<rows<<"  N_cols = "<<cols<<std::endl;
     for(unsigned int i=0; i<rows; i++)
     {
         for(unsigned int j=0; j<cols; j++)

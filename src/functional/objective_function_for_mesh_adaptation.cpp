@@ -1,5 +1,6 @@
 #include "objective_function_for_mesh_adaptation.h"
 #include <deal.II/dofs/dof_tools.h>
+#include <deal.II/lac/sparse_matrix.h>
 
 namespace PHiLiP {
 
@@ -342,17 +343,54 @@ void ObjectiveFunctionMeshAdaptation<dim,nstate,real,MeshType>::truncate_first_d
 template <int dim, int nstate, typename real, typename MeshType>
 void ObjectiveFunctionMeshAdaptation<dim,nstate,real,MeshType>::truncate_second_derivative(dealii::TrilinosWrappers::SparseMatrix &d2F, bool is_dX_dX)
 {
-    
+    unsigned int n_rows = d2F.m();
+    unsigned int n_columns = d2F.n();
+    std::vector<unsigned int> row_indices;
+    std::vector<unsigned int> column_indices;
+
+   // Remove first and last column. 
+    for(unsigned int i=0; i<n_columns-2; i++)
+    {
+        column_indices.push_back(i+1);
+    }
 
     if(is_dX_dX)
     {
-
+        // Remove first and last row.
+        for(unsigned int i=0; i<n_rows-2; i++)
+        {
+            row_indices.push_back(i+1);
+        }        
 
     }
     else
     {
-
+        for(unsigned int i=0; i<n_rows; i++)
+        {
+            row_indices.push_back(i);
+        }
     }
+
+    // Copy full to sparse matrix
+    dealii::FullMatrix<real> d2F_full_modified(row_indices.size(), column_indices.size());
+    d2F_full_modified.extract_submatrix_from(d2F, row_indices, column_indices);
+
+    dealii::SparsityPattern sparsity_pattern;
+    sparsity_pattern.copy_from(d2F_full_modified);
+    dealii::TrilinosWrappers::SparseMatrix d2F_sparse_modified;
+    d2F_sparse_modified.reinit(sparsity_pattern);
+
+    for(unsigned int i=0; i<row_indices.size(); i++)
+    {
+        for(unsigned int j=0; j<column_indices.size(); j++)
+        {
+            if(d2F_full_modified(i,j)==0) continue;
+
+            d2F_sparse_modified.add(i,j,d2F_full_modified(i,j));
+        }
+    }
+    // Update input sparse matrix
+    d2F.copy_from(d2F_sparse_modified);
 }
 
 template class ObjectiveFunctionMeshAdaptation<PHILIP_DIM, 1, double, dealii::Triangulation<PHILIP_DIM>>;
