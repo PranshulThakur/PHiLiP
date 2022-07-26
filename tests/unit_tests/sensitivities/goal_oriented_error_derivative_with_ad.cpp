@@ -57,9 +57,39 @@ int main (int argc, char* argv[])
     all_parameters.parse_parameters (parameter_handler);
     const unsigned int poly_degree = 2;
 
-    std::shared_ptr < DGBase<PHILIP_DIM, double> > dg = DGFactory<PHILIP_DIM,double>::create_discontinuous_galerkin(&all_parameters, poly_degree,poly_degree,1, grid);
+    std::shared_ptr < DGBase<PHILIP_DIM, double> > dg = DGFactory<PHILIP_DIM,double>::create_discontinuous_galerkin(&all_parameters, poly_degree,poly_degree+2,1, grid);
     dg->allocate_system();
-    dealii::LinearAlgebra::distributed::Vector<double> solution_fine(dg->n_dofs()), solution_tilde(dg->n_dofs());
+
+    dealii::LinearAlgebra::distributed::Vector<double> solution_coarse(dg->n_dofs());
+
+    for(unsigned int idof=0; idof < dg->n_dofs(); idof++)
+    {
+        solution_coarse[idof] = idof*idof*idof + 4.0;
+    }
+
+    dg->solution = solution_coarse;
+    std::cout<<"Coarse solution = "<<std::endl;
+    dg->solution.print(std::cout, 3, true, false);
+    const int dim = PHILIP_DIM; 
+    dealii::LinearAlgebra::distributed::Vector<double> old_solution(dg->solution);
+    old_solution.update_ghost_values();
+    dealii::SolutionTransfer<dim, dealii::LinearAlgebra::distributed::Vector<double>, dealii::DoFHandler<dim>> solution_transfer(dg->dof_handler);
+    solution_transfer.prepare_for_coarsening_and_refinement(old_solution);
+    dg->set_all_cells_fe_degree(dg->initial_degree + 1);
+    dg->allocate_system();
+    dg->solution.zero_out_ghosts();
+    solution_transfer.interpolate(old_solution,dg->solution);
+    dg->solution.update_ghost_values();
+
+    std::cout<<"Solution fine from solution transfer = "<<std::endl;
+    dg->solution.print(std::cout, 3, true, false);
+
+
+   /*
+   //================================================================================================================================================
+        Check functional derivatives and second derivatives along with truncation.
+   //================================================================================================================================================
+   dealii::LinearAlgebra::distributed::Vector<double> solution_fine(dg->n_dofs()), solution_tilde(dg->n_dofs());
     std::cout<<"Active cells = "<<grid->n_active_cells()<<std::endl;
     std::cout<<"N_dofs = "<<dg->n_dofs()<<std::endl;
 
@@ -124,34 +154,8 @@ int main (int argc, char* argv[])
         std::cout<<std::endl;
 
     }
-
-/*
-    auto functional = FunctionalFactory<PHILIP_DIM,PHILIP_DIM,double,Triangulation>::create_Functional(dg->all_parameters->functional_param, dg);
-    functional->evaluate_functional(true,true,true);
-    functional->dIdX.print(std::cout, 3, true, false);
-    functional->dIdw.print(std::cout, 3, true, false);
-
-    dealii::TrilinosWrappers::SparseMatrix d2;
-    d2.copy_from(*functional->d2IdWdX);
-    d2.add(-1.0,objfunc.d2F_dWfine_dX);
-    std::cout<<"Frobenius norm = "<<d2.frobenius_norm()<<std::endl;
 */
 //****************************************************************************************************************************
- /*  auto cell1 = grid->begin_active();
-    //cell1++;
-    std::cout<<"Cell 1 vertex = "<<cell1->vertex(0)[0]<<std::endl;
-    double step_size = 1.0e-5;
-    cell1->vertex(0)[0] += step_size;
-    std::shared_ptr < DGBase<PHILIP_DIM, double> > dg2 = DGFactory<PHILIP_DIM,double>::create_discontinuous_galerkin(&all_parameters, poly_degree,poly_degree,1, grid);
-    dg2->allocate_system();
-    ObjectiveFunctionMeshAdaptation<PHILIP_DIM,PHILIP_DIM,double,Triangulation> objfunc2(dg2, solution_fine, solution_tilde);
-    objfunc2.evaluate_objective_function_and_derivatives();
-    dealii::LinearAlgebra::distributed::Vector<double> diff_vector =  objfunc2.derivative_objfunc_wrt_metric_nodes;
-    diff_vector -=  objfunc.derivative_objfunc_wrt_metric_nodes;
-    diff_vector /= step_size;
-    std::cout<<"2nd derivative wrt metric nodes = "<<std::endl;
-    diff_vector.print(std::cout, 3, true, false);
-*/
        
 /*
     using FadType = Sacado::Fad::DFad<double>;

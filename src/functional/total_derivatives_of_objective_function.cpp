@@ -13,12 +13,13 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::refine_or_coarsen_dg(u
 {
     dealii::LinearAlgebra::distributed::Vector<double> old_solution(dg->solution);
     old_solution.update_ghost_values();
-    dealii::parallel::distributed::SolutionTransfer<dim, dealii::LinearAlgebra::distributed::Vector<double>, dealii::DoFHandler<dim>> solution_transfer(dg->dof_handler);
+    // NOTE: IMPLEMENTED FOR 1D ONLY FOR NOW. Change SolutionTransfer while using MPI.
+    dealii::SolutionTransfer<dim, dealii::LinearAlgebra::distributed::Vector<double>, dealii::DoFHandler<dim>> solution_transfer(dg->dof_handler);
     solution_transfer.prepare_for_coarsening_and_refinement(old_solution);
     dg->set_all_cells_fe_degree(degree);
     dg->allocate_system();
     dg->solution.zero_out_ghosts();
-    solution_transfer.interpolate(dg->solution);
+    solution_transfer.interpolate(old_solution, dg->solution);
     dg->solution.update_ghost_values();
 }
 
@@ -35,7 +36,7 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_solution_tilde
     // Interpolate solution on finer grid
     // NOTE : Yet to be implemented
 
-    // store r_u and r_x 
+    // Store r_u and r_x 
     dealii::LinearAlgebra::distributed::Vector<real> solution_coarse_old = dg->solution;
     dg->solution = solution_coarse_taylor_expanded;
     compute_dRdW = true; compute_dRdX=false;
