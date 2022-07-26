@@ -13,13 +13,25 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::refine_or_coarsen_dg(u
 {
     dealii::LinearAlgebra::distributed::Vector<double> old_solution(dg->solution);
     old_solution.update_ghost_values();
-    // NOTE: IMPLEMENTED FOR 1D ONLY FOR NOW. Change SolutionTransfer while using MPI.
-    dealii::SolutionTransfer<dim, dealii::LinearAlgebra::distributed::Vector<double>, dealii::DoFHandler<dim>> solution_transfer(dg->dof_handler);
+    using VectorType       = typename dealii::LinearAlgebra::distributed::Vector<double>;
+    using DoFHandlerType   = typename dealii::DoFHandler<dim>;
+    using SolutionTransfer = typename MeshTypeHelper<MeshType>::template SolutionTransfer<dim,VectorType,DoFHandlerType>;
+
+    SolutionTransfer solution_transfer(dg->dof_handler);
     solution_transfer.prepare_for_coarsening_and_refinement(old_solution);
     dg->set_all_cells_fe_degree(degree);
     dg->allocate_system();
     dg->solution.zero_out_ghosts();
-    solution_transfer.interpolate(old_solution, dg->solution);
+    
+    if constexpr (std::is_same_v<typename dealii::SolutionTransfer<dim,VectorType,DoFHandlerType>, decltype(solution_transfer)>) 
+    {
+         solution_transfer.interpolate(old_solution, dg->solution);
+    } 
+    else 
+    {
+        solution_transfer.interpolate(dg->solution);
+    }
+
     dg->solution.update_ghost_values();
 }
 

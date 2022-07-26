@@ -7,6 +7,7 @@
 #include "physics/physics_factory.h"
 #include "functional/objective_function_for_mesh_adaptation.h"
 #include <deal.II/grid/grid_generator.h>
+#include <deal.II/distributed/solution_transfer.h>
 
 using PDEType   = PHiLiP::Parameters::AllParameters::PartialDifferentialEquation;
 #if PHILIP_DIM==1
@@ -37,6 +38,12 @@ int main (int argc, char* argv[])
     dealii::ConditionalOStream pcout(std::cout, mpi_rank==0);
 
     using namespace PHiLiP;
+    const int dim = PHILIP_DIM; 
+#if PHILIP_DIM == 1
+    using MeshType = typename dealii::Triangulation<dim>;
+#else
+    using MeshType = typename dealii::parallel::distributed::Triangulation<dim>;
+#endif
 
                     std::shared_ptr<Triangulation> grid = std::make_shared<Triangulation>(
                     #if PHILIP_DIM!=1
@@ -45,7 +52,10 @@ int main (int argc, char* argv[])
                     typename dealii::Triangulation<PHILIP_DIM>::MeshSmoothing(
                     dealii::Triangulation<PHILIP_DIM>::smoothing_on_refinement |
                     dealii::Triangulation<PHILIP_DIM>::smoothing_on_coarsening));
-
+    
+    using VectorType       = typename dealii::LinearAlgebra::distributed::Vector<double>;
+    using DoFHandlerType   = typename dealii::DoFHandler<PHILIP_DIM>;
+    
     unsigned int grid_refinement_val = 3;
     dealii::GridGenerator::hyper_cube(*grid);
     grid->refine_global(grid_refinement_val);
@@ -70,15 +80,15 @@ int main (int argc, char* argv[])
     dg->solution = solution_coarse;
     std::cout<<"Coarse solution = "<<std::endl;
     dg->solution.print(std::cout, 3, true, false);
-    const int dim = PHILIP_DIM; 
     dealii::LinearAlgebra::distributed::Vector<double> old_solution(dg->solution);
     old_solution.update_ghost_values();
-    dealii::SolutionTransfer<dim, dealii::LinearAlgebra::distributed::Vector<double>, dealii::DoFHandler<dim>> solution_transfer(dg->dof_handler);
+
+    dealii::SolutionTransfer<dim,VectorType,DoFHandlerType> solution_transfer(dg->dof_handler);
     solution_transfer.prepare_for_coarsening_and_refinement(old_solution);
     dg->set_all_cells_fe_degree(dg->initial_degree + 1);
     dg->allocate_system();
     dg->solution.zero_out_ghosts();
-    solution_transfer.interpolate(old_solution,dg->solution);
+    solution_transfer.interpolate(old_solution, dg->solution);
     dg->solution.update_ghost_values();
 
     std::cout<<"Solution fine from solution transfer = "<<std::endl;
