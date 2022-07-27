@@ -6,7 +6,61 @@ namespace PHiLiP {
 template <int dim, int nstate, typename real, typename MeshType>
 TotalDerivativeObjfunc<dim, nstate, real, MeshType>::TotalDerivativeObjfunc(std::shared_ptr<DGBase<dim, real, MeshType>> _dg)
     :dg(_dg)
-    {}
+{
+    form_interpolation_matrix();
+}
+
+
+template <int dim, int nstate, typename real, typename MeshType>
+void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::form_interpolation_matrix()
+{
+    
+    const unsigned int coarse_degree = dg->initial_degree;
+    const unsigned int fine_degree = coarse_degree + 1;
+    const dealii::FE_DGQ<dim> fe_dg_coarse(coarse_degree);
+    const dealii::FE_DGQ<dim> fe_dg_fine(fine_degree);
+
+    dealii::FullMatrix<real> local_interpolation_matrix(fe_dg_fine.n_dofs_per_cell(), fe_dg_coarse.n_dofs_per_cell());
+    dealii::FETools::get_interpolation_matrix(fe_dg_coarse, fe_dg_fine, local_interpolation_matrix);
+    
+    const unsigned int n_rows_local = fe_dg_fine.n_dofs_per_cell();
+    const unsigned int n_cols_local = fe_dg_coarse.n_dofs_per_cell();
+    const unsigned int n_rows_global = n_rows_local*dg->triangulation->n_active_cells();
+    const unsigned int n_cols_global = n_cols_local*dg->triangulation->n_active_cells();
+
+
+    dealii::DynamicSparsityPattern dsp(n_rows_global, n_cols_global);
+    
+    for(unsigned int cell_no = 0; cell_no < dg->triangulation->n_active_cells(); cell_no++)
+    {
+        unsigned int i_global = cell_no*n_rows_local;
+        unsigned int j_global = cell_no*n_cols_local;
+        for(unsigned int i=0; i<n_rows_local; i++)
+        {
+            for(unsigned int j=0; j<n_cols_local; j++)
+            {
+                dsp.add(i_global + i, j_global + j);
+            }
+        }
+    }
+    dealii::SparsityPattern      sparsity_pattern;
+    sparsity_pattern.copy_from(dsp);
+    interpolation_matrix.reinit(sparsity_pattern); 
+
+
+    for(unsigned int cell_no = 0; cell_no < dg->triangulation->n_active_cells(); cell_no++)
+    {
+        unsigned int i_global = cell_no*n_rows_local;
+        unsigned int j_global = cell_no*n_cols_local;
+        for(unsigned int i=0; i<n_rows_local; i++)
+        {
+            for(unsigned int j=0; j<n_cols_local; j++)
+            {
+                interpolation_matrix.set(i_global + i, j_global + j, local_interpolation_matrix(i,j));
+            }
+        }
+    }
+}
 
 template <int dim, int nstate, typename real, typename MeshType>
 void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::refine_or_coarsen_dg(unsigned int degree)
