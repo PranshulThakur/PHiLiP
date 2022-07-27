@@ -7,7 +7,7 @@ template <int dim, int nstate, typename real, typename MeshType>
 TotalDerivativeObjfunc<dim, nstate, real, MeshType>::TotalDerivativeObjfunc(std::shared_ptr<DGBase<dim, real, MeshType>> _dg)
     :dg(_dg)
 {
-    form_interpolation_matrix();
+    form_interpolation_matrix(); // Also resizes solution_tilde_fine
 }
 
 
@@ -60,6 +60,8 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::form_interpolation_mat
             }
         }
     }
+
+    solution_tilde_fine.reinit(n_rows_global);
 }
 
 template <int dim, int nstate, typename real, typename MeshType>
@@ -100,7 +102,7 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_solution_tilde
     solve_linear(dg->system_matrix, dg->right_hand_side, solution_coarse_taylor_expanded, dg->all_parameters->linear_solver_param);
     solution_coarse_taylor_expanded += dg->solution;
     // Interpolate solution on finer grid
-    // NOTE : Yet to be implemented
+    interpolation_matrix.vmult(solution_tilde_fine, solution_coarse_taylor_expanded);
 
     // Store r_u and r_x 
     dealii::LinearAlgebra::distributed::Vector<real> solution_coarse_old = dg->solution;
@@ -144,13 +146,6 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_solution_tilde
 
     // Coarsen and interpolate back
     refine_or_coarsen_dg(dg->initial_degree);
-
-
-
-
-
-
-
 }
 
 
