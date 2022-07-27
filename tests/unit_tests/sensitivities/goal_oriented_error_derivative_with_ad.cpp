@@ -8,7 +8,8 @@
 #include "functional/objective_function_for_mesh_adaptation.h"
 #include <deal.II/grid/grid_generator.h>
 #include <deal.II/distributed/solution_transfer.h>
-
+#include <deal.II/lac/block_sparse_matrix.h>
+#include <deal.II/lac/sparse_matrix.h>
 using PDEType   = PHiLiP::Parameters::AllParameters::PartialDifferentialEquation;
 #if PHILIP_DIM==1
     using Triangulation = dealii::Triangulation<PHILIP_DIM>;
@@ -83,9 +84,11 @@ int main (int argc, char* argv[])
     dealii::LinearAlgebra::distributed::Vector<double> old_solution(dg->solution);
     old_solution.update_ghost_values();
 
+    const unsigned int coarse_degree = dg->initial_degree;
+    const unsigned int fine_degree = coarse_degree + 1;
     dealii::SolutionTransfer<dim,VectorType,DoFHandlerType> solution_transfer(dg->dof_handler);
     solution_transfer.prepare_for_coarsening_and_refinement(old_solution);
-    dg->set_all_cells_fe_degree(dg->initial_degree + 1);
+    dg->set_all_cells_fe_degree(fine_degree);
     dg->allocate_system();
     dg->solution.zero_out_ghosts();
     solution_transfer.interpolate(old_solution, dg->solution);
@@ -93,6 +96,58 @@ int main (int argc, char* argv[])
 
     std::cout<<"Solution fine from solution transfer = "<<std::endl;
     dg->solution.print(std::cout, 3, true, false);
+    
+    const dealii::FE_DGQ<dim> fe_dg_coarse(coarse_degree);
+    const dealii::FE_DGQ<dim> fe_dg_fine(fine_degree);
+
+    dealii::FullMatrix<double> local_interpolation_matrix(fe_dg_fine.n_dofs_per_cell(), fe_dg_coarse.n_dofs_per_cell());
+    dealii::FETools::get_interpolation_matrix(fe_dg_coarse, fe_dg_fine, local_interpolation_matrix);
+
+    const unsigned int n_rows_local = fe_dg_fine.n_dofs_per_cell();
+    const unsigned int n_cols_local = fe_dg_coarse.n_dofs_per_cell();
+    const unsigned int n_rows_global = n_rows_local*dg->triangulation->n_active_cells();
+    const unsigned int n_cols_global = n_cols_local*dg->triangulation->n_active_cells();
+
+
+    dealii::DynamicSparsityPattern dsp(n_rows_global, n_cols_global);
+    
+    for(unsigned int cell_no = 0; cell_no < dg->triangulation->n_active_cells(); cell_no++)
+    {
+        unsigned int i_global = cell_no*n_rows_local;
+        unsigned int j_global = cell_no*n_cols_local;
+        for(unsigned int i=0; i<n_rows_local; i++)
+        {
+            for(unsigned int j=0; j<n_cols_local; j++)
+            {
+                dsp.add(i_global + i, j_global + j);
+            }
+        }
+    }
+    dealii::SparsityPattern      sparsity_pattern;
+    sparsity_pattern.copy_from(dsp);
+    dealii::SparseMatrix<double> interpolation_matrix(sparsity_pattern); 
+
+
+    for(unsigned int cell_no = 0; cell_no < dg->triangulation->n_active_cells(); cell_no++)
+    {
+        unsigned int i_global = cell_no*n_rows_local;
+        unsigned int j_global = cell_no*n_cols_local;
+        for(unsigned int i=0; i<n_rows_local; i++)
+        {
+            for(unsigned int j=0; j<n_cols_local; j++)
+            {
+                interpolation_matrix.set(i_global + i, j_global + j, local_interpolation_matrix(i,j));
+            }
+        }
+    }
+
+
+    dealii::LinearAlgebra::distributed::Vector<double> interpolated_solution(n_rows_global);
+    std::cout<<"Old solution = "<<std::endl;
+    old_solution.print(std::cout, 3, true, false);
+    interpolation_matrix.vmult(interpolated_solution, old_solution);
+    std::cout<<"Interpolated solution from matrix = "<<std::endl;
+    interpolated_solution.print(std::cout, 3, true, false);
 
 
    /*
