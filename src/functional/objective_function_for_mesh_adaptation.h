@@ -24,7 +24,7 @@ class ObjectiveFunctionMeshAdaptation
 
 public:
 
-    std::shared_ptr<DGBase<dim,real,MeshType>> dg;
+    std::shared_ptr<DGBase<dim,real,MeshType>> dg; ///< fine dg 
     std::shared_ptr<Functional<dim, nstate, real, MeshType> > functional;
     std::shared_ptr<Physics::PhysicsBase<dim,nstate,FadFadType>> physics_fad_fad;
 

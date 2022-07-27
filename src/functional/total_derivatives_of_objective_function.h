@@ -32,10 +32,12 @@ public:
     dealii::LinearAlgebra::distributed::Vector<real> solution_fine; // U_h
     dealii::LinearAlgebra::distributed::Vector<real> solution_coarse_taylor_expanded; // U_H_tilde
     dealii::LinearAlgebra::distributed::Vector<real> solution_tilde_fine; // U_h^H tilde
+    
     dealii::LinearAlgebra::distributed::Vector<real> adjoint_fine; 
     dealii::LinearAlgebra::distributed::Vector<real> adjoint_tilde;
     
     dealii::SparseMatrix<real> interpolation_matrix;
+    std::unique_ptr<ObjectiveFunctionMeshAdaptation<dim, nstate, real, MeshType>> objfunc;
 };
 
 } // namespace PHiLiP

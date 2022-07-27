@@ -8,6 +8,10 @@ TotalDerivativeObjfunc<dim, nstate, real, MeshType>::TotalDerivativeObjfunc(std:
     :dg(_dg)
 {
     form_interpolation_matrix(); // Also resizes solution_tilde_fine
+    compute_solution_tilde_and_solution_fine();
+    
+    objfunc = std::make_unique<ObjectiveFunctionMeshAdaptation<dim, nstate, real, MeshType>>(dg, solution_fine, solution_tilde_fine);
+    objfunc->evaluate_objective_function_and_derivatives();
 }
 
 
@@ -143,9 +147,6 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_solution_tilde
     
     // Get solution back
     dg->solution = solution_fine_old;
-
-    // Coarsen and interpolate back
-    refine_or_coarsen_dg(dg->initial_degree);
 }
 
 
