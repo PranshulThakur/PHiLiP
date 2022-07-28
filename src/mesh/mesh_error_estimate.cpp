@@ -286,6 +286,8 @@ dealii::LinearAlgebra::distributed::Vector<real> DualWeightedResidualError<dim, 
 
 
     this->dg->assemble_residual(true);
+    this->dg->system_matrix_transpose *= -1.0;
+    /*
     this->dg->system_matrix *= -1.0;
 
     dealii::TrilinosWrappers::SparseMatrix system_matrix_transpose;
@@ -294,7 +296,9 @@ dealii::LinearAlgebra::distributed::Vector<real> DualWeightedResidualError<dim, 
     Epetra_RowMatrixTransposer epmt(const_cast<Epetra_CrsMatrix *>(&this->dg->system_matrix.trilinos_matrix()));
     epmt.CreateTranspose(false, system_matrix_transpose_tril);
     system_matrix_transpose.reinit(*system_matrix_transpose_tril, true);
-    solve_linear(system_matrix_transpose, derivative_functional_wrt_solution, adjoint_variable, this->dg->all_parameters->linear_solver_param);
+    */
+
+    solve_linear(this->dg->system_matrix_transpose, derivative_functional_wrt_solution, adjoint_variable, this->dg->all_parameters->linear_solver_param);
 
     return adjoint_variable;
 }

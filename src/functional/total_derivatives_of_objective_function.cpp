@@ -12,6 +12,8 @@ TotalDerivativeObjfunc<dim, nstate, real, MeshType>::TotalDerivativeObjfunc(std:
     
     objfunc = std::make_unique<ObjectiveFunctionMeshAdaptation<dim, nstate, real, MeshType>>(dg, solution_fine, solution_tilde_fine);
     objfunc->evaluate_objective_function_and_derivatives();
+
+    compute_adjoints();
 }
 
 
@@ -114,6 +116,7 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_solution_tilde
     compute_dRdW = true; compute_dRdX=false;
     dg->assemble_residual(compute_dRdW, compute_dRdX);
     r_u.copy_from(dg->system_matrix);
+    r_u_transpose.copy_from(dg->system_matrix_transpose);
     
     compute_dRdW = false; compute_dRdX=true;
     dg->assemble_residual(compute_dRdW, compute_dRdX);
@@ -137,9 +140,10 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_solution_tilde
     // Store R_u and R_x 
     dealii::LinearAlgebra::distributed::Vector<real> solution_fine_old = dg->solution;
     dg->solution = solution_fine;
-    compute_dRdW = true; compute_dRdX=false;
+    compute_dRdW = true; compute_dRdX = false;
     dg->assemble_residual(compute_dRdW, compute_dRdX);
     R_u.copy_from(dg->system_matrix);
+    R_u_transpose.copy_from(dg->system_matrix_transpose);
     
     compute_dRdW = false; compute_dRdX=true;
     dg->assemble_residual(compute_dRdW, compute_dRdX);
@@ -150,6 +154,18 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_solution_tilde
 }
 
 
+template <int dim, int nstate, typename real, typename MeshType>
+void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_adjoints()
+{
+    R_u_transpose *= -1.0; 
+    r_u_transpose *= -1.0;
+
+    dealii::LinearAlgebra::distributed::Vector<real> dF_dUH (solution_coarse_taylor_expanded.size()); // U_H_tilde
+    interpolation_matrix.Tvmult(dF_dUH, objfunc->derivative_objfunc_wrt_solution_tilde);
+
+    solve_linear(R_u_transpose, objfunc->derivative_objfunc_wrt_solution_fine, adjoint_fine, dg->all_parameters->linear_solver_param);
+    solve_linear(r_u_transpose, dF_dUH, adjoint_tilde, dg->all_parameters->linear_solver_param);
+}
 
 
 

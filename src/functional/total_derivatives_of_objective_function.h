@@ -20,14 +20,17 @@ public:
     void compute_solution_tilde_and_solution_fine();
     void refine_or_coarsen_dg(unsigned int degree);
     void form_interpolation_matrix();
+    void compute_adjoints();
 
     std::shared_ptr<DGBase<dim,real,MeshType>> dg;
 
     dealii::Vector<real> dF_dX;
     dealii::TrilinosWrappers::SparseMatrix r_x;
     dealii::TrilinosWrappers::SparseMatrix r_u;
+    dealii::TrilinosWrappers::SparseMatrix r_u_transpose;
     dealii::TrilinosWrappers::SparseMatrix R_x;
     dealii::TrilinosWrappers::SparseMatrix R_u;
+    dealii::TrilinosWrappers::SparseMatrix R_u_transpose;
 
     dealii::LinearAlgebra::distributed::Vector<real> solution_fine; // U_h
     dealii::LinearAlgebra::distributed::Vector<real> solution_coarse_taylor_expanded; // U_H_tilde
