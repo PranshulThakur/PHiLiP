@@ -158,6 +158,7 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_solution_tilde
 template <int dim, int nstate, typename real, typename MeshType>
 void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_adjoints()
 {
+    Assert(objfunc->is_derivative_computed, dealii::ExcMessage( "Derivative of objective function is not computed."));
     R_u_transpose *= -1.0; 
     r_u_transpose *= -1.0;
 
@@ -172,6 +173,7 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_adjoints()
 template <int dim, int nstate, typename real, typename MeshType>
 void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_total_derivative()
 {
+    Assert(objfunc->is_derivative_computed, dealii::ExcMessage( "Derivative of objective function is not computed."));
     dF_dX_total = objfunc->derivative_objfunc_wrt_metric_nodes;
     R_x.Tvmult_add(dF_dX_total, adjoint_fine);
     r_x.Tvmult_add(dF_dX_total, adjoint_tilde);

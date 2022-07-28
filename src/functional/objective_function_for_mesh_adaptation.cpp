@@ -14,10 +14,16 @@ template <int dim, int nstate, typename real, typename MeshType>
     , solution_tilde(_solution_tilde)
     , pcout(std::cout, dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD)==0)
 {
+    Assert(dg->solution.size() == solution_fine.size(),  
+           dealii::ExcMessage( "Sizes of dg and solution_fine do not match in ObjectiveFunctionMeshAdaptation."));
+    Assert(solution_fine.size()==solution_tilde.size(), 
+           dealii::ExcMessage( "Sizes of solution_fine and solution_tilde do not match in ObjectiveFunctionMeshAdaptation."));
+    
     functional = FunctionalFactory<dim,nstate,real,MeshType>::create_Functional(dg->all_parameters->functional_param, dg);
 
     std::shared_ptr<Physics::ModelBase<dim,nstate,FadFadType>> model_fad_fad = Physics::ModelFactory<dim,nstate,FadFadType>::create_Model(dg->all_parameters);
     physics_fad_fad = Physics::PhysicsFactory<dim,nstate,FadFadType>::create_Physics(dg->all_parameters,model_fad_fad);
+    is_derivative_computed = false;
 }
 
 
@@ -156,6 +162,7 @@ real ObjectiveFunctionMeshAdaptation<dim,nstate,real,MeshType>::evaluate_objecti
             coords_coeff[idof].val() = value_coord_coeff;
             coords_coeff[idof].val().diff(n_current_independent_variable++, n_total_independent_variables);
         }
+        AssertDimension(n_current_independent_variable, n_total_independent_variables);
 //============================================================================================================================================================
         // Evaluate objective function on the cell.
         const dealii::Quadrature<dim> &volume_quadratures_cell = dg->volume_quadrature_collection[current_quad_index];
@@ -203,6 +210,7 @@ real ObjectiveFunctionMeshAdaptation<dim,nstate,real,MeshType>::evaluate_objecti
             const real dF_dXi = local_objective_function_fadfad.dx(i_variable++).val();
             derivative_objfunc_wrt_metric_nodes(cell_metric_dofs_indices[idof]) += dF_dXi; // += adds contribution from adjacent cells.
         }
+        AssertDimension(i_variable, n_total_independent_variables);
 
 //=========================================================================================================================================================================
         // Evaluate second derivatives
@@ -226,6 +234,7 @@ real ObjectiveFunctionMeshAdaptation<dim,nstate,real,MeshType>::evaluate_objecti
             {
                d2F_dWfine_dX.add(cell_soln_dofs_indices[idof], cell_metric_dofs_indices[jdof], dF_dWfinei.dx(j_variable++));
             }
+            AssertDimension(j_variable, n_total_independent_variables);
         }
 
         for(unsigned int idof = 0; idof < n_soln_dofs_cell; idof++) // i_variable is Wtilde
@@ -243,6 +252,7 @@ real ObjectiveFunctionMeshAdaptation<dim,nstate,real,MeshType>::evaluate_objecti
                 d2F_dWtilde_dX.add(cell_soln_dofs_indices[idof], cell_metric_dofs_indices[jdof], dF_dWtildei.dx(j_variable++));
             }
 
+            AssertDimension(j_variable, n_total_independent_variables);
         }
 
         for(unsigned int idof = 0; idof < n_metric_dofs_cell; idof++) // i_variable is X
@@ -254,7 +264,9 @@ real ObjectiveFunctionMeshAdaptation<dim,nstate,real,MeshType>::evaluate_objecti
             {
                 d2F_dX_dX.add(cell_metric_dofs_indices[idof], cell_metric_dofs_indices[jdof], dF_dXi.dx(j_variable++));
             }
+            AssertDimension(j_variable, n_total_independent_variables);
         }
+        AssertDimension(i_variable, n_total_independent_variables);
     
     } // cell loop ends
 
@@ -271,6 +283,7 @@ real ObjectiveFunctionMeshAdaptation<dim,nstate,real,MeshType>::evaluate_objecti
     d2F_dX_dX.compress(dealii::VectorOperation::add);
 
     real global_objective_function_value = dealii::Utilities::MPI::sum(objective_function_of_current_processor, MPI_COMM_WORLD);
+    is_derivative_computed = true;
     return global_objective_function_value; 
 }
 
