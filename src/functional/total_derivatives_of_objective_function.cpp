@@ -11,7 +11,8 @@ TotalDerivativeObjfunc<dim, nstate, real, MeshType>::TotalDerivativeObjfunc(std:
     compute_solution_tilde_and_solution_fine();
     
     objfunc = std::make_unique<ObjectiveFunctionMeshAdaptation<dim, nstate, real, MeshType>>(dg, solution_fine, solution_tilde_fine);
-    objfunc->evaluate_objective_function_and_derivatives();
+    objective_function_val = objfunc->evaluate_objective_function_and_derivatives();
+    refine_or_coarsen_dg(dg->initial_degree); //coarsen dg back.
 
     compute_adjoints();
     compute_total_derivative();

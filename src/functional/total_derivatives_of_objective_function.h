@@ -42,6 +42,7 @@ public:
     
     dealii::SparseMatrix<real> interpolation_matrix;
     std::unique_ptr<ObjectiveFunctionMeshAdaptation<dim, nstate, real, MeshType>> objfunc;
+    real objective_function_val;
 };
 
 } // namespace PHiLiP

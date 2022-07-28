@@ -6,6 +6,7 @@
 #include "parameters/parameters.h"
 #include "physics/physics_factory.h"
 #include "functional/objective_function_for_mesh_adaptation.h"
+#include "functional/total_derivatives_of_objective_function.h"
 #include <deal.II/grid/grid_generator.h>
 #include <deal.II/distributed/solution_transfer.h>
 #include <deal.II/lac/block_sparse_matrix.h>
@@ -79,6 +80,9 @@ int main (int argc, char* argv[])
     }
 
     dg->solution = solution_coarse;
+    std::cout<<"Before"<<std::endl;
+    TotalDerivativeObjfunc<PHILIP_DIM,PHILIP_DIM,double,Triangulation> objfunc(dg);
+    std::cout<<"After"<<std::endl;
     std::cout<<"Coarse solution = "<<std::endl;
     dg->solution.print(std::cout, 3, true, false);
     dealii::LinearAlgebra::distributed::Vector<double> old_solution(dg->solution);
@@ -148,6 +152,7 @@ int main (int argc, char* argv[])
     interpolation_matrix.vmult(interpolated_solution, old_solution);
     std::cout<<"Interpolated solution from matrix = "<<std::endl;
     interpolated_solution.print(std::cout, 3, true, false);
+    
 
 
    /*
