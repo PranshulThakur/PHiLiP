@@ -21,10 +21,11 @@ public:
     void refine_or_coarsen_dg(unsigned int degree);
     void form_interpolation_matrix();
     void compute_adjoints();
+    void compute_total_derivative();
 
     std::shared_ptr<DGBase<dim,real,MeshType>> dg;
 
-    dealii::Vector<real> dF_dX;
+    dealii::LinearAlgebra::distributed::Vector<real> dF_dX_total;
     dealii::TrilinosWrappers::SparseMatrix r_x;
     dealii::TrilinosWrappers::SparseMatrix r_u;
     dealii::TrilinosWrappers::SparseMatrix r_u_transpose;

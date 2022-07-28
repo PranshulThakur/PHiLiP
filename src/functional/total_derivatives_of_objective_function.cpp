@@ -14,6 +14,7 @@ TotalDerivativeObjfunc<dim, nstate, real, MeshType>::TotalDerivativeObjfunc(std:
     objfunc->evaluate_objective_function_and_derivatives();
 
     compute_adjoints();
+    compute_total_derivative();
 }
 
 
@@ -168,6 +169,13 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_adjoints()
 }
 
 
+template <int dim, int nstate, typename real, typename MeshType>
+void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_total_derivative()
+{
+    dF_dX_total = objfunc->derivative_objfunc_wrt_metric_nodes;
+    R_x.Tvmult_add(dF_dX_total, adjoint_fine);
+    r_x.Tvmult_add(dF_dX_total, adjoint_tilde);
+}
 
 template class TotalDerivativeObjfunc<PHILIP_DIM, 1, double, dealii::Triangulation<PHILIP_DIM>>;
 template class TotalDerivativeObjfunc<PHILIP_DIM, 2, double, dealii::Triangulation<PHILIP_DIM>>;
