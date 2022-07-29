@@ -41,6 +41,7 @@ public:
     dealii::LinearAlgebra::distributed::Vector<real> adjoint_tilde;
     
     dealii::SparseMatrix<real> interpolation_matrix;
+    dealii::SparsityPattern      sparsity_pattern;
     std::unique_ptr<ObjectiveFunctionMeshAdaptation<dim, nstate, real, MeshType>> objfunc;
     real objective_function_val;
 };

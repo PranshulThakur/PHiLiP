@@ -22,7 +22,7 @@ TotalDerivativeObjfunc<dim, nstate, real, MeshType>::TotalDerivativeObjfunc(std:
 template <int dim, int nstate, typename real, typename MeshType>
 void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::form_interpolation_matrix()
 {
-    
+    std::cout<<"Forming interpolation matrix..."<<std::endl;
     const unsigned int coarse_degree = dg->initial_degree;
     const unsigned int fine_degree = coarse_degree + 1;
     const dealii::FE_DGQ<dim> fe_dg_coarse(coarse_degree);
@@ -51,7 +51,6 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::form_interpolation_mat
             }
         }
     }
-    dealii::SparsityPattern      sparsity_pattern;
     sparsity_pattern.copy_from(dsp);
     interpolation_matrix.reinit(sparsity_pattern); 
 
@@ -75,6 +74,7 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::form_interpolation_mat
 template <int dim, int nstate, typename real, typename MeshType>
 void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::refine_or_coarsen_dg(unsigned int degree)
 {
+    std::cout<<std::endl<<"Refining or coarsening dg to degree "<<degree<<"..."<<std::endl;
     dealii::LinearAlgebra::distributed::Vector<double> old_solution(dg->solution);
     old_solution.update_ghost_values();
     using VectorType       = typename dealii::LinearAlgebra::distributed::Vector<double>;
@@ -90,10 +90,12 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::refine_or_coarsen_dg(u
     if constexpr (std::is_same_v<typename dealii::SolutionTransfer<dim,VectorType,DoFHandlerType>, decltype(solution_transfer)>) 
     {
          solution_transfer.interpolate(old_solution, dg->solution);
+         std::cout<<"Using normal solution transfer."<<std::endl;
     } 
     else 
     {
         solution_transfer.interpolate(dg->solution);
+         std::cout<<"Using distributed solution transfer."<<std::endl;
     }
 
     dg->solution.update_ghost_values();
@@ -102,6 +104,7 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::refine_or_coarsen_dg(u
 template <int dim, int nstate, typename real, typename MeshType>
 void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_solution_tilde_and_solution_fine()
 {
+    std::cout<<"Computing solution fine and solution tilde..."<<std::endl;
     // Compute solution coarse tilde
     bool compute_dRdW = true, compute_dRdX=false;
     dg->assemble_residual(compute_dRdW, compute_dRdX);
@@ -109,9 +112,10 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_solution_tilde
     solution_coarse_taylor_expanded.reinit(dg->solution.size());
     solve_linear(dg->system_matrix, dg->right_hand_side, solution_coarse_taylor_expanded, dg->all_parameters->linear_solver_param);
     solution_coarse_taylor_expanded += dg->solution;
+    std::cout<<"Computed solution coarse taylor expanded."<<std::endl;
     // Interpolate solution on finer grid
     interpolation_matrix.vmult(solution_tilde_fine, solution_coarse_taylor_expanded);
-
+    
     // Store r_u and r_x 
     dealii::LinearAlgebra::distributed::Vector<real> solution_coarse_old = dg->solution;
     dg->solution = solution_coarse_taylor_expanded;
@@ -119,10 +123,12 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_solution_tilde
     dg->assemble_residual(compute_dRdW, compute_dRdX);
     r_u.copy_from(dg->system_matrix);
     r_u_transpose.copy_from(dg->system_matrix_transpose);
+    std::cout<<"Stored r_u."<<std::endl;
     
     compute_dRdW = false; compute_dRdX=true;
     dg->assemble_residual(compute_dRdW, compute_dRdX);
     r_x.copy_from(dg->dRdXv);
+    std::cout<<"Stored r_x."<<std::endl;
 
     // Get solution back
     dg->solution = solution_coarse_old;
@@ -135,9 +141,10 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_solution_tilde
     compute_dRdW = true, compute_dRdX=false;
     dg->assemble_residual(compute_dRdW, compute_dRdX);
     dg->system_matrix *= -1.0;
-    solution_coarse_taylor_expanded.reinit(dg->solution.size());
+    solution_fine.reinit(dg->solution.size());
     solve_linear(dg->system_matrix, dg->right_hand_side, solution_fine, dg->all_parameters->linear_solver_param);
     solution_fine += dg->solution;
+    std::cout<<"Computed solution fine."<<std::endl;
 
     // Store R_u and R_x 
     dealii::LinearAlgebra::distributed::Vector<real> solution_fine_old = dg->solution;
@@ -146,10 +153,12 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_solution_tilde
     dg->assemble_residual(compute_dRdW, compute_dRdX);
     R_u.copy_from(dg->system_matrix);
     R_u_transpose.copy_from(dg->system_matrix_transpose);
+    std::cout<<"Stored R_u."<<std::endl;
     
     compute_dRdW = false; compute_dRdX=true;
     dg->assemble_residual(compute_dRdW, compute_dRdX);
     R_x.copy_from(dg->dRdXv);
+    std::cout<<"Stored R_x."<<std::endl;
     
     // Get solution back
     dg->solution = solution_fine_old;
@@ -159,11 +168,14 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_solution_tilde
 template <int dim, int nstate, typename real, typename MeshType>
 void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_adjoints()
 {
+    std::cout<<"Computing adjoints..."<<std::endl;
     Assert(objfunc->is_derivative_computed, dealii::ExcMessage( "Derivative of objective function is not computed."));
     R_u_transpose *= -1.0; 
     r_u_transpose *= -1.0;
 
     dealii::LinearAlgebra::distributed::Vector<real> dF_dUH (solution_coarse_taylor_expanded.size()); // U_H_tilde
+    adjoint_fine.reinit(solution_fine.size());
+    adjoint_tilde.reinit(solution_coarse_taylor_expanded.size());
     interpolation_matrix.Tvmult(dF_dUH, objfunc->derivative_objfunc_wrt_solution_tilde);
 
     solve_linear(R_u_transpose, objfunc->derivative_objfunc_wrt_solution_fine, adjoint_fine, dg->all_parameters->linear_solver_param);
@@ -174,6 +186,7 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_adjoints()
 template <int dim, int nstate, typename real, typename MeshType>
 void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_total_derivative()
 {
+    std::cout<<"Computing total first order derivative..."<<std::endl;
     Assert(objfunc->is_derivative_computed, dealii::ExcMessage( "Derivative of objective function is not computed."));
     dF_dX_total = objfunc->derivative_objfunc_wrt_metric_nodes;
     R_x.Tvmult_add(dF_dX_total, adjoint_fine);
