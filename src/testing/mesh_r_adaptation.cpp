@@ -1,6 +1,6 @@
 #include "mesh_r_adaptation.h"
 #include "ode_solver/ode_solver_factory.h"
-
+#include "functional/total_derivatives_of_objective_function.h"
 namespace PHiLiP {
 namespace Tests {
 
@@ -30,7 +30,9 @@ int MeshRAdaptation<dim, nstate>::run_test() const
     std::cout<<"Created ODE solver."<<std::endl;
     ode_solver->steady_state();
     std::cout<<"Solved steady state."<<std::endl;
-
+    
+    std::cout<<"Now computing total derivative..."<<std::endl;
+    TotalDerivativeObjfunc<dim, nstate, double, MeshType> totder(dg);
     return 0;
 }
 
