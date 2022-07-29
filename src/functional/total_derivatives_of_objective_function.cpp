@@ -191,6 +191,16 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_total_derivati
     dF_dX_total = objfunc->derivative_objfunc_wrt_metric_nodes;
     R_x.Tvmult_add(dF_dX_total, adjoint_fine);
     r_x.Tvmult_add(dF_dX_total, adjoint_tilde);
+    
+    std::cout<<"solution_coarse_taylor_expanded = "<<std::endl;
+    solution_coarse_taylor_expanded.print(std::cout, 3, true, false);
+    std::cout<<"solution_fine = "<<std::endl;
+    solution_fine.print(std::cout, 3, true, false);
+    std::cout<<"solution_tilde_fine = "<<std::endl;
+    solution_tilde_fine.print(std::cout, 3, true, false);
+    
+    std::cout<<"dF_dX_total = "<<std::endl;
+    dF_dX_total.print(std::cout, 3, true, false);
 }
 
 template class TotalDerivativeObjfunc<PHILIP_DIM, 1, double, dealii::Triangulation<PHILIP_DIM>>;

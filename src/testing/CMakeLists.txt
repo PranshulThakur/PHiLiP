@@ -25,7 +25,8 @@ set(TESTS_SOURCE
     pod_adaptive_sampling.cpp
     adaptive_sampling_testing.cpp
     reduced_order.cpp
-    time_refinement_study.cpp)
+    time_refinement_study.cpp
+    mesh_r_adaptation.cpp)
 
 foreach(dim RANGE 1 3)
     # Output library

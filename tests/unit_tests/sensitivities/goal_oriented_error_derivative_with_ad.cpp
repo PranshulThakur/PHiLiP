@@ -80,8 +80,9 @@ int main (int argc, char* argv[])
     }
 
     dg->solution = solution_coarse;
-    TotalDerivativeObjfunc<PHILIP_DIM,PHILIP_DIM,double,Triangulation> objfunc(dg);
-    objfunc.dF_dX_total.print(std::cout, 3, true, false);
+    TotalDerivativeObjfunc<PHILIP_DIM,PHILIP_DIM,double,Triangulation> totder(dg);
+    std::cout<<"Total first order derivatives = "<<std::endl;
+    totder.dF_dX_total.print(std::cout, 3, true, false);
 
    /*
    //================================================================================================================================================

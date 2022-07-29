@@ -144,6 +144,7 @@ public:
         taylor_green_vortex_energy_check,
         taylor_green_vortex_restart_check,
         time_refinement_study,
+        mesh_r_adaptation
     };
     /// Store selected TestType from the input file.
     TestType test_type;

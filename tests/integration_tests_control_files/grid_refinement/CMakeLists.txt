@@ -185,3 +185,9 @@ add_test(
   COMMAND mpirun -n ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_2D -i ${CMAKE_CURRENT_BINARY_DIR}/2d_sshock_dual_weighted_residual_convergence_p_adaptation.prm 
   WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
 )
+configure_file(mesh_r_adaptation.prm mesh_r_adaptation.prm  COPYONLY)
+add_test(
+  NAME MESH_R_ADAPTATION
+  COMMAND mpirun -n 1 ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_1D -i ${CMAKE_CURRENT_BINARY_DIR}/mesh_r_adaptation.prm 
+  WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
+)
