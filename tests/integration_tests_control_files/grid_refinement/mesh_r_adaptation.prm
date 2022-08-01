@@ -1,0 +1,55 @@
+# Listing of Parameters
+# ---------------------
+# Number of dimensions
+set dimension = 1
+
+# The PDE we want to solve. Choices are
+# <advection|diffusion|convection_diffusion>.
+set pde_type  = advection      
+set test_type = mesh_r_adaptation
+
+subsection linear solver
+#set linear_solver_type = direct
+  subsection gmres options
+    set linear_residual_tolerance = 1e-4
+    set max_iterations = 2000
+    set restart_number = 50
+    set ilut_fill = 10
+    # set ilut_drop = 1e-4
+  end 
+end
+
+subsection ODE solver
+  # Maximum nonlinear solver iterations
+  set nonlinear_max_iterations            = 500
+
+  # Nonlinear solver residual tolerance
+  set nonlinear_steady_residual_tolerance = 1e-15
+
+  # Print every print_iteration_modulo iterations of the nonlinear solver
+  set print_iteration_modulo              = 1
+
+  # Explicit or implicit solverChoices are <explicit|implicit>.
+  set ode_solver_type                     = implicit
+end
+
+subsection functional
+  # functional choice
+  set functional_type = normLp_volume
+   
+  # exponent
+  set normLp = 2.0
+end
+
+subsection manufactured solution convergence study
+  set use_manufactured_source_term = true
+  set manufactured_solution_type   = atan_solution
+
+  set degree_start = 2
+  # Initial grid of size (initial_grid_size)^dim
+  set initial_grid_size = 5 #4
+
+  # Number of grids in grid study
+  set number_of_grids   = 1 #3
+  
+end
