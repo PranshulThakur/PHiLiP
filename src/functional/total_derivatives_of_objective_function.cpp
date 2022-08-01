@@ -118,7 +118,7 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_solution_tilde
     interpolation_matrix.vmult(solution_tilde_fine, solution_coarse_taylor_expanded);
     
     // Store r_u and r_x 
-    dealii::LinearAlgebra::distributed::Vector<real> solution_coarse_old = dg->solution;
+    solution_coarse_old = dg->solution;
     dg->solution = solution_coarse_taylor_expanded;
     compute_dRdW = true; compute_dRdX=false;
     dg->assemble_residual(compute_dRdW, compute_dRdX);
@@ -207,6 +207,43 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_total_derivati
 template <int dim, int nstate, typename real, typename MeshType>
 void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_total_hessian()
 {
+    dealii::FullMatrix<real> r_u_full; r_u_full.copy_from(r_u);
+    dealii::FullMatrix<real> R_u_full; R_u_full.copy_from(R_u);
+
+    dealii::FullMatrix<real> r_u_inverse = r_u_full; r_u_inverse.invert(r_u_full);
+    dealii::FullMatrix<real> R_u_inverse = R_u_full; R_u_inverse.invert(R_u_full);
+    r_u_inverse *= -1.0;
+    R_u_inverse *= -1.0;
+    
+    dealii::FullMatrix<real> r_x_full; r_x_full.copy_from(r_x);
+    dealii::FullMatrix<real> R_x_full; R_x_full.copy_from(R_x);
+
+    // Store adjoint times d2R, d2r
+    dg->solution = solution_coarse_taylor_expanded; 
+    dg->set_dual(adjoint_tilde);
+    dg->assemble_residual(false,false,true);
+    dealii::FullMatrix<double> adjoint_times_d2rdudu; adjoint_times_d2rdudu.copy_from(dg->d2RdWdW);
+    dealii::FullMatrix<double> adjoint_times_d2rdxdx; adjoint_times_d2rdxdx.copy_from(dg->d2RdXdX);
+    dealii::FullMatrix<double> adjoint_times_d2rdudx; adjoint_times_d2rdudx.copy_from(dg->d2RdWdX);
+
+    refine_or_coarsen_dg(dg->initial_degree + 1);
+    dg->solution = solution_fine;
+    dg->set_dual(adjoint_fine);
+    dg->assemble_residual(false,false,true);
+    dealii::FullMatrix<double> adjoint_times_d2RdUdU; adjoint_times_d2RdUdU.copy_from(dg->d2RdWdW);
+    dealii::FullMatrix<double> adjoint_times_d2Rdxdx; adjoint_times_d2Rdxdx.copy_from(dg->d2RdXdX);
+    dealii::FullMatrix<double> adjoint_times_d2RdUdx; adjoint_times_d2RdUdx.copy_from(dg->d2RdWdX);
+
+    refine_or_coarsen_dg(dg->initial_degree);
+    dg->solution = solution_coarse_old;
+
+    // Form lagrangian with Uh 
+    dealii::FullMatrix<double> dUh_dx = R_x_full;
+    R_u_inverse.mmult(dUh_dx, R_x_full);
+
+
+    // Form lagrangian with U_h^H
+
 
 }
 
