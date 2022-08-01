@@ -16,6 +16,7 @@ TotalDerivativeObjfunc<dim, nstate, real, MeshType>::TotalDerivativeObjfunc(std:
 
     compute_adjoints();
     compute_total_derivative();
+    compute_total_hessian();
 }
 
 
@@ -202,6 +203,13 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_total_derivati
     std::cout<<"dF_dX_total = "<<std::endl;
     dF_dX_total.print(std::cout, 3, true, false);
 }
+
+template <int dim, int nstate, typename real, typename MeshType>
+void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_total_hessian()
+{
+
+}
+
 
 template class TotalDerivativeObjfunc<PHILIP_DIM, 1, double, dealii::Triangulation<PHILIP_DIM>>;
 template class TotalDerivativeObjfunc<PHILIP_DIM, 2, double, dealii::Triangulation<PHILIP_DIM>>;

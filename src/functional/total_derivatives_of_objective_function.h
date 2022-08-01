@@ -22,6 +22,7 @@ public:
     void form_interpolation_matrix();
     void compute_adjoints();
     void compute_total_derivative();
+    void compute_total_hessian();
 
     std::shared_ptr<DGBase<dim,real,MeshType>> dg;
 
