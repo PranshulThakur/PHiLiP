@@ -27,6 +27,7 @@ public:
     std::shared_ptr<DGBase<dim,real,MeshType>> dg;
 
     dealii::LinearAlgebra::distributed::Vector<real> dF_dX_total;
+    dealii::FullMatrix<real> Hessian_total;
     dealii::TrilinosWrappers::SparseMatrix r_x;
     dealii::TrilinosWrappers::SparseMatrix r_u;
     dealii::TrilinosWrappers::SparseMatrix r_u_transpose;

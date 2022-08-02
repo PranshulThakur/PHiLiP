@@ -76,9 +76,9 @@ template <int dim, int nstate, typename real, typename MeshType>
 void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::refine_or_coarsen_dg(unsigned int degree)
 {
     std::cout<<std::endl<<"Refining or coarsening dg to degree "<<degree<<"..."<<std::endl;
-    dealii::LinearAlgebra::distributed::Vector<double> old_solution(dg->solution);
+    dealii::LinearAlgebra::distributed::Vector<real> old_solution(dg->solution);
     old_solution.update_ghost_values();
-    using VectorType       = typename dealii::LinearAlgebra::distributed::Vector<double>;
+    using VectorType       = typename dealii::LinearAlgebra::distributed::Vector<real>;
     using DoFHandlerType   = typename dealii::DoFHandler<dim>;
     using SolutionTransfer = typename MeshTypeHelper<MeshType>::template SolutionTransfer<dim,VectorType,DoFHandlerType>;
 
@@ -170,7 +170,7 @@ template <int dim, int nstate, typename real, typename MeshType>
 void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_adjoints()
 {
     std::cout<<"Computing adjoints..."<<std::endl;
-    Assert(objfunc->is_derivative_computed, dealii::ExcMessage( "Derivative of objective function is not computed."));
+    Assert(objfunc->is_derivative_computed, dealii::ExcMessage("Derivative of objective function is not computed."));
     R_u_transpose *= -1.0; 
     r_u_transpose *= -1.0;
 
@@ -222,29 +222,70 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_total_hessian(
     dg->solution = solution_coarse_taylor_expanded; 
     dg->set_dual(adjoint_tilde);
     dg->assemble_residual(false,false,true);
-    dealii::FullMatrix<double> adjoint_times_d2rdudu; adjoint_times_d2rdudu.copy_from(dg->d2RdWdW);
-    dealii::FullMatrix<double> adjoint_times_d2rdxdx; adjoint_times_d2rdxdx.copy_from(dg->d2RdXdX);
-    dealii::FullMatrix<double> adjoint_times_d2rdudx; adjoint_times_d2rdudx.copy_from(dg->d2RdWdX);
+    dealii::FullMatrix<real> adjoint_times_d2rdudu; adjoint_times_d2rdudu.copy_from(dg->d2RdWdW);
+    dealii::FullMatrix<real> adjoint_times_d2rdxdx; adjoint_times_d2rdxdx.copy_from(dg->d2RdXdX);
+    dealii::FullMatrix<real> adjoint_times_d2rdudx; adjoint_times_d2rdudx.copy_from(dg->d2RdWdX);
 
     refine_or_coarsen_dg(dg->initial_degree + 1);
     dg->solution = solution_fine;
     dg->set_dual(adjoint_fine);
     dg->assemble_residual(false,false,true);
-    dealii::FullMatrix<double> adjoint_times_d2RdUdU; adjoint_times_d2RdUdU.copy_from(dg->d2RdWdW);
-    dealii::FullMatrix<double> adjoint_times_d2Rdxdx; adjoint_times_d2Rdxdx.copy_from(dg->d2RdXdX);
-    dealii::FullMatrix<double> adjoint_times_d2RdUdx; adjoint_times_d2RdUdx.copy_from(dg->d2RdWdX);
+    dealii::FullMatrix<real> adjoint_times_d2RdUdU; adjoint_times_d2RdUdU.copy_from(dg->d2RdWdW);
+    dealii::FullMatrix<real> adjoint_times_d2Rdxdx; adjoint_times_d2Rdxdx.copy_from(dg->d2RdXdX);
+    dealii::FullMatrix<real> adjoint_times_d2RdUdx; adjoint_times_d2RdUdx.copy_from(dg->d2RdWdX);
 
     refine_or_coarsen_dg(dg->initial_degree);
     dg->solution = solution_coarse_old;
 
     // Form lagrangian with Uh 
-    dealii::FullMatrix<double> dUh_dx = R_x_full;
-    R_u_inverse.mmult(dUh_dx, R_x_full);
+    dealii::FullMatrix<real> dUh_dx = R_x_full;
+    R_u_inverse.mmult(dUh_dx, R_x_full); // get dUh_dx
+    
+    dealii::FullMatrix<real> Lxx; Lxx.copy_from(objfunc->d2F_dX_dX);// get Lxx, Lxu and Luu
+    dealii::FullMatrix<real> Lux; Lux.copy_from(objfunc->d2F_dWfine_dX);
+    dealii::FullMatrix<real> Luu; Luu.copy_from(objfunc->d2F_dWfine_dWfine);
+
+    Lxx.add(1.0, adjoint_times_d2Rdxdx);
+    Lux.add(1.0, adjoint_times_d2RdUdx);
+    Luu.add(1.0, adjoint_times_d2RdUdU);
+
+    dealii::FullMatrix<real> term1 = Lxx;
+    dUh_dx.Tmmult(term1, Lux, true);
+    Lux.Tmmult(term1, dUh_dx, true);
+    term1.triple_product(Luu, dUh_dx, dUh_dx, true);
 
 
     // Form lagrangian with U_h^H
+    dealii::FullMatrix<real> dUH_dx = r_x_full;
+    r_u_inverse.mmult(dUH_dx, r_x_full);
+    dealii::FullMatrix<real> interpolation_matrix_full; interpolation_matrix_full.copy_from(interpolation_matrix);
 
+    Lxx.copy_from(objfunc->d2F_dX_dX);
+    Lxx.add(1.0, adjoint_times_d2rdxdx); // Lxx done
+    Lux.copy_from(adjoint_times_d2rdudx);
+    Luu.copy_from(adjoint_times_d2rdudu);
+    dealii::FullMatrix<real> Fux; Fux.copy_from(objfunc->d2F_dWtilde_dX);
+    dealii::FullMatrix<real> Fuu; Fuu.copy_from(objfunc->d2F_dWtilde_dWtilde);
+    dealii::FullMatrix<real> Fxx; Fxx.copy_from(objfunc->d2F_dX_dX);
 
+    interpolation_matrix_full.Tmmult(Lux ,Fux, true); // Lux done
+
+    Luu.triple_product(Fuu, interpolation_matrix_full, interpolation_matrix_full, true);
+
+    dealii::FullMatrix<real> term2 = Lxx;
+    dUH_dx.Tmmult(term2,Lux,true);
+    Lux.Tmmult(term2, dUH_dx, true);
+    term2.triple_product(Luu,dUH_dx, dUH_dx, true);
+
+    dealii::FullMatrix<real> F_Uh_uhH; F_Uh_uhH.copy_from(objfunc->d2F_dWfine_dWtilde);
+    dealii::FullMatrix<real> term3 = Lxx;
+    term3 *= 0.0;
+    term3.triple_product(F_Uh_uhH, dUh_dx, dUH_dx, true);
+    dealii::FullMatrix<real> Hessian_total = term1;
+    Hessian_total.add(1.0, term2);
+    Hessian_total.add(-1.0,Fxx);
+    Hessian_total.add(1.0, term3);
+    Hessian_total.Tadd(1.0, term3);
 }
 
 
