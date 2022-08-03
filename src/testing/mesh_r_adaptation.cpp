@@ -33,6 +33,30 @@ int MeshRAdaptation<dim, nstate>::run_test() const
     
     std::cout<<"Now computing total derivative..."<<std::endl;
     TotalDerivativeObjfunc<dim, nstate, double, MeshType> totder(dg);
+   
+    std::cout<<"dF_dX_total = "<<std::endl;
+    totder.dF_dX_total.print(std::cout, 3, true, false);
+    
+    std::cout<<"Hessian_total = "<<std::endl;
+    totder.Hessian_total.print(std::cout,10,1);
+    
+    auto solution_old = dg->solution;
+    
+    std::cout<<"Checking with finite difference..."<<std::endl;
+    auto cell = dg->triangulation->begin_active();
+    double step_size = 1.0e-6;
+    cell->vertex(1)[0] += step_size;
+    dg->allocate_system();
+    dg->solution = solution_old;
+    dg->assemble_residual(true);
+    auto solution_new = solution_old;
+    dg->system_matrix*=-1.0;
+    solve_linear(dg->system_matrix, dg->right_hand_side, solution_new, dg->all_parameters->linear_solver_param);
+    dg->solution = solution_new;
+    TotalDerivativeObjfunc<dim, nstate, double, MeshType> totder2(dg);
+    std::cout<<"dF_dX_total = "<<(totder2.objective_function_val - totder.objective_function_val)/step_size<<std::endl;
+
+
     return 0;
 }
 

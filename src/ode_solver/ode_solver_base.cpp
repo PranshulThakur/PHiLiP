@@ -88,6 +88,7 @@ int ODESolverBase<dim,real,MeshType>::steady_state ()
         valid_initial_conditions();
     }
     catch( const std::invalid_argument& e ) {
+        throw std::invalid_argument(" User forgot to assign valid initial conditions. ");
         std::abort();
     }
 

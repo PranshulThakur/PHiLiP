@@ -192,7 +192,8 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_total_derivati
     dF_dX_total = objfunc->derivative_objfunc_wrt_metric_nodes;
     R_x.Tvmult_add(dF_dX_total, adjoint_fine);
     r_x.Tvmult_add(dF_dX_total, adjoint_tilde);
-    
+
+/*
     std::cout<<"solution_coarse_taylor_expanded = "<<std::endl;
     solution_coarse_taylor_expanded.print(std::cout, 3, true, false);
     std::cout<<"solution_fine = "<<std::endl;
@@ -202,6 +203,7 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_total_derivati
     
     std::cout<<"dF_dX_total = "<<std::endl;
     dF_dX_total.print(std::cout, 3, true, false);
+*/
 }
 
 template <int dim, int nstate, typename real, typename MeshType>
@@ -240,30 +242,21 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_total_hessian(
     dg->solution = solution_coarse_old;
 
     // Form lagrangian with Uh 
-    std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
     dealii::FullMatrix<real> dUh_dx = R_x_full;
     R_u_inverse.mmult(dUh_dx, R_x_full); // get dUh_dx
-    std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
-    std::cout<<"Check starts.... Got dUh_dx.  Time difference = " << std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count()/1000000.0 << "[s]" <<std::endl;
     
     dealii::FullMatrix<real> Lxx; Lxx.copy_from(objfunc->d2F_dX_dX);// get Lxx, Lxu and Luu
     dealii::FullMatrix<real> Lux; Lux.copy_from(objfunc->d2F_dWfine_dX);
     dealii::FullMatrix<real> Luu; Luu.copy_from(objfunc->d2F_dWfine_dWfine);
-    std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
-    std::cout<<"Copied Luu, Lxx, Lux. Time difference = " << std::chrono::duration_cast<std::chrono::microseconds>(t3 - t2).count()/1000000.0 << "[s]" <<std::endl;
 
     Lxx.add(1.0, adjoint_times_d2Rdxdx);
     Lux.add(1.0, adjoint_times_d2RdUdx);
     Luu.add(1.0, adjoint_times_d2RdUdU);
-    std::chrono::steady_clock::time_point t4 = std::chrono::steady_clock::now();
-    std::cout<<"Added adjoint times d2R to d2L. Time difference = " << std::chrono::duration_cast<std::chrono::microseconds>(t4 - t3).count()/1000000.0 << "[s]" <<std::endl;
 
     dealii::FullMatrix<real> term1 = Lxx;
     dUh_dx.Tmmult(term1, Lux, true);
     Lux.Tmmult(term1, dUh_dx, true);
     term1.triple_product(Luu, dUh_dx, dUh_dx, true);
-    std::chrono::steady_clock::time_point t5 = std::chrono::steady_clock::now();
-    std::cout<<"Formed hessian term 1. Time difference = " << std::chrono::duration_cast<std::chrono::microseconds>(t5 - t4).count()/1000000.0 << "[s]" <<std::endl;
 
 
     // Form lagrangian with U_h^H
@@ -296,12 +289,13 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_total_hessian(
     term3 *= 0.0;
     term3.triple_product(F_Uh_uhH, dUh_dx, dUHh_dx, true);
     std::cout<<"Formed hessian term 3."<<std::endl;
-    dealii::FullMatrix<real> Hessian_total = term1;
+    Hessian_total = term1;
     Hessian_total.add(1.0, term2);
     Hessian_total.add(-1.0,Fxx);
     Hessian_total.add(1.0, term3);
     Hessian_total.Tadd(1.0, term3);
     std::cout<<"Formed total hessian."<<std::endl;
+//    Hessian_total.print(std::cout,10,1);
 }
 
 
