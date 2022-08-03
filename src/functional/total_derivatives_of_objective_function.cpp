@@ -217,6 +217,7 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_total_hessian(
     
     dealii::FullMatrix<real> r_x_full; r_x_full.copy_from(r_x);
     dealii::FullMatrix<real> R_x_full; R_x_full.copy_from(R_x);
+    std::cout<<"Copied Ru and Rx into FullMatrices"<<std::endl;
 
     // Store adjoint times d2R, d2r
     dg->solution = solution_coarse_taylor_expanded; 
@@ -233,6 +234,7 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_total_hessian(
     dealii::FullMatrix<real> adjoint_times_d2RdUdU; adjoint_times_d2RdUdU.copy_from(dg->d2RdWdW);
     dealii::FullMatrix<real> adjoint_times_d2Rdxdx; adjoint_times_d2Rdxdx.copy_from(dg->d2RdXdX);
     dealii::FullMatrix<real> adjoint_times_d2RdUdx; adjoint_times_d2RdUdx.copy_from(dg->d2RdWdX);
+    std::cout<<"Copied adjoint_times_d2R into FullMatrices"<<std::endl;
 
     refine_or_coarsen_dg(dg->initial_degree);
     dg->solution = solution_coarse_old;
@@ -253,6 +255,7 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_total_hessian(
     dUh_dx.Tmmult(term1, Lux, true);
     Lux.Tmmult(term1, dUh_dx, true);
     term1.triple_product(Luu, dUh_dx, dUh_dx, true);
+    std::cout<<"Formed hessian term 1."<<std::endl;
 
 
     // Form lagrangian with U_h^H
@@ -276,16 +279,21 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_total_hessian(
     dUH_dx.Tmmult(term2,Lux,true);
     Lux.Tmmult(term2, dUH_dx, true);
     term2.triple_product(Luu,dUH_dx, dUH_dx, true);
+    std::cout<<"Formed hessian term 2."<<std::endl;
 
     dealii::FullMatrix<real> F_Uh_uhH; F_Uh_uhH.copy_from(objfunc->d2F_dWfine_dWtilde);
+    dealii::FullMatrix<real> dUHh_dx = R_x_full;
+    interpolation_matrix_full.mmult(dUHh_dx, dUH_dx);
     dealii::FullMatrix<real> term3 = Lxx;
     term3 *= 0.0;
-    term3.triple_product(F_Uh_uhH, dUh_dx, dUH_dx, true);
+    term3.triple_product(F_Uh_uhH, dUh_dx, dUHh_dx, true);
+    std::cout<<"Formed hessian term 3."<<std::endl;
     dealii::FullMatrix<real> Hessian_total = term1;
     Hessian_total.add(1.0, term2);
     Hessian_total.add(-1.0,Fxx);
     Hessian_total.add(1.0, term3);
     Hessian_total.Tadd(1.0, term3);
+    std::cout<<"Formed total hessian."<<std::endl;
 }
 
 
