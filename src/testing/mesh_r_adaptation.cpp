@@ -37,7 +37,6 @@ int MeshRAdaptation<dim, nstate>::run_test() const
     std::cout<<"Checking with finite difference..."<<std::endl;
     auto cell = grid->begin_active();
     double step_size = 1.0e-6;
-    cell++;
     cell->vertex(1)[0] += step_size;
     std::shared_ptr <DGBase<dim, double> > dg2 = DGFactory<dim,double>::create_discontinuous_galerkin(&param, poly_degree, poly_degree+1, 1, grid);
     dg2->allocate_system();
@@ -48,13 +47,16 @@ int MeshRAdaptation<dim, nstate>::run_test() const
     
     std::cout<<"dF_dX_total = "<<std::endl;
     totder.dF_dX_total.print(std::cout, 3, true, false);
-    std::cout<<"N active cells = "<<dg->triangulation->n_active_cells()<<std::endl;
-
-    
-    //std::cout<<"Hessian_total = "<<std::endl;
-    //totder.Hessian_total.print(std::cout,10,1);
-    
     std::cout<<"dF_dX_FD = "<<(totder2.objective_function_val - totder.objective_function_val)/step_size<<std::endl;
+    
+    std::cout<<"Hessian_total = "<<std::endl;
+    totder.Hessian_total.print(std::cout,10,1);
+
+    dealii::LinearAlgebra::distributed::Vector<double> H_FD = totder2.dF_dX_total;
+    H_FD -= totder.dF_dX_total;
+    H_FD /= step_size;
+    std::cout<<"Hessian FD = "<<std::endl;
+    H_FD.print(std::cout, 3, true, false);
 
 
     return 0;

@@ -105,10 +105,14 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::refine_or_coarsen_dg(u
 template <int dim, int nstate, typename real, typename MeshType>
 void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_solution_tilde_and_solution_fine()
 {
-    std::cout<<"Computing solution fine and solution tilde..."<<std::endl;
-    // Compute solution coarse tilde
     bool compute_dRdW = true, compute_dRdX=false;
     dg->assemble_residual(compute_dRdW, compute_dRdX);
+    r_u.copy_from(dg->system_matrix);
+    r_u_transpose.copy_from(dg->system_matrix_transpose);
+    std::cout<<"Stored r_u."<<std::endl;
+    
+    std::cout<<"Computing solution fine and solution tilde..."<<std::endl;
+    // Compute solution coarse tilde
     dg->system_matrix *= -1.0;
     solution_coarse_taylor_expanded.reinit(dg->solution.size());
     solve_linear(dg->system_matrix, dg->right_hand_side, solution_coarse_taylor_expanded, dg->all_parameters->linear_solver_param);
@@ -117,14 +121,9 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_solution_tilde
     // Interpolate solution on finer grid
     interpolation_matrix.vmult(solution_tilde_fine, solution_coarse_taylor_expanded);
     
-    // Store r_u and r_x 
+    // Store r_x 
     solution_coarse_old = dg->solution;
     dg->solution = solution_coarse_taylor_expanded;
-    compute_dRdW = true; compute_dRdX=false;
-    dg->assemble_residual(compute_dRdW, compute_dRdX);
-    r_u.copy_from(dg->system_matrix);
-    r_u_transpose.copy_from(dg->system_matrix_transpose);
-    std::cout<<"Stored r_u."<<std::endl;
     
     compute_dRdW = false; compute_dRdX=true;
     dg->assemble_residual(compute_dRdW, compute_dRdX);
@@ -141,6 +140,10 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_solution_tilde
     // Compute solution_fine taylor expanded
     compute_dRdW = true, compute_dRdX=false;
     dg->assemble_residual(compute_dRdW, compute_dRdX);
+    R_u.copy_from(dg->system_matrix);
+    R_u_transpose.copy_from(dg->system_matrix_transpose);
+    std::cout<<"Stored R_u."<<std::endl;
+    
     dg->system_matrix *= -1.0;
     solution_fine.reinit(dg->solution.size());
     solve_linear(dg->system_matrix, dg->right_hand_side, solution_fine, dg->all_parameters->linear_solver_param);
@@ -150,12 +153,6 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_solution_tilde
     // Store R_u and R_x 
     dealii::LinearAlgebra::distributed::Vector<real> solution_fine_old = dg->solution;
     dg->solution = solution_fine;
-    compute_dRdW = true; compute_dRdX = false;
-    dg->assemble_residual(compute_dRdW, compute_dRdX);
-    R_u.copy_from(dg->system_matrix);
-    R_u_transpose.copy_from(dg->system_matrix_transpose);
-    std::cout<<"Stored R_u."<<std::endl;
-    
     compute_dRdW = false; compute_dRdX=true;
     dg->assemble_residual(compute_dRdW, compute_dRdX);
     R_x.copy_from(dg->dRdXv);
