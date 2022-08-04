@@ -373,6 +373,59 @@ private:
     std::vector<std::vector<real>> x_j; ///< shock positions
 };
 
+/// Hump manufactured solution based on arctangent functions (tested for 1D only).
+template <int dim, typename real>
+class ManufacturedSolutionAtan2
+    : public ManufacturedSolutionFunction<dim, real>
+{
+// We want the Point to be templated on the type,
+// however, dealii does not template that part of the Function.
+// Therefore, we end up overloading the functions and need to "import"
+// those non-overloaded functions to avoid the warning -Woverloaded-virtual
+// See: https://stackoverflow.com/questions/18515183/c-overloaded-virtual-function-warning-by-clang
+protected:
+    using dealii::Function<dim,real>::value;
+    using dealii::Function<dim,real>::gradient;
+    using dealii::Function<dim,real>::hessian;
+public:
+    /// Constructor
+    ManufacturedSolutionAtan2(const unsigned int nstate = 1)
+        :   ManufacturedSolutionFunction<dim,real>(nstate)
+    {
+        n_shocks.resize(dim);
+        S_j.resize(dim);
+        x_j.resize(dim);
+
+        for(unsigned int i = 0; i<dim; ++i){
+            n_shocks[i] = 3;
+
+            S_j[i].resize(n_shocks[i]);
+            x_j[i].resize(n_shocks[i]);
+
+
+            S_j[i][0] =  100;
+            S_j[i][1] = -200;
+            S_j[i][2] = 100;
+
+            x_j[i][0] = 0.25;
+            x_j[i][1] =  0.5;
+            x_j[i][2] =  0.7;
+
+        }
+    }
+    /// Value
+    real value (const dealii::Point<dim,real> &point, const unsigned int istate = 0) const override;
+    /// Gradient
+    dealii::Tensor<1,dim,real> gradient (const dealii::Point<dim,real> &point, const unsigned int istate = 0) const override;
+    /// Hessian
+    dealii::SymmetricTensor<2,dim,real> hessian (const dealii::Point<dim,real> &point, const unsigned int istate = 0) const override;
+
+private:
+    std::vector<unsigned int> n_shocks; ///< number of shocks
+    std::vector<std::vector<real>> S_j; ///< shock strengths
+    std::vector<std::vector<real>> x_j; ///< shock positions
+};
+
 /// Scalar boundary layer manufactured solution
 template <int dim, typename real>
 class ManufacturedSolutionBoundaryLayer

@@ -29,6 +29,7 @@ public:
         poly_solution,
         even_poly_solution,
         atan_solution,
+        atan2_solution,
         boundary_layer_solution,
         s_shock_solution,
         quadratic_solution,

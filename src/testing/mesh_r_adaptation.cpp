@@ -37,6 +37,7 @@ int MeshRAdaptation<dim, nstate>::run_test() const
     std::cout<<"Checking with finite difference..."<<std::endl;
     auto cell = grid->begin_active();
     double step_size = 1.0e-6;
+    cell++;
     cell->vertex(1)[0] += step_size;
     std::shared_ptr <DGBase<dim, double> > dg2 = DGFactory<dim,double>::create_discontinuous_galerkin(&param, poly_degree, poly_degree+1, 1, grid);
     dg2->allocate_system();

@@ -139,6 +139,23 @@ inline real ManufacturedSolutionAtan<dim,real>
 }
 
 template <int dim, typename real>
+inline real ManufacturedSolutionAtan2<dim,real>
+::value(const dealii::Point<dim,real> &point, const unsigned int /*istate*/) const
+{
+    real val = 1.0;
+    for(unsigned int i = 0; i < dim; ++i){
+        real x = point[i];
+        real val_dim = 0;
+        for(unsigned int j = 0; j < n_shocks[i]; ++j){
+            // taking the product of function in each direction
+            val_dim += atan(S_j[i][j]*(x-x_j[i][j]));
+        }
+        val *= val_dim;
+    }
+    return val;
+}
+
+template <int dim, typename real>
 inline real ManufacturedSolutionBoundaryLayer<dim,real>
 ::value(const dealii::Point<dim,real> &point, const unsigned int istate) const
 {
@@ -413,6 +430,34 @@ inline dealii::Tensor<1,dim,real> ManufacturedSolutionPoly<dim,real>
 
 template <int dim, typename real>
 inline dealii::Tensor<1,dim,real> ManufacturedSolutionAtan<dim,real>
+::gradient(const dealii::Point<dim,real> &point, const unsigned int /*istate*/) const
+{
+    dealii::Tensor<1,dim,real> gradient;
+    for(unsigned int k = 0; k < dim; ++k){
+        // taking the k^th derivative
+        real grad_dim = 1;
+        for(unsigned int i = 0; i < dim; ++i){
+            real x = point[i];
+            real val_dim = 0;
+            for(unsigned int j = 0; j < n_shocks[i]; ++j){
+                if(i==k){
+                    // taking the derivative dimension
+                    real coeff = S_j[i][j]*(x-x_j[i][j]);
+                    val_dim += S_j[i][j]/(pow(coeff,2)+1);
+                }else{
+                    // value product unaffected
+                    val_dim += atan(S_j[i][j]*(x-x_j[i][j]));
+                }
+            }
+            grad_dim *= val_dim;
+        }
+        gradient[k] = grad_dim;
+    }
+    return gradient;
+}
+
+template <int dim, typename real>
+inline dealii::Tensor<1,dim,real> ManufacturedSolutionAtan2<dim,real>
 ::gradient(const dealii::Point<dim,real> &point, const unsigned int /*istate*/) const
 {
     dealii::Tensor<1,dim,real> gradient;
@@ -849,6 +894,43 @@ inline dealii::SymmetricTensor<2,dim,real> ManufacturedSolutionAtan<dim,real>
 }
 
 template <int dim, typename real>
+inline dealii::SymmetricTensor<2,dim,real> ManufacturedSolutionAtan2<dim,real>
+::hessian(const dealii::Point<dim,real> &point, const unsigned int /*istate*/) const
+{
+    dealii::SymmetricTensor<2,dim,real> hes;
+
+    for(unsigned int k1 = 0; k1 < dim; ++k1){
+        // taking the k1^th derivative
+        for(unsigned int k2 = 0; k2 < dim; ++k2){
+            // taking the k2^th derivative
+            real hes_dim = 1;
+            for(unsigned int i = 0; i < dim; ++i){
+                real x = point[i];
+                real val_dim = 0;
+                for(unsigned int j = 0; j < n_shocks[i]; ++j){
+                    if(i == k1 && i == k2){
+                        // taking the second derivative in this dim
+                        real coeff = S_j[i][j]*(x-x_j[i][j]);
+                        val_dim += -2.0*pow(S_j[i][j],2)*coeff/pow(pow(coeff,2)+1,2);
+                    }else if(i == k1 || i == k2){
+                        // taking the first derivative in this dim
+                        real coeff = S_j[i][j]*(x-x_j[i][j]);
+                        val_dim += S_j[i][j]/(pow(coeff,2)+1);
+                    }else{
+                        // taking the value in this dim
+                        val_dim += atan(S_j[i][j]*(x-x_j[i][j]));
+                    }
+                }
+                hes_dim *= val_dim;
+            }
+            hes[k1][k2] = hes_dim;
+        }
+    }
+
+    return hes;
+}
+
+template <int dim, typename real>
 inline dealii::SymmetricTensor<2,dim,real> ManufacturedSolutionBoundaryLayer<dim,real>
 ::hessian(const dealii::Point<dim,real> &point, const unsigned int istate) const
 {
@@ -1190,6 +1272,8 @@ ManufacturedSolutionFactory<dim,real>::create_ManufacturedSolution(
         return std::make_shared<ManufacturedSolutionEvenPoly<dim,real>>(nstate);
     }else if(solution_type == ManufacturedSolutionEnum::atan_solution){
         return std::make_shared<ManufacturedSolutionAtan<dim,real>>(nstate);
+    }else if(solution_type == ManufacturedSolutionEnum::atan2_solution){
+        return std::make_shared<ManufacturedSolutionAtan2<dim,real>>(nstate);
     }else if(solution_type == ManufacturedSolutionEnum::boundary_layer_solution){
         return std::make_shared<ManufacturedSolutionBoundaryLayer<dim,real>>(nstate);
     }else if((solution_type == ManufacturedSolutionEnum::s_shock_solution) && (dim==2)){
@@ -1276,6 +1360,11 @@ template class ManufacturedSolutionAtan<PHILIP_DIM,FadType>;
 template class ManufacturedSolutionAtan<PHILIP_DIM,RadType>;
 template class ManufacturedSolutionAtan<PHILIP_DIM,FadFadType>;
 template class ManufacturedSolutionAtan<PHILIP_DIM,RadFadType>;
+template class ManufacturedSolutionAtan2<PHILIP_DIM,double>;
+template class ManufacturedSolutionAtan2<PHILIP_DIM,FadType>;
+template class ManufacturedSolutionAtan2<PHILIP_DIM,RadType>;
+template class ManufacturedSolutionAtan2<PHILIP_DIM,FadFadType>;
+template class ManufacturedSolutionAtan2<PHILIP_DIM,RadFadType>;
 template class ManufacturedSolutionBoundaryLayer<PHILIP_DIM,double>;
 template class ManufacturedSolutionBoundaryLayer<PHILIP_DIM,FadType>;
 template class ManufacturedSolutionBoundaryLayer<PHILIP_DIM,RadType>;
