@@ -8,6 +8,7 @@ SET(SOURCE
     objective_function_for_mesh_adaptation.cpp
     total_derivatives_of_objective_function.cpp
     generate_triangulation.cpp
+    reduced_space_optimization.cpp
     )
 
 foreach(dim RANGE 1 3)
