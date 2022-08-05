@@ -83,6 +83,7 @@ real ReducedSpaceOptimization<dim, nstate, real, MeshType>::evaluate_function_va
 template <int dim, int nstate, typename real, typename MeshType>
 real ReducedSpaceOptimization<dim, nstate, real, MeshType>::evaluate_backtracking_alpha()
 {
+    return 0.1;
     double alpha = 0.5, c = 0.1, rho=0.5;
     VectorType metric_modified  = metric;
     metric_modified.add(alpha, search_direction);
