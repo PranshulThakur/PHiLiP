@@ -3,7 +3,7 @@
 namespace PHiLiP {
 
 template <int dim, int nstate, typename real, typename MeshType>
-GenerateTriangulation<dim, nstate, real, MeshType>::GenerateTriangulation(dealii::Vector<real> &metric, unsigned int grid_refinement_val, bool output_vertex_positions)
+GenerateTriangulation<dim, nstate, real, MeshType>::GenerateTriangulation(VectorType &metric, unsigned int grid_refinement_val, bool output_vertex_positions)
 {
     triangulation = std::make_shared<MeshType> ();
     dealii::GridGenerator::hyper_cube(*triangulation);
@@ -38,13 +38,4 @@ template class GenerateTriangulation<PHILIP_DIM, 3, double, dealii::Triangulatio
 template class GenerateTriangulation<PHILIP_DIM, 4, double, dealii::Triangulation<PHILIP_DIM>>;
 template class GenerateTriangulation<PHILIP_DIM, 5, double, dealii::Triangulation<PHILIP_DIM>>;
 #endif
-/*
-#if PHILIP_DIM != 1
-template class GenerateTriangulation<PHILIP_DIM, 1, double,  dealii::parallel::distributed::Triangulation<PHILIP_DIM>>;
-template class GenerateTriangulation<PHILIP_DIM, 2, double,  dealii::parallel::distributed::Triangulation<PHILIP_DIM>>;
-template class GenerateTriangulation<PHILIP_DIM, 3, double,  dealii::parallel::distributed::Triangulation<PHILIP_DIM>>;
-template class GenerateTriangulation<PHILIP_DIM, 4, double,  dealii::parallel::distributed::Triangulation<PHILIP_DIM>>;
-template class GenerateTriangulation<PHILIP_DIM, 5, double,  dealii::parallel::distributed::Triangulation<PHILIP_DIM>>;
-#endif
-*/
 } // namespae PHiLiP

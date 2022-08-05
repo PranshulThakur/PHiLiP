@@ -18,12 +18,12 @@ template <int dim, int nstate, typename real, typename MeshType = dealii::parall
 class ReducedSpaceOptimization
 {
     using VectorType = typename dealii::LinearAlgebra::distributed::Vector<real>;
-    dealii::Vector<real> metric;
+    VectorType metric;
     VectorType solution_coeffs;
     VectorType global_variables; ///< Just x, since we are in reduced space.
     VectorType gradient;
     VectorType search_direction;
-    dealii::FullMatrix<real> hessian;
+    dealii::TrilinosWrappers::SparseMatrix hessian_sparse;
 
     const int refinement_level;
     const int polynomial_order;
@@ -32,18 +32,22 @@ class ReducedSpaceOptimization
     int n_inner_vertices; ///< No. of inner vertices i.e. excluding the vertices at boundary. 
     int n_total;
     int n_dofs;
+    real residual_norm;
 
 public:
     ReducedSpaceOptimization(int refienement_level_input, int polynomial_order_input, const Parameters::AllParameters *const parameters_input);
     ~ReducedSpaceOptimization() {};
-    real evaluate_function_val(VectorType &modified_global_variables);
+    real evaluate_function_val(VectorType &modified_global_variables); ///< Required for backtracking.
     void update_gradient_and_hessian();
+    void solve_for_reduced_solution_coeff();
     real evaluate_backtracking_alpha();
    // void form_block_hessian();
     //void update_global_variables_from_metric_solution_lambda();
     //void update_metric_solution_lambda_from_global_variables();
     
     void solve_optimization_problem();
+    void get_search_direction_from_hessian_gradient_system();
+    void check_metric(VectorType &metric_modified);
 };
 
 } // namespace PHiLiP

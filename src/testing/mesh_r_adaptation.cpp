@@ -1,6 +1,7 @@
 #include "mesh_r_adaptation.h"
 #include "ode_solver/ode_solver_factory.h"
-#include "functional/total_derivatives_of_objective_function.h"
+#include "functional/reduced_space_optimization.h"
+
 namespace PHiLiP {
 namespace Tests {
 
@@ -16,6 +17,15 @@ int MeshRAdaptation<dim, nstate>::run_test() const
     Assert(dim == param.dimension, dealii::ExcDimensionMismatch(dim, param.dimension));
     Assert(dim == 1, dealii::ExcDimensionMismatch(dim, param.dimension));
     using MeshType = dealii::Triangulation<dim>;
+    unsigned int poly_degree = param.manufactured_convergence_study_param.degree_start;
+    unsigned int refinement_level = param.manufactured_convergence_study_param.initial_grid_size;
+
+    ReducedSpaceOptimization<dim, nstate, double, MeshType> optimizer(refinement_level, poly_degree, &param);
+    optimizer.solve_optimization_problem();
+/*
+//==============================================================================================================================================================
+                    // Check total derivative and hessian of the objective function
+//==============================================================================================================================================================
     std::shared_ptr<MeshType> grid = std::make_shared<MeshType>();
     const bool colorize = true;
     dealii::GridGenerator::hyper_cube(*grid, 0, 1, colorize);
@@ -41,7 +51,8 @@ int MeshRAdaptation<dim, nstate>::run_test() const
     cell->vertex(1)[0] += step_size;
     std::shared_ptr <DGBase<dim, double> > dg2 = DGFactory<dim,double>::create_discontinuous_galerkin(&param, poly_degree, poly_degree+1, 1, grid);
     dg2->allocate_system();
-    dg2->solution*=0.0;
+    //dg2->solution*=0.0;
+    dg2->solution = dg->solution;
     std::shared_ptr<ODE::ODESolverBase<dim, double>> ode_solver2 = ODE::ODESolverFactory<dim, double>::create_ODESolver(dg2);
     ode_solver2->steady_state();
     TotalDerivativeObjfunc<dim, nstate, double, MeshType> totder2(dg2);
@@ -114,7 +125,7 @@ int MeshRAdaptation<dim, nstate>::run_test() const
         std::cout<<", "<<x_quad_pts[i];
     }
     std::cout<<"]"<<std::endl;;
-
+*/
     return 0;
 }
 

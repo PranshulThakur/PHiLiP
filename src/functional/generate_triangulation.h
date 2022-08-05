@@ -12,9 +12,9 @@ template <int dim, int nstate, typename real, typename MeshType = dealii::parall
 #endif
 class GenerateTriangulation
 {
+    using VectorType = typename dealii::LinearAlgebra::distributed::Vector<real>;
 public:
-    GenerateTriangulation(dealii::Vector<real> &metric, unsigned int refinement_val, bool output_vertex_positions = false);
-
+    GenerateTriangulation(VectorType &metric, unsigned int refinement_val, bool output_vertex_positions = false);
 
     std::shared_ptr<MeshType> triangulation;
 };

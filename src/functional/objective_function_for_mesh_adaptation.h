@@ -60,7 +60,6 @@ public:
 
     real evaluate_objective_function_and_derivatives();
 
-    void evaluate_objective_function_hessian();
     
     template <typename real2>
     real2 evaluate_volume_cell_objective_function(

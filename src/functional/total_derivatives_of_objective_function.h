@@ -28,6 +28,8 @@ public:
 
     dealii::LinearAlgebra::distributed::Vector<real> dF_dX_total;
     dealii::FullMatrix<real> Hessian_total;
+    dealii::TrilinosWrappers::SparseMatrix Hessian_sparse;
+    dealii::SparsityPattern hessian_sparsity_pattern;
     dealii::TrilinosWrappers::SparseMatrix r_x;
     dealii::TrilinosWrappers::SparseMatrix r_u;
     dealii::TrilinosWrappers::SparseMatrix r_u_transpose;
@@ -44,9 +46,10 @@ public:
     dealii::LinearAlgebra::distributed::Vector<real> adjoint_tilde;
     
     dealii::SparseMatrix<real> interpolation_matrix;
-    dealii::SparsityPattern      sparsity_pattern;
+    dealii::SparsityPattern     interpolation_sparsity_pattern;
     std::unique_ptr<ObjectiveFunctionMeshAdaptation<dim, nstate, real, MeshType>> objfunc;
     real objective_function_val;
+    real residual_norm;
 };
 
 } // namespace PHiLiP

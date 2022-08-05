@@ -336,17 +336,6 @@ real2 ObjectiveFunctionMeshAdaptation<dim,nstate,real,MeshType> :: evaluate_boun
     return cell_objecive_function_value;
 }
 
-template <int dim, int nstate, typename real, typename MeshType>
-void ObjectiveFunctionMeshAdaptation<dim,nstate,real,MeshType>::evaluate_objective_function_hessian()
-{
-    dealii::IndexSet locally_owned_dofs = dg->high_order_grid->dof_handler_grid.locally_owned_dofs();
-    dealii::IndexSet locally_relevant_dofs, ghost_dofs;
-    dealii::DoFTools::extract_locally_relevant_dofs(dg->high_order_grid->dof_handler_grid, locally_relevant_dofs);
-    ghost_dofs = locally_relevant_dofs;
-    ghost_dofs.subtract_set(locally_owned_dofs);
-    derivative_objfunc_wrt_metric_nodes.reinit(locally_owned_dofs, ghost_dofs, MPI_COMM_WORLD);
-    std::cout<<"Size of dFdX = "<<derivative_objfunc_wrt_metric_nodes.size()<<std::endl;
-}
 
 template <int dim, int nstate, typename real, typename MeshType>
 void ObjectiveFunctionMeshAdaptation<dim,nstate,real,MeshType>::truncate_first_derivative(dealii::LinearAlgebra::distributed::Vector<real> &vector_in)

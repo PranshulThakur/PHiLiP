@@ -18,6 +18,11 @@ TotalDerivativeObjfunc<dim, nstate, real, MeshType>::TotalDerivativeObjfunc(std:
         compute_adjoints();
         compute_total_derivative();
         compute_total_hessian();
+
+        // Truncate derivatives
+        objfunc->truncate_first_derivative(dF_dX_total);
+        bool is_dx_dx = true;
+        objfunc->truncate_second_derivative(Hessian_sparse, is_dx_dx);
     }
 }
 
@@ -54,8 +59,8 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::form_interpolation_mat
             }
         }
     }
-    sparsity_pattern.copy_from(dsp);
-    interpolation_matrix.reinit(sparsity_pattern); 
+    interpolation_sparsity_pattern.copy_from(dsp);
+    interpolation_matrix.reinit(interpolation_sparsity_pattern); 
 
 
     for(unsigned int cell_no = 0; cell_no < dg->triangulation->n_active_cells(); cell_no++)
@@ -102,6 +107,7 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::refine_or_coarsen_dg(u
     }
 
     dg->solution.update_ghost_values();
+    std::cout<<std::endl<<"Finished refining or coarsening dg to degree "<<degree<<"..."<<std::endl;
 }
 
 template <int dim, int nstate, typename real, typename MeshType>
@@ -109,6 +115,7 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_solution_tilde
 {
     bool compute_dRdW = true, compute_dRdX=false;
     dg->assemble_residual(compute_dRdW, compute_dRdX);
+    residual_norm = dg->get_residual_l2norm();
     r_u.copy_from(dg->system_matrix);
     r_u_transpose.copy_from(dg->system_matrix_transpose);
     std::cout<<"Stored r_u."<<std::endl;
@@ -284,6 +291,20 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_total_hessian(
     Hessian_total.Tadd(1.0, term3);
     std::cout<<"Formed total hessian."<<std::endl;
 //    Hessian_total.print(std::cout,10,1);
+
+// Convert Hessian to sparse matrix
+    hessian_sparsity_pattern.copy_from(Hessian_total);
+    Hessian_sparse.reinit(hessian_sparsity_pattern);
+
+    for(unsigned int i=0; i<Hessian_total.m(); i++)
+    {
+        for(unsigned int j=0; j<Hessian_total.n(); j++)
+        {
+            if(Hessian_total(i,j)==0) continue;
+
+            Hessian_sparse.add(i,j,Hessian_total(i,j));
+        }
+    }
 }
 
 
