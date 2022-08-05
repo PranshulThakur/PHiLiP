@@ -4,7 +4,7 @@
 namespace PHiLiP {
 
 template <int dim, int nstate, typename real, typename MeshType>
-TotalDerivativeObjfunc<dim, nstate, real, MeshType>::TotalDerivativeObjfunc(std::shared_ptr<DGBase<dim, real, MeshType>> _dg)
+TotalDerivativeObjfunc<dim, nstate, real, MeshType>::TotalDerivativeObjfunc(std::shared_ptr<DGBase<dim, real, MeshType>> _dg, bool evaluate_derivatives)
     :dg(_dg)
 {
     form_interpolation_matrix(); // Also resizes solution_tilde_fine
@@ -13,10 +13,12 @@ TotalDerivativeObjfunc<dim, nstate, real, MeshType>::TotalDerivativeObjfunc(std:
     objfunc = std::make_unique<ObjectiveFunctionMeshAdaptation<dim, nstate, real, MeshType>>(dg, solution_fine, solution_tilde_fine);
     objective_function_val = objfunc->evaluate_objective_function_and_derivatives();
     refine_or_coarsen_dg(dg->initial_degree); //coarsen dg back.
-
-    compute_adjoints();
-    compute_total_derivative();
-    compute_total_hessian();
+    if(evaluate_derivatives)
+    {
+        compute_adjoints();
+        compute_total_derivative();
+        compute_total_hessian();
+    }
 }
 
 
@@ -190,17 +192,6 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_total_derivati
     R_x.Tvmult_add(dF_dX_total, adjoint_fine);
     r_x.Tvmult_add(dF_dX_total, adjoint_tilde);
 
-/*
-    std::cout<<"solution_coarse_taylor_expanded = "<<std::endl;
-    solution_coarse_taylor_expanded.print(std::cout, 3, true, false);
-    std::cout<<"solution_fine = "<<std::endl;
-    solution_fine.print(std::cout, 3, true, false);
-    std::cout<<"solution_tilde_fine = "<<std::endl;
-    solution_tilde_fine.print(std::cout, 3, true, false);
-    
-    std::cout<<"dF_dX_total = "<<std::endl;
-    dF_dX_total.print(std::cout, 3, true, false);
-*/
 }
 
 template <int dim, int nstate, typename real, typename MeshType>

@@ -16,7 +16,7 @@ template <int dim, int nstate, typename real, typename MeshType = dealii::parall
 class TotalDerivativeObjfunc 
 {
 public:
-    TotalDerivativeObjfunc(std::shared_ptr<DGBase<dim,real,MeshType>> _dg);
+    TotalDerivativeObjfunc(std::shared_ptr<DGBase<dim,real,MeshType>> _dg, bool evaluate_derivatives = true);
     void compute_solution_tilde_and_solution_fine();
     void refine_or_coarsen_dg(unsigned int degree);
     void form_interpolation_matrix();
