@@ -181,22 +181,44 @@ real FullSpaceOptimization<dim, nstate, real, MeshType>::evaluate_function_val(V
 template <int dim, int nstate, typename real, typename MeshType>
 real FullSpaceOptimization<dim, nstate, real, MeshType>::evaluate_backtracking_alpha()
 {
-    return 1.0;
-    double alpha = 0.5, c = 0.0, rho=0.5;
+    //return 0.5;
+    //return 0.1;
+    double alpha = 0.5, c = 0.0, rho=0.1;
     VectorType global_variables_modified  = global_variables;
     global_variables_modified.add(alpha, search_direction);
-
     double dwr_original = evaluate_function_val(global_variables);
-    while (evaluate_function_val(global_variables_modified) >= (dwr_original + c*alpha*(gradient*search_direction)))
+    bool is_metric_good = check_metric_bool(global_variables_modified);
+    double dwr_modified;
+    if(!is_metric_good) // If metric is not good, make sure dwr_modified > dwr_original so that alpha can be reduced.
+    {
+        dwr_modified = dwr_original + 1.0e10;
+    }
+    else
+    {
+        dwr_modified = evaluate_function_val(global_variables_modified);
+    }
+        
+
+    while (dwr_modified >= (dwr_original + c*alpha*(gradient*search_direction)))
     {
         alpha *= rho;
         global_variables_modified = global_variables;
         global_variables_modified.add(alpha,search_direction);
+        is_metric_good = check_metric_bool(global_variables_modified);
+        if(!is_metric_good)
+        {
+            dwr_modified = dwr_original + 1.0e10;
+        }
+        else
+        {
+            dwr_modified = evaluate_function_val(global_variables_modified);
+        }
 
-        if(alpha < 1.0e-15)
+
+        if(alpha < 1.0e-7)
         {
             std::cout<<"Backtracking alpha is too small"<<std::endl;
-            return 1.0e-1;
+            return 0.0;
         }
     }
     std::cout<<"Backtracking alpha = "<<alpha<<std::endl;
@@ -224,6 +246,7 @@ void FullSpaceOptimization<dim, nstate, real, MeshType>::get_search_direction_fr
 
     solve_linear(hessian_sparse, gradient, search_direction, all_param.linear_solver_param);
     search_direction *= -1.0;
+    std::cout<<"Norm of search direction = "<<search_direction.l2_norm()<<std::endl;
 }
 
 
@@ -239,12 +262,15 @@ void FullSpaceOptimization<dim, nstate, real, MeshType>::solve_optimization_prob
     myfile_time.open("Full_space_time.txt");
     std::clock_t c_start = std::clock();
     double time_elapsed = 0;
-    while (gradient.l2_norm() > 1.5e-14)
+    double error_value = 0;
+    while (gradient.l2_norm() > 1.0e-10)
     {
         std::cout<<"Magnitude of the gradient before = "<<gradient.l2_norm()<<std::endl;
         iterations++;
         if(iterations > 50) break;
-        
+        std::cout<<"================================================================="<<std::endl;
+        std::cout<<"Nonlinear Newton iteration # : "<<iterations<<std::endl; 
+        std::cout<<"================================================================="<<std::endl;
         std::cout<<"Update 1: Obtaining search direction."<<std::endl;
         get_search_direction_from_hessian_gradient_system();
         std::cout<<"Update 1: Obtained search direction."<<std::endl;
@@ -252,13 +278,20 @@ void FullSpaceOptimization<dim, nstate, real, MeshType>::solve_optimization_prob
         std::cout<<"Update 2: Backtracking."<<std::endl;
         step_length = evaluate_backtracking_alpha();
         std::cout<<"Update 2: Finished backtracking."<<std::endl;
+        if(step_length == 0.0)
+        {
+            std::cout<<"Cannot reduce the functional any further."<<std::endl;
+            break;
+        }
         global_variables.add(step_length, search_direction);
         std::cout<<"Update 3: Evaluating gradient and hessian."<<std::endl;
         update_gradient_and_hessian();
         std::cout<<"Update 3: Evaluated gradient and hessian."<<std::endl;
         std::cout<<"Magnitude of the gradient = "<<gradient.l2_norm()<<std::endl;
         myfile_gradient<<gradient.l2_norm()<<std::endl;
-        myfile_error<<evaluate_function_val(global_variables)<<"\n";
+        error_value = evaluate_function_val(global_variables);
+        myfile_error<<error_value<<"\n";
+        std::cout<<"Error value = "<<error_value<<std::endl;
         myfile_residual<<residual_norm<<"\n";
         std::clock_t c_end = std::clock();
         time_elapsed = 1000.0*(c_end - c_start)/CLOCKS_PER_SEC;
@@ -268,6 +301,10 @@ void FullSpaceOptimization<dim, nstate, real, MeshType>::solve_optimization_prob
     myfile_error.close();
     myfile_residual.close();
     myfile_time.close();
+
+    // Output converged metric
+    GenerateTriangulation<dim, nstate, real, MeshType> triang(metric, refinement_level, true);
+    
 }
 
 template <int dim, int nstate, typename real, typename MeshType>
@@ -289,6 +326,35 @@ void FullSpaceOptimization<dim, nstate, real, MeshType>::check_metric(VectorType
         }
 
     }
+}
+
+template <int dim, int nstate, typename real, typename MeshType>
+bool FullSpaceOptimization<dim, nstate, real, MeshType>::check_metric_bool(VectorType &global_variables_modified)
+{
+    bool is_metric_good = true;
+    VectorType metric_modified = metric;
+    for(unsigned int i=0; i<n_inner_vertices; i++) // loop only over x
+    {
+        metric_modified(i) = global_variables_modified(i);
+    }
+
+    for(unsigned int i=0; i<n_inner_vertices; i++) // loop only over x
+    {
+        if(metric_modified(i) < 0.0 || metric_modified(i) > 1.0) 
+        {
+            is_metric_good = false;
+            return is_metric_good;
+        }
+        if(i < (metric_modified.size()-1))
+        {
+            if(metric_modified(i) > metric_modified(i+1)) 
+            {
+                is_metric_good = false;
+                return is_metric_good;
+            }
+        }
+    }
+    return is_metric_good;
 }
 
 

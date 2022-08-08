@@ -24,6 +24,7 @@ int MeshRAdaptation<dim, nstate>::run_test() const
     //ReducedSpaceOptimization<dim, nstate, double, MeshType> optimizer(refinement_level, poly_degree, &param);
     FullSpaceOptimization<dim, nstate, double, MeshType> optimizer(refinement_level, poly_degree, &param);
     optimizer.solve_optimization_problem();
+
 /*
 //==============================================================================================================================================================
                     // Check total derivative and hessian of the objective function
@@ -32,7 +33,6 @@ int MeshRAdaptation<dim, nstate>::run_test() const
     const bool colorize = true;
     dealii::GridGenerator::hyper_cube(*grid, 0, 1, colorize);
     grid->refine_global(param.manufactured_convergence_study_param.initial_grid_size);
-    unsigned int poly_degree = param.manufactured_convergence_study_param.degree_start;
     std::shared_ptr <DGBase<dim, double> > dg = DGFactory<dim,double>::create_discontinuous_galerkin(&param, poly_degree, poly_degree+1, 1, grid);
     dg->allocate_system();
     dg->solution*=0.0;
@@ -44,12 +44,12 @@ int MeshRAdaptation<dim, nstate>::run_test() const
     std::cout<<"Solved steady state."<<std::endl;
     
     std::cout<<"Now computing total derivative..."<<std::endl;
-    TotalDerivativeObjfunc<dim, nstate, double, MeshType> totder(dg);
+    TotalDerivativeObjfunc<dim, nstate, double, MeshType> totder(dg, true);
    
     std::cout<<"Checking with finite difference..."<<std::endl;
     auto cell = grid->begin_active();
     double step_size = 1.0e-6;
-    cell++;
+    //cell++;
     cell->vertex(1)[0] += step_size;
     std::shared_ptr <DGBase<dim, double> > dg2 = DGFactory<dim,double>::create_discontinuous_galerkin(&param, poly_degree, poly_degree+1, 1, grid);
     dg2->allocate_system();
@@ -57,14 +57,16 @@ int MeshRAdaptation<dim, nstate>::run_test() const
     dg2->solution = dg->solution;
     std::shared_ptr<ODE::ODESolverBase<dim, double>> ode_solver2 = ODE::ODESolverFactory<dim, double>::create_ODESolver(dg2);
     ode_solver2->steady_state();
-    TotalDerivativeObjfunc<dim, nstate, double, MeshType> totder2(dg2);
+    TotalDerivativeObjfunc<dim, nstate, double, MeshType> totder2(dg2, true);
     
     std::cout<<"dF_dX_total = "<<std::endl;
     totder.dF_dX_total.print(std::cout, 3, true, false);
     std::cout<<"dF_dX_FD = "<<(totder2.objective_function_val - totder.objective_function_val)/step_size<<std::endl;
     
-    std::cout<<"Hessian_total = "<<std::endl;
-    totder.Hessian_total.print(std::cout,10,1);
+    std::cout<<"Hessian_sparse = "<<std::endl;
+    dealii::FullMatrix<double> Hessian_sparse_full;
+    Hessian_sparse_full.copy_from(totder.Hessian_sparse);
+    Hessian_sparse_full.print(std::cout,10,1);
 
     dealii::LinearAlgebra::distributed::Vector<double> H_FD = totder2.dF_dX_total;
     H_FD -= totder.dF_dX_total;
