@@ -115,10 +115,15 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_solution_tilde
 {
     bool compute_dRdW = true, compute_dRdX=false;
     dg->assemble_residual(compute_dRdW, compute_dRdX);
+    residual = dg->right_hand_side;
     residual_norm = dg->get_residual_l2norm();
     r_u.copy_from(dg->system_matrix);
     r_u_transpose.copy_from(dg->system_matrix_transpose);
     std::cout<<"Stored r_u."<<std::endl;
+    compute_dRdW = false; compute_dRdX=true;
+    dg->assemble_residual(compute_dRdW, compute_dRdX);
+    r_x_initial.copy_from(dg->dRdXv);
+    std::cout<<"Stored r_x_initial."<<std::endl;
     
     std::cout<<"Computing solution fine and solution tilde..."<<std::endl;
     // Compute solution coarse tilde
@@ -290,7 +295,6 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_total_hessian(
     Hessian_total.add(1.0, term3);
     Hessian_total.Tadd(1.0, term3);
     std::cout<<"Formed total hessian."<<std::endl;
-//    Hessian_total.print(std::cout,10,1);
 
 // Convert Hessian to sparse matrix
     hessian_sparsity_pattern.copy_from(Hessian_total);

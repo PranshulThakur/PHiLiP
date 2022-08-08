@@ -1,6 +1,7 @@
 #include "mesh_r_adaptation.h"
 #include "ode_solver/ode_solver_factory.h"
 #include "functional/reduced_space_optimization.h"
+#include "functional/full_space_optimization.h"
 
 namespace PHiLiP {
 namespace Tests {
@@ -20,7 +21,8 @@ int MeshRAdaptation<dim, nstate>::run_test() const
     unsigned int poly_degree = param.manufactured_convergence_study_param.degree_start;
     unsigned int refinement_level = param.manufactured_convergence_study_param.initial_grid_size;
 
-    ReducedSpaceOptimization<dim, nstate, double, MeshType> optimizer(refinement_level, poly_degree, &param);
+    //ReducedSpaceOptimization<dim, nstate, double, MeshType> optimizer(refinement_level, poly_degree, &param);
+    FullSpaceOptimization<dim, nstate, double, MeshType> optimizer(refinement_level, poly_degree, &param);
     optimizer.solve_optimization_problem();
 /*
 //==============================================================================================================================================================

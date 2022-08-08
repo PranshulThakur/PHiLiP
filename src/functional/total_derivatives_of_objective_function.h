@@ -31,6 +31,7 @@ public:
     dealii::TrilinosWrappers::SparseMatrix Hessian_sparse;
     dealii::SparsityPattern hessian_sparsity_pattern;
     dealii::TrilinosWrappers::SparseMatrix r_x;
+    dealii::TrilinosWrappers::SparseMatrix r_x_initial;
     dealii::TrilinosWrappers::SparseMatrix r_u;
     dealii::TrilinosWrappers::SparseMatrix r_u_transpose;
     dealii::TrilinosWrappers::SparseMatrix R_x;
@@ -41,6 +42,7 @@ public:
     dealii::LinearAlgebra::distributed::Vector<real> solution_coarse_taylor_expanded; // U_H_tilde
     dealii::LinearAlgebra::distributed::Vector<real> solution_tilde_fine; // U_h^H tilde
     dealii::LinearAlgebra::distributed::Vector<real> solution_coarse_old; // Store old solution
+    dealii::LinearAlgebra::distributed::Vector<real> residual; ///< Residual of the DG discretization.
     
     dealii::LinearAlgebra::distributed::Vector<real> adjoint_fine; 
     dealii::LinearAlgebra::distributed::Vector<real> adjoint_tilde;

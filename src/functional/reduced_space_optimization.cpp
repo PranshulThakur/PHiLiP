@@ -13,7 +13,7 @@ ReducedSpaceOptimization<dim, nstate, real, MeshType>::ReducedSpaceOptimization(
     metric.reinit(n_inner_vertices);
 
     // Initialize metric with equidistributed vertices
-    double h = pow(2,-refinement_level);
+    double h = pow(2.0,-refinement_level);
     for(unsigned int i=0; i<metric.size(); i++)
     {
         metric(i) = (i+1)*h;

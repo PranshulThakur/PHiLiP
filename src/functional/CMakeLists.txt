@@ -9,7 +9,7 @@ SET(SOURCE
     total_derivatives_of_objective_function.cpp
     generate_triangulation.cpp
     reduced_space_optimization.cpp
-    )
+    full_space_optimization.cpp)
 
 foreach(dim RANGE 1 3)
     # Output library
