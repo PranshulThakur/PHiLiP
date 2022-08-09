@@ -99,12 +99,23 @@ void FullSpaceOptimization<dim, nstate, real, MeshType>::update_gradient_and_hes
         gradient(count1) = derivatives_of_objective_function.dF_dX_total(i);
         ++count1;
     }
+    //weight_of_residual_for_backtracking = 0.005/derivatives_of_objective_function.dF_dX_total.l2_norm();
+    if(derivatives_of_objective_function.dF_dX_total.l2_norm() < 1.0e-11)
+    {
+        weight_of_residual_for_backtracking = 1.0;
+    }
+    else
+    {
+        weight_of_residual_for_backtracking = 0.0;
+    }
     
     for(unsigned int i=0; i<n_dofs; i++)
     {
         gradient(count1) = derivatives_of_objective_function.residual(i);
         ++count1;
     }
+    std::cout<<"Norm of dF_dX_total = "<<derivatives_of_objective_function.dF_dX_total.l2_norm()<<std::endl;
+    std::cout<<"Norm of Residual = "<<derivatives_of_objective_function.residual.l2_norm()<<std::endl;
     
     // Form total hessian
     AssertDimension(n_inner_vertices, derivatives_of_objective_function.Hessian_sparse.m());
@@ -175,15 +186,13 @@ real FullSpaceOptimization<dim, nstate, real, MeshType>::evaluate_function_val(V
     
     bool evaluate_derivatives = false;
     TotalDerivativeObjfunc<dim, nstate, double, MeshType> derivatives_of_objective_function(dg, evaluate_derivatives);
-    return derivatives_of_objective_function.objective_function_val;
+    return ((1.0-weight_of_residual_for_backtracking)*derivatives_of_objective_function.objective_function_val + weight_of_residual_for_backtracking*derivatives_of_objective_function.residual_norm);
 }
 
 template <int dim, int nstate, typename real, typename MeshType>
 real FullSpaceOptimization<dim, nstate, real, MeshType>::evaluate_backtracking_alpha()
 {
-    //return 0.5;
-    //return 0.1;
-    double alpha = 0.5, c = 0.0, rho=0.1;
+    double alpha = 0.5, c = 0.0, rho=0.5;
     VectorType global_variables_modified  = global_variables;
     global_variables_modified.add(alpha, search_direction);
     double dwr_original = evaluate_function_val(global_variables);
@@ -253,7 +262,7 @@ void FullSpaceOptimization<dim, nstate, real, MeshType>::get_search_direction_fr
 template <int dim, int nstate, typename real, typename MeshType>
 void FullSpaceOptimization<dim, nstate, real, MeshType>::solve_optimization_problem()
 {
-    double step_length = 0.1;
+    double step_length = 0.5;
     int iterations = 0;
     std::ofstream myfile_gradient, myfile_error, myfile_residual, myfile_time;
     myfile_gradient.open("Full_space_gradient_convergence.txt");
@@ -267,7 +276,7 @@ void FullSpaceOptimization<dim, nstate, real, MeshType>::solve_optimization_prob
     {
         std::cout<<"Magnitude of the gradient before = "<<gradient.l2_norm()<<std::endl;
         iterations++;
-        if(iterations > 50) break;
+        if(iterations > 100) break;
         std::cout<<"================================================================="<<std::endl;
         std::cout<<"Nonlinear Newton iteration # : "<<iterations<<std::endl; 
         std::cout<<"================================================================="<<std::endl;
@@ -278,6 +287,7 @@ void FullSpaceOptimization<dim, nstate, real, MeshType>::solve_optimization_prob
         std::cout<<"Update 2: Backtracking."<<std::endl;
         step_length = evaluate_backtracking_alpha();
         std::cout<<"Update 2: Finished backtracking."<<std::endl;
+
         if(step_length == 0.0)
         {
             std::cout<<"Cannot reduce the functional any further."<<std::endl;

@@ -33,6 +33,7 @@ class FullSpaceOptimization
     unsigned int n_total;
     unsigned int n_dofs;
     real residual_norm;
+    real weight_of_residual_for_backtracking;
 
 public:
     FullSpaceOptimization(unsigned int refienement_level_input, unsigned int polynomial_order_input, const Parameters::AllParameters *const parameters_input);
