@@ -272,7 +272,7 @@ void FullSpaceOptimization<dim, nstate, real, MeshType>::solve_optimization_prob
     std::clock_t c_start = std::clock();
     double time_elapsed = 0;
     double error_value = 0;
-    while (gradient.l2_norm() > 1.0e-10)
+    while (gradient.l2_norm() > 1.0e-12)
     {
         std::cout<<"Magnitude of the gradient before = "<<gradient.l2_norm()<<std::endl;
         iterations++;
