@@ -20,6 +20,7 @@ AllParameters::AllParameters ()
     , flow_solver_param(FlowSolverParam())
     , mesh_adaptation_param(MeshAdaptationParam())
     , functional_param(FunctionalParam())
+    , time_refinement_study_param(TimeRefinementStudyParam())
     , pcout(std::cout, dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD)==0)
 { }
 
@@ -128,6 +129,8 @@ void AllParameters::declare_parameters (dealii::ParameterHandler &prm)
                       " taylor_green_vortex_energy_check | "
                       " taylor_green_vortex_restart_check | "
                       " time_refinement_study | "
+                      " time_refinement_study_reference | "
+                      " burgers_energy_conservation_rrk | "
                       " mesh_r_adaptation "),
                       "The type of test we want to solve. "
                       "Choices are " 
@@ -158,6 +161,8 @@ void AllParameters::declare_parameters (dealii::ParameterHandler &prm)
                       "  taylor_green_vortex_energy_check | "
                       "  taylor_green_vortex_restart_check | "
                       "  time_refinement_study | "
+                      "  time_refinement_study_reference | "
+                      "  burgers_energy_conservation_rrk | "
                       "  mesh_r_adaptation>.");
 
     prm.declare_entry("pde_type", "advection",
@@ -212,22 +217,17 @@ void AllParameters::declare_parameters (dealii::ParameterHandler &prm)
     Parameters::LinearSolverParam::declare_parameters (prm);
     Parameters::ManufacturedConvergenceStudyParam::declare_parameters (prm);
     Parameters::ODESolverParam::declare_parameters (prm);
-
     Parameters::EulerParam::declare_parameters (prm);
     Parameters::NavierStokesParam::declare_parameters (prm);
-    
     Parameters::PhysicsModelParam::declare_parameters (prm);
-
     Parameters::ReducedOrderModelParam::declare_parameters (prm);
     Parameters::BurgersParam::declare_parameters (prm);
     Parameters::GridRefinementStudyParam::declare_parameters (prm);
-   
     Parameters::ArtificialDissipationParam::declare_parameters (prm);
     Parameters::MeshAdaptationParam::declare_parameters (prm);
-
     Parameters::FlowSolverParam::declare_parameters (prm);
-    
     Parameters::FunctionalParam::declare_parameters (prm);
+    Parameters::TimeRefinementStudyParam::declare_parameters (prm);
 
     pcout << "Done declaring inputs." << std::endl;
 }
@@ -276,6 +276,8 @@ void AllParameters::parse_parameters (dealii::ParameterHandler &prm)
     else if (test_string == "taylor_green_vortex_energy_check")         { test_type = taylor_green_vortex_energy_check; }
     else if (test_string == "taylor_green_vortex_restart_check")        { test_type = taylor_green_vortex_restart_check; }
     else if (test_string == "time_refinement_study")                    { test_type = time_refinement_study; }
+    else if (test_string == "time_refinement_study_reference")          { test_type = time_refinement_study_reference; }
+    else if (test_string == "burgers_energy_conservation_rrk")          { test_type = burgers_energy_conservation_rrk; }
     else if (test_string == "mesh_r_adaptation")                        { test_type = mesh_r_adaptation; }
     
     // WARNING: Must assign model_type before pde_type
@@ -409,6 +411,9 @@ void AllParameters::parse_parameters (dealii::ParameterHandler &prm)
     
     pcout << "Parsing functional subsection..." << std::endl;
     functional_param.parse_parameters (prm);
+    
+    pcout << "Parsing time refinement study subsection..." << std::endl;
+    time_refinement_study_param.parse_parameters (prm);
     
     pcout << "Done parsing." << std::endl;
 }

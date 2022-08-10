@@ -26,6 +26,8 @@ set(TESTS_SOURCE
     adaptive_sampling_testing.cpp
     reduced_order.cpp
     time_refinement_study.cpp
+    time_refinement_study_reference.cpp
+    burgers_energy_conservation_rrk.cpp
     mesh_r_adaptation.cpp)
 
 foreach(dim RANGE 1 3)
