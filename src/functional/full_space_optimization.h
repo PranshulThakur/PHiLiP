@@ -51,6 +51,7 @@ public:
     void get_search_direction_from_hessian_gradient_system();
     void check_metric(VectorType &metric_modified);
     bool check_metric_bool(VectorType &global_variables_modified);
+    void output_vertices_and_solution();
 };
 
 } // namespace PHiLiP

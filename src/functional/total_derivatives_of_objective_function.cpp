@@ -142,6 +142,12 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_solution_tilde
     compute_dRdW = false; compute_dRdX=true;
     dg->assemble_residual(compute_dRdW, compute_dRdX);
     r_x.copy_from(dg->dRdXv);
+//============================================================================================
+  /*  compute_dRdW = true; compute_dRdX=false;
+    dg->assemble_residual(compute_dRdW, compute_dRdX);
+    r_u.copy_from(dg->system_matrix);
+    r_u_transpose.copy_from(dg->system_matrix_transpose);*/
+//============================================================================================
     std::cout<<"Stored r_x."<<std::endl;
 
     // Get solution back
@@ -170,6 +176,12 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_solution_tilde
     compute_dRdW = false; compute_dRdX=true;
     dg->assemble_residual(compute_dRdW, compute_dRdX);
     R_x.copy_from(dg->dRdXv);
+//============================================================================================
+   /* compute_dRdW = true; compute_dRdX=false;
+    dg->assemble_residual(compute_dRdW, compute_dRdX);
+    R_u.copy_from(dg->system_matrix);
+    R_u_transpose.copy_from(dg->system_matrix_transpose);*/
+//============================================================================================
     std::cout<<"Stored R_x."<<std::endl;
     
     // Get solution back

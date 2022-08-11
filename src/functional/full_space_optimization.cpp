@@ -89,17 +89,24 @@ void FullSpaceOptimization<dim, nstate, real, MeshType>::update_gradient_and_hes
     
     bool evaluate_derivatives = true;
     TotalDerivativeObjfunc<dim, nstate, double, MeshType> derivatives_of_objective_function(dg, evaluate_derivatives);
+    residual_norm = derivatives_of_objective_function.residual_norm;
     // Form vector of derivatives
     AssertDimension(n_inner_vertices, derivatives_of_objective_function.dF_dX_total.size());
     AssertDimension(n_dofs, derivatives_of_objective_function.residual.size());
-    
     unsigned int count1 = 0;
     for(unsigned int i=0; i<n_inner_vertices; i++)
     {
         gradient(count1) = derivatives_of_objective_function.dF_dX_total(i);
         ++count1;
     }
-    //weight_of_residual_for_backtracking = 0.005/derivatives_of_objective_function.dF_dX_total.l2_norm();
+    for(unsigned int i=0; i<n_dofs; i++)
+    {
+        gradient(count1) = derivatives_of_objective_function.residual(i);
+        ++count1;
+    }
+    
+    //weight_of_residual_for_backtracking = 1.0e-5/derivatives_of_objective_function.dF_dX_total.l2_norm();
+    
     if(derivatives_of_objective_function.dF_dX_total.l2_norm() < 1.0e-11)
     {
         weight_of_residual_for_backtracking = 1.0;
@@ -109,11 +116,6 @@ void FullSpaceOptimization<dim, nstate, real, MeshType>::update_gradient_and_hes
         weight_of_residual_for_backtracking = 0.0;
     }
     
-    for(unsigned int i=0; i<n_dofs; i++)
-    {
-        gradient(count1) = derivatives_of_objective_function.residual(i);
-        ++count1;
-    }
     std::cout<<"Norm of dF_dX_total = "<<derivatives_of_objective_function.dF_dX_total.l2_norm()<<std::endl;
     std::cout<<"Norm of Residual = "<<derivatives_of_objective_function.residual.l2_norm()<<std::endl;
     
@@ -153,7 +155,6 @@ void FullSpaceOptimization<dim, nstate, real, MeshType>::update_gradient_and_hes
         }
     }
 
-    residual_norm = derivatives_of_objective_function.residual_norm;
     std::cout<<"Updated gradient and hessian."<<std::endl;
 }
 
@@ -187,6 +188,7 @@ real FullSpaceOptimization<dim, nstate, real, MeshType>::evaluate_function_val(V
     bool evaluate_derivatives = false;
     TotalDerivativeObjfunc<dim, nstate, double, MeshType> derivatives_of_objective_function(dg, evaluate_derivatives);
     return ((1.0-weight_of_residual_for_backtracking)*derivatives_of_objective_function.objective_function_val + weight_of_residual_for_backtracking*derivatives_of_objective_function.residual_norm);
+   // return (derivatives_of_objective_function.objective_function_val + weight_of_residual_for_backtracking*pow(derivatives_of_objective_function.residual_norm,2));
 }
 
 template <int dim, int nstate, typename real, typename MeshType>
@@ -200,6 +202,7 @@ real FullSpaceOptimization<dim, nstate, real, MeshType>::evaluate_backtracking_a
     double dwr_modified;
     if(!is_metric_good) // If metric is not good, make sure dwr_modified > dwr_original so that alpha can be reduced.
     {
+        std::cout<<"Metric overlaps. Reducing the step size..."<<std::endl;
         dwr_modified = dwr_original + 1.0e10;
     }
     else
@@ -216,6 +219,7 @@ real FullSpaceOptimization<dim, nstate, real, MeshType>::evaluate_backtracking_a
         is_metric_good = check_metric_bool(global_variables_modified);
         if(!is_metric_good)
         {
+            std::cout<<"Metric overlaps. Reducing the step size..."<<std::endl;
             dwr_modified = dwr_original + 1.0e10;
         }
         else
@@ -224,7 +228,7 @@ real FullSpaceOptimization<dim, nstate, real, MeshType>::evaluate_backtracking_a
         }
 
 
-        if(alpha < 1.0e-7)
+        if(alpha < 1.0e-4)
         {
             std::cout<<"Backtracking alpha is too small"<<std::endl;
             return 0.0;
@@ -262,6 +266,7 @@ void FullSpaceOptimization<dim, nstate, real, MeshType>::get_search_direction_fr
 template <int dim, int nstate, typename real, typename MeshType>
 void FullSpaceOptimization<dim, nstate, real, MeshType>::solve_optimization_problem()
 {
+    output_vertices_and_solution();
     double step_length = 0.5;
     int iterations = 0;
     std::ofstream myfile_gradient, myfile_error, myfile_residual, myfile_time;
@@ -272,11 +277,11 @@ void FullSpaceOptimization<dim, nstate, real, MeshType>::solve_optimization_prob
     std::clock_t c_start = std::clock();
     double time_elapsed = 0;
     double error_value = 0;
-    while (gradient.l2_norm() > 1.0e-12)
+    while (gradient.l2_norm() > 1.0e-10)
     {
         std::cout<<"Magnitude of the gradient before = "<<gradient.l2_norm()<<std::endl;
         iterations++;
-        if(iterations > 100) break;
+        if(iterations > 70) break;
         std::cout<<"================================================================="<<std::endl;
         std::cout<<"Nonlinear Newton iteration # : "<<iterations<<std::endl; 
         std::cout<<"================================================================="<<std::endl;
@@ -313,8 +318,69 @@ void FullSpaceOptimization<dim, nstate, real, MeshType>::solve_optimization_prob
     myfile_time.close();
 
     // Output converged metric
-    GenerateTriangulation<dim, nstate, real, MeshType> triang(metric, refinement_level, true);
-    
+    output_vertices_and_solution(); 
+}
+
+template <int dim, int nstate, typename real, typename MeshType>
+void FullSpaceOptimization<dim, nstate, real, MeshType>::output_vertices_and_solution()
+{
+    GenerateTriangulation<dim, nstate, real, MeshType> triang(metric, refinement_level);
+    const unsigned int grid_degree = 1;
+    const unsigned int poly_degree = polynomial_order;
+    std::shared_ptr <DGBase<dim, real> > dg = DGFactory<dim, real>::create_discontinuous_galerkin(&all_param, polynomial_order, polynomial_order+1, grid_degree, triang.triangulation);
+    dg->allocate_system();
+    dg->solution = solution_coeffs;
+
+    std::cout<<"vertex_positions = "<<"[0, "; 
+    for(const auto &cell : dg->triangulation->active_cell_iterators())
+    {
+        std::cout<<cell->vertex(1)[0]<<", ";
+    }
+    std::cout<<"];"<<std::endl;
+
+
+   std::vector<double> solution_at_quad_pts;
+   std::vector<double> x_quad_pts;
+   dealii::QGauss<dim> quad(poly_degree + 1);
+   const dealii::Mapping<dim> &mapping = (*(dg->high_order_grid->mapping_fe_field));
+   dealii::FEValues<dim,dim> fe_values_volume(mapping, dg->fe_collection[poly_degree], quad, dealii::update_values | dealii::update_JxW_values | dealii::update_quadrature_points);
+   std::vector<dealii::types::global_dof_index> dof_indices(fe_values_volume.dofs_per_cell);
+   const unsigned int n_quad_pts = fe_values_volume.n_quadrature_points;
+   const unsigned int n_dofs_cell = fe_values_volume.dofs_per_cell;
+
+    for (const auto &cell : dg->dof_handler.active_cell_iterators())
+    {
+         if (!(cell->is_locally_owned() || cell->is_ghost())) continue;
+        // Get FEValues of of the current cell.
+         fe_values_volume.reinit(cell);
+         cell->get_dof_indices(dof_indices);
+        
+        for (unsigned int iquad = 0; iquad < n_quad_pts; ++iquad)
+        {
+            x_quad_pts.push_back(fe_values_volume.quadrature_point(iquad)[0]); // get physical quadrature
+            double soln_at_q = 0;
+            for(unsigned int idof = 0; idof < n_dofs_cell; idof++)
+            {
+                const unsigned int istate = fe_values_volume.get_fe().system_to_component_index(idof).first;
+                soln_at_q += dg->solution[dof_indices[idof]]*fe_values_volume.shape_value_component(idof, iquad, istate);
+            }
+            solution_at_quad_pts.push_back(soln_at_q);
+        }
+            
+    }
+    std::cout<<"solution = [ "<<solution_at_quad_pts[0];
+    for (unsigned int i=1; i<solution_at_quad_pts.size(); i++)
+    {
+        std::cout<<", "<<solution_at_quad_pts[i];
+    }
+    std::cout<<"];"<<std::endl;;
+
+    std::cout<<"x_quad_pts = [ "<<x_quad_pts[0];
+    for (unsigned int i=1; i<x_quad_pts.size(); i++)
+    {
+        std::cout<<", "<<x_quad_pts[i];
+    }
+    std::cout<<"];"<<std::endl;;
 }
 
 template <int dim, int nstate, typename real, typename MeshType>
