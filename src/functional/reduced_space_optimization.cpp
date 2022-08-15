@@ -83,22 +83,43 @@ real ReducedSpaceOptimization<dim, nstate, real, MeshType>::evaluate_function_va
 template <int dim, int nstate, typename real, typename MeshType>
 real ReducedSpaceOptimization<dim, nstate, real, MeshType>::evaluate_backtracking_alpha()
 {
-    return 0.1;
-    double alpha = 0.5, c = 0.1, rho=0.5;
+    double alpha = 0.3, c = 0.0, rho=0.5;
     VectorType metric_modified  = metric;
     metric_modified.add(alpha, search_direction);
-    check_metric(metric_modified);
     double dwr_original = evaluate_function_val(metric);
-    while (evaluate_function_val(metric_modified) >= (dwr_original + c*alpha*(gradient*search_direction)))
+    bool is_metric_good = check_metric_bool(metric_modified);
+    double dwr_modified;
+    if(!is_metric_good)
+    {
+         std::cout<<"Metric overlaps. Reducing the step size..."<<std::endl;
+         dwr_modified = dwr_original + 1.0e10;
+    }
+    else
+    {
+        dwr_modified = evaluate_function_val(metric_modified);
+    }
+
+    while (dwr_modified >= (dwr_original + c*alpha*(gradient*search_direction)))
     {
         alpha *= rho;
         metric_modified = metric;
         metric_modified.add(alpha,search_direction);
+        is_metric_good = check_metric_bool(metric_modified);
+        if(!is_metric_good)
+        {
+             std::cout<<"Metric overlaps. Reducing the step size..."<<std::endl;
+             dwr_modified = dwr_original + 1.0e10;
+        }
+        else
+        {
+            dwr_modified = evaluate_function_val(metric_modified);
+        }
 
-        if(alpha < 1.0e-15)
+
+        if(alpha < 1.0e-4)
         {
             std::cout<<"Backtracking alpha is too small"<<std::endl;
-            return 1.0e-1;
+            return 0.0;
         }
     }
     std::cout<<"Backtracking alpha = "<<alpha<<std::endl;
@@ -116,7 +137,7 @@ void ReducedSpaceOptimization<dim, nstate, real, MeshType>::get_search_direction
 template <int dim, int nstate, typename real, typename MeshType>
 void ReducedSpaceOptimization<dim, nstate, real, MeshType>::solve_optimization_problem()
 {
-    double step_length = 0.1;
+    double step_length;
     int iterations = 0;
     std::ofstream myfile_gradient, myfile_error, myfile_residual, myfile_time;
     myfile_gradient.open("Reduced_space_gradient_convergence.txt");
@@ -125,11 +146,11 @@ void ReducedSpaceOptimization<dim, nstate, real, MeshType>::solve_optimization_p
     myfile_time.open("Reduced_space_time.txt");
     std::clock_t c_start = std::clock();
     double time_elapsed = 0;
-    while (gradient.l2_norm() > 1.5e-14)
+    while (gradient.l2_norm() > 1.0e-10)
     {
         std::cout<<"Magnitude of the gradient before = "<<gradient.l2_norm()<<std::endl;
         iterations++;
-        if(iterations > 50) break;
+        if(iterations > 70) break;
         
         std::cout<<"Update 1: Obtaining search direction."<<std::endl;
         get_search_direction_from_hessian_gradient_system();
@@ -137,9 +158,13 @@ void ReducedSpaceOptimization<dim, nstate, real, MeshType>::solve_optimization_p
 
         std::cout<<"Update 2: Backtracking."<<std::endl;
         step_length = evaluate_backtracking_alpha();
+        if(step_length == 0.0)
+        {
+            std::cout<<"Cannot reduce the functional any further."<<std::endl;
+            break;
+        }
         std::cout<<"Update 2: Finished backtracking."<<std::endl;
         metric.add(step_length, search_direction);
-        check_metric(metric);
         std::cout<<"Update 3: Evaluating gradient and hessian."<<std::endl;
         update_gradient_and_hessian();
         std::cout<<"Update 3: Evaluated gradient and hessian."<<std::endl;
@@ -178,6 +203,30 @@ void ReducedSpaceOptimization<dim, nstate, real, MeshType>::check_metric(VectorT
     }
 }
 
+template <int dim, int nstate, typename real, typename MeshType>
+bool ReducedSpaceOptimization<dim, nstate, real, MeshType>::check_metric_bool(VectorType &metric_modified)
+{
+    bool is_metric_good = true;
+    for(unsigned int i=0; i<metric_modified.size(); i++)
+    {
+        is_metric_good = true;
+        if(metric_modified(i) < 0.0 || metric_modified(i) > 1.0) 
+        {
+            is_metric_good = false;
+            return is_metric_good;
+        }
+        if(i < (metric_modified.size()-1))
+        {
+            if(metric_modified(i) > metric_modified(i+1)) 
+            {
+                is_metric_good = false;
+                return is_metric_good;
+            }
+        }
+
+    }
+    return is_metric_good;
+}
 
 #if PHILIP_DIM == 1
 template class ReducedSpaceOptimization<PHILIP_DIM, 1, double, dealii::Triangulation<PHILIP_DIM>>;
