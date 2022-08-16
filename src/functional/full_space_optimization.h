@@ -39,6 +39,7 @@ public:
     FullSpaceOptimization(unsigned int refienement_level_input, unsigned int polynomial_order_input, const Parameters::AllParameters *const parameters_input);
     ~FullSpaceOptimization() {};
     real evaluate_function_val(VectorType &modified_global_variables); ///< Required for backtracking.
+    real evaluate_function_val_from_converged_solution(VectorType &modified_global_variables);
     void update_gradient_and_hessian();
     void solve_for_reduced_solution_coeff();
     real evaluate_backtracking_alpha();

@@ -105,7 +105,7 @@ void FullSpaceOptimization<dim, nstate, real, MeshType>::update_gradient_and_hes
         ++count1;
     }
     
-    //weight_of_residual_for_backtracking = 1.0e-5/derivatives_of_objective_function.dF_dX_total.l2_norm();
+   // weight_of_residual_for_backtracking = 1.0e-2/derivatives_of_objective_function.dF_dX_total.l2_norm();
     
     if(derivatives_of_objective_function.dF_dX_total.l2_norm() < 1.0e-11)
     {
@@ -192,9 +192,43 @@ real FullSpaceOptimization<dim, nstate, real, MeshType>::evaluate_function_val(V
 }
 
 template <int dim, int nstate, typename real, typename MeshType>
+real FullSpaceOptimization<dim, nstate, real, MeshType>::evaluate_function_val_from_converged_solution(VectorType &global_variables_modified)
+{
+    VectorType metric_modified(n_inner_vertices);
+    VectorType solution_coeffs_modified(n_dofs);
+    AssertDimension(global_variables_modified.size(), n_total);
+    unsigned int count1 = 0;
+    for(unsigned int i=0; i<n_inner_vertices; ++i)
+    {
+        metric_modified(i) = global_variables_modified(count1);
+        ++count1;
+    }
+    
+    for(unsigned int i=0; i<n_dofs; ++i)
+    {
+        solution_coeffs_modified(i) = global_variables_modified(count1);
+        ++count1;
+    }
+
+    check_metric(metric_modified);
+    GenerateTriangulation<dim, nstate, real, MeshType> triang(metric_modified, refinement_level);
+    const unsigned int grid_degree = 1;
+    std::shared_ptr <DGBase<dim, real> > dg = DGFactory<dim, real>::create_discontinuous_galerkin(&all_param, polynomial_order, polynomial_order+1, grid_degree, triang.triangulation);
+    dg->allocate_system();
+    AssertDimension(dg->solution.size(), solution_coeffs_modified.size());
+    dg->solution = solution_coeffs_modified;
+    std::shared_ptr<ODE::ODESolverBase<dim, double>> ode_solver = ODE::ODESolverFactory<dim, double>::create_ODESolver(dg);
+    ode_solver->steady_state();
+    
+    bool evaluate_derivatives = false;
+    TotalDerivativeObjfunc<dim, nstate, double, MeshType> derivatives_of_objective_function(dg, evaluate_derivatives);
+    return derivatives_of_objective_function.objective_function_val;
+}
+
+template <int dim, int nstate, typename real, typename MeshType>
 real FullSpaceOptimization<dim, nstate, real, MeshType>::evaluate_backtracking_alpha()
 {
-    double alpha = 0.5, c = 0.0, rho=0.5;
+    double alpha = 0.2, c = 0.0, rho=0.5;
     VectorType global_variables_modified  = global_variables;
     global_variables_modified.add(alpha, search_direction);
     double dwr_original = evaluate_function_val(global_variables);
@@ -269,9 +303,10 @@ void FullSpaceOptimization<dim, nstate, real, MeshType>::solve_optimization_prob
     output_vertices_and_solution();
     double step_length = 0.5;
     int iterations = 0;
-    std::ofstream myfile_gradient, myfile_error, myfile_residual, myfile_time;
+    std::ofstream myfile_gradient, myfile_error, myfile_error_r0, myfile_residual, myfile_time;
     myfile_gradient.open("Full_space_gradient_convergence.txt");
     myfile_error.open("Full_space_error_convergence.txt");
+    myfile_error_r0.open("Full_space_error_convergence_R0.txt");
     myfile_residual.open("Full_space_residual_convergence.txt");
     myfile_time.open("Full_space_time.txt");
     std::clock_t c_start = std::clock();
@@ -304,9 +339,13 @@ void FullSpaceOptimization<dim, nstate, real, MeshType>::solve_optimization_prob
         std::cout<<"Update 3: Evaluated gradient and hessian."<<std::endl;
         std::cout<<"Magnitude of the gradient = "<<gradient.l2_norm()<<std::endl;
         myfile_gradient<<gradient.l2_norm()<<std::endl;
+        
         error_value = evaluate_function_val(global_variables);
         myfile_error<<error_value<<"\n";
         std::cout<<"Error value = "<<error_value<<std::endl;
+        error_value = evaluate_function_val_from_converged_solution(global_variables);
+        myfile_error_r0<<error_value<<"\n";
+
         myfile_residual<<residual_norm<<"\n";
         std::clock_t c_end = std::clock();
         time_elapsed = 1000.0*(c_end - c_start)/CLOCKS_PER_SEC;
@@ -314,6 +353,7 @@ void FullSpaceOptimization<dim, nstate, real, MeshType>::solve_optimization_prob
     }
     myfile_gradient.close();
     myfile_error.close();
+    myfile_error_r0.close();
     myfile_residual.close();
     myfile_time.close();
 

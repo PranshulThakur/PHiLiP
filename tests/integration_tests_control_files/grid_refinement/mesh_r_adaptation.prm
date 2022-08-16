@@ -5,7 +5,7 @@ set dimension = 1
 
 # The PDE we want to solve. Choices are
 # <advection|diffusion|convection_diffusion>.
-set pde_type  = advection #burgers_inviscid    
+set pde_type  = burgers_viscous #advection   
 set test_type = mesh_r_adaptation
 
 subsection linear solver
@@ -24,7 +24,7 @@ subsection ODE solver
   set nonlinear_max_iterations            = 500
 
   # Nonlinear solver residual tolerance
-  set nonlinear_steady_residual_tolerance = 1e-15
+  set nonlinear_steady_residual_tolerance = 1e-12
 
   # Print every print_iteration_modulo iterations of the nonlinear solver
   set print_iteration_modulo              = 1
