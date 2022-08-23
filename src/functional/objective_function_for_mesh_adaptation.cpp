@@ -302,14 +302,14 @@ real2 ObjectiveFunctionMeshAdaptation<dim,nstate,real,MeshType> :: evaluate_volu
     real2 cell_functional_value_tilde = functional->evaluate_volume_cell_functional(physics, soln_coeff_tilde, fe_solution, coords_coeff, fe_metric, volume_quadrature);
     real2 eta_cell = cell_functional_value_fine - cell_functional_value_tilde;
     
-    real2 cell_objecive_function_value = std::pow(eta_cell, 2);
+    real2 cell_objecive_function_value = std::pow(eta_cell, 1);
     real2 sum_mesh_weight = 0.0;
-    double mu_val = 1.0e-15;
+    double mu_val = 0.0;
 
-    for(unsigned int i=0; i<coords_coeff.size() - 1; i++)
-    {
-        sum_mesh_weight += pow(coords_coeff[i] - coords_coeff[i+1], -2);
-    }
+   // for(unsigned int i=0; i<coords_coeff.size() - 1; i++)
+   // {
+   //     sum_mesh_weight += pow(coords_coeff[i] - coords_coeff[i+1], -2);
+   // }
 
     cell_objecive_function_value += mu_val*sum_mesh_weight;
     return cell_objecive_function_value;
@@ -332,7 +332,7 @@ real2 ObjectiveFunctionMeshAdaptation<dim,nstate,real,MeshType> :: evaluate_boun
     real2 cell_functional_value_tilde = functional->evaluate_boundary_cell_functional(physics, boundary_id, soln_coeff_tilde, fe_solution, coords_coeff, fe_metric, face_number, face_quadrature);
     real2 eta_cell = cell_functional_value_fine - cell_functional_value_tilde;
     
-    real2 cell_objecive_function_value = std::pow(eta_cell, 2);
+    real2 cell_objecive_function_value = std::pow(eta_cell, 1);
     return cell_objecive_function_value;
 }
 

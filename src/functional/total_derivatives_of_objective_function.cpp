@@ -13,6 +13,7 @@ TotalDerivativeObjfunc<dim, nstate, real, MeshType>::TotalDerivativeObjfunc(std:
     objfunc = std::make_unique<ObjectiveFunctionMeshAdaptation<dim, nstate, real, MeshType>>(dg, solution_fine, solution_tilde_fine);
     objective_function_val = objfunc->evaluate_objective_function_and_derivatives();
     refine_or_coarsen_dg(dg->initial_degree); //coarsen dg back.
+   // Assert(solution_coarse_old.l2_norm() == dg->solution.l2_norm(), dealii::ExcMessage("Solution is not the same after refining and coarsening back."));
     if(evaluate_derivatives)
     {
         compute_adjoints();
@@ -113,6 +114,7 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::refine_or_coarsen_dg(u
 template <int dim, int nstate, typename real, typename MeshType>
 void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_solution_tilde_and_solution_fine()
 {
+    solution_coarse_old = dg->solution;
     bool compute_dRdW = true, compute_dRdX=false;
     dg->assemble_residual(compute_dRdW, compute_dRdX);
     residual = dg->right_hand_side;
@@ -127,16 +129,15 @@ void TotalDerivativeObjfunc<dim, nstate, real, MeshType>::compute_solution_tilde
     
     std::cout<<"Computing solution fine and solution tilde..."<<std::endl;
     // Compute solution coarse tilde
-    dg->system_matrix *= -1.0;
     solution_coarse_taylor_expanded.reinit(dg->solution.size());
-    solve_linear(dg->system_matrix, dg->right_hand_side, solution_coarse_taylor_expanded, dg->all_parameters->linear_solver_param);
+    solve_linear(r_u, dg->right_hand_side, solution_coarse_taylor_expanded, dg->all_parameters->linear_solver_param);
+    solution_coarse_taylor_expanded *= -1.0;
     solution_coarse_taylor_expanded += dg->solution;
     std::cout<<"Computed solution coarse taylor expanded."<<std::endl;
     // Interpolate solution on finer grid
     interpolation_matrix.vmult(solution_tilde_fine, solution_coarse_taylor_expanded);
     
     // Store r_x 
-    solution_coarse_old = dg->solution;
     dg->solution = solution_coarse_taylor_expanded;
     
     compute_dRdW = false; compute_dRdX=true;

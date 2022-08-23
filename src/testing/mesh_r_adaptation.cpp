@@ -19,12 +19,71 @@ int MeshRAdaptation<dim, nstate>::run_test() const
     Assert(dim == 1, dealii::ExcDimensionMismatch(dim, param.dimension));
     using MeshType = dealii::Triangulation<dim>;
     unsigned int poly_degree = param.manufactured_convergence_study_param.degree_start;
-    unsigned int refinement_level = param.manufactured_convergence_study_param.initial_grid_size;
+    //unsigned int refinement_level = param.manufactured_convergence_study_param.initial_grid_size;
+    
+    std::shared_ptr<MeshType> grid = std::make_shared<MeshType>();
+    const bool colorize = true;
+    dealii::GridGenerator::hyper_cube(*grid, 0, 1, colorize);
+    grid->refine_global(param.manufactured_convergence_study_param.initial_grid_size);
+    unsigned int grid_degree = 1;
+    std::shared_ptr <DGBase<dim, double> > dg = DGFactory<dim,double>::create_discontinuous_galerkin(&param, poly_degree, poly_degree+1, grid_degree, grid);
+    dg->allocate_system();
+    dg->solution*=0.0;
+    std::cout<<"Created and allocated DG."<<std::endl;
 
+    std::shared_ptr<ODE::ODESolverBase<dim, double>> ode_solver = ODE::ODESolverFactory<dim, double>::create_ODESolver(dg);
+    std::cout<<"Created ODE solver."<<std::endl;
+    ode_solver->steady_state();
+    std::cout<<"Solved steady state."<<std::endl;
+    std::shared_ptr< Functional<dim, nstate, double, MeshType> > functional = FunctionalFactory<dim,nstate,double,MeshType>::create_Functional(dg->all_parameters->functional_param, dg);
+    const double functional_value_coarse = functional->evaluate_functional();
+
+    // Adjoint based error indicator
+    std::unique_ptr <MeshErrorEstimateBase <dim, double, MeshType>> mesh_error_adjoint = std::make_unique<DualWeightedResidualError<dim, nstate, double, MeshType>>(dg);
+    dealii::Vector<double> cellwise_errors = mesh_error_adjoint->compute_cellwise_errors();
+    
+    double adjoint_functional_error = 0.0;
+    for(unsigned int i=0; i<cellwise_errors.size(); ++i)
+    {
+        adjoint_functional_error += cellwise_errors(i);
+    }
+
+    // Direct functional error
+    TotalDerivativeObjfunc<dim, nstate, double, MeshType> totder(dg, false);
+    const double direct_taylor_expansion_error = totder.objective_function_val;
+    // Exact functional error
+    std::shared_ptr <DGBase<dim, double> > dg_fine = DGFactory<dim,double>::create_discontinuous_galerkin(&param, poly_degree+1, poly_degree+2, grid_degree, grid);
+    dg_fine->allocate_system();
+    dg_fine->solution*=0.0;
+    std::cout<<"Created and allocated DG."<<std::endl;
+
+    std::shared_ptr<ODE::ODESolverBase<dim, double>> ode_solver_fine = ODE::ODESolverFactory<dim, double>::create_ODESolver(dg_fine);
+    std::cout<<"Created ODE solver."<<std::endl;
+    ode_solver_fine->steady_state();
+    std::cout<<"Solved steady state."<<std::endl;
+    
+    std::shared_ptr< Functional<dim, nstate, double, MeshType> > functional_fine = FunctionalFactory<dim,nstate,double,MeshType>::create_Functional(dg_fine->all_parameters->functional_param, dg_fine);
+    const double functional_value_fine = functional_fine->evaluate_functional();
+    const double exact_functional_error = functional_value_fine - functional_value_coarse;
+
+    std::cout<<"Results of the analysis: "<<std::endl;
+    std::cout<<"Adjoint based functional error = "<<adjoint_functional_error<<std::endl;
+    std::cout<<"Direct taylor expanded functional error = "<<direct_taylor_expansion_error<<std::endl;
+    std::cout<<"Exact functional error = "<<exact_functional_error<<std::endl;
+    std::cout<<"N_dofs = "<<dg->n_dofs()<<std::endl;
+
+
+
+
+
+    /*
+//==============================================================================================================================================================
+                    // Run optimization algorithm.
+//==============================================================================================================================================================
     //ReducedSpaceOptimization<dim, nstate, double, MeshType> optimizer(refinement_level, poly_degree, &param);
     FullSpaceOptimization<dim, nstate, double, MeshType> optimizer(refinement_level, poly_degree, &param);
     optimizer.solve_optimization_problem();
-
+    */
 /*
 //==============================================================================================================================================================
                     // Check total derivative and hessian of the objective function
