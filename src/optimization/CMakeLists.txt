@@ -1,14 +1,14 @@
-set(TESTS_SOURCE
+add_subdirectory(shape_optimization)
+
+set(OPTIMIZATION_SOURCE
     rol_to_dealii_vector.cpp
     dealii_solver_rol_vector.cpp
-    flow_constraints.cpp
-    rol_objective.cpp
     full_space_step.cpp)
 
 foreach(dim RANGE 1 3)
     # Output library
     string(CONCAT OptimizationLib Optimization_${dim}D)
-    add_library(${OptimizationLib} STATIC ${TESTS_SOURCE})
+    add_library(${OptimizationLib} STATIC ${OPTIMIZATION_SOURCE})
     # Replace occurences of PHILIP_DIM with 1, 2, or 3 in the code
     target_compile_definitions(${OptimizationLib} PRIVATE PHILIP_DIM=${dim})
 

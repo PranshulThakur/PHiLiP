@@ -1,7 +1,7 @@
-#include "optimization/flow_constraints.hpp"
+#include "optimization/shape_optimization/flow_constraints.hpp"
 #include "mesh/meshmover_linear_elasticity.hpp"
 
-#include "rol_to_dealii_vector.hpp"
+#include "optimization/rol_to_dealii_vector.hpp"
 
 #include "ode_solver/ode_solver_factory.h"
 

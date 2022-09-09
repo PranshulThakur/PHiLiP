@@ -1,4 +1,4 @@
-#include "rol_to_dealii_vector.hpp"
+#include "optimization/rol_to_dealii_vector.hpp"
 #include "rol_objective.hpp"
 
 #include <deal.II/optimization/rol/vector_adaptor.h>

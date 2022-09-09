@@ -27,8 +27,8 @@
 #include "mesh/free_form_deformation.h"
 
 #include "optimization/rol_to_dealii_vector.hpp"
-#include "optimization/flow_constraints.hpp"
-#include "optimization/rol_objective.hpp"
+#include "optimization/shape_optimization/flow_constraints.hpp"
+#include "optimization/shape_optimization/rol_objective.hpp"
 
 #include "optimization/full_space_step.hpp"
 
