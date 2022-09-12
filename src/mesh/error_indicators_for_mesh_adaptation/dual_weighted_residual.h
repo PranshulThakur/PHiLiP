@@ -5,12 +5,11 @@
 
 namespace PHiLiP {
 
-
 /// DualWeightedResidualError class
 /** 
   * This class computes the discrete adjoint of the system based on a functional of interest and
   * a computed DG solution. Uses the Sacado functions Functional::evaluate_dIdw() and DGBase::assemble_residual()
-  * to generate and solve the discrete adjoint system
+  * to generate and solve the discrete adjoint system.
   * 
   * \f[
   *     \left( \frac{\partial \mathbf{R}}{\partial \mathbf{u}} \right)^T \psi 
@@ -43,22 +42,22 @@ public:
      */
     DualWeightedResidualError(std::shared_ptr< DGBase<dim, real, MeshType> > dg_input);
 
-    ///destructor
+    ///Destructor
     ~DualWeightedResidualError() {};
 
-    /// Reinitialize DualWeightedResidualError with the same pointers
+    /// Reinitializes member variables of DualWeightedResidualError. 
     /** Sets solution_refinement_state to SolutionRefinementStateEnum::coarse and stores the current
      *  solution and polynomial order distribution
      */
     void reinit();
     
-    /// Converts the DG solution to specified state
+    /// Converts DG solution to the specified state.
     /** Calls the functions coarse_to_fine() or fine_to_coarse()
      *  if the DualWeightedResidualError::solution_refinement_state is different than the input \p state
      */
     void convert_dgsolution_to_coarse_or_fine(SolutionRefinementStateEnum refinement_state);
 
-    /// Projects the problem to a p-enriched space
+    /// Projects the problem to a p-enriched space.
     /** Raises the FE_index on each cell and transfers the coarse 
      *  solution to a fine solution (stored in DGBase::solution)
      */
@@ -132,9 +131,7 @@ public:
     dealii::LinearAlgebra::distributed::Vector<real> adjoint_fine;
     /// coarse grid adjoint (\f$\psi_H\f$)
     dealii::LinearAlgebra::distributed::Vector<real> adjoint_coarse;
-    /// dual weighted residual
-    /** always on the fine grid due to galerkin orthogonality
-     */ 
+    /// Dual weighted residual (\f$\eta\f) in each cell computed on the fine grid. 
     dealii::Vector<real> dual_weighted_residual_fine;
     
     /// Original FE_index distribution
