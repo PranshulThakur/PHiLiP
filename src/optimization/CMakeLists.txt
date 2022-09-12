@@ -1,9 +1,10 @@
-add_subdirectory(shape_optimization)
-
 set(OPTIMIZATION_SOURCE
     rol_to_dealii_vector.cpp
     dealii_solver_rol_vector.cpp
-    full_space_step.cpp)
+    full_space_step.cpp) 
+
+add_subdirectory(shape_optimization)
+
 
 foreach(dim RANGE 1 3)
     # Output library
@@ -17,10 +18,12 @@ foreach(dim RANGE 1 3)
     string(CONCAT DiscontinuousGalerkinLib DiscontinuousGalerkin_${dim}D)
     string(CONCAT ODESolverLib ODESolver_${dim}D)
     string(CONCAT LinearSolverLib LinearSolver)
+    string(CONCAT ShapeOptimizationLib ShapeOptimization_${dim}D)
     target_link_libraries(${OptimizationLib} ${GridsLib})
     target_link_libraries(${OptimizationLib} ${DiscontinuousGalerkinLib})
     target_link_libraries(${OptimizationLib} ${ODESolverLib})
     target_link_libraries(${OptimizationLib} ${LinearSolverLib})
+    target_link_libraries(${OptimizationLib} ${ShapeOptimizationLib})
     # Setup target with deal.II
     if(NOT DOC_ONLY)
         DEAL_II_SETUP_TARGET(${OptimizationLib})
@@ -31,6 +34,7 @@ foreach(dim RANGE 1 3)
     unset(DiscontinuousGalerkinLib)
     unset(ODESolverLib)
     unset(LinearSolverLib)
+    unset(ShapeOptimizationLib)
 
 endforeach()
 
