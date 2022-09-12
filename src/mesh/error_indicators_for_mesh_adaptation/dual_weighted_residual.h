@@ -1,73 +1,9 @@
-#ifndef __MESHERRORESTIMATE_H__
-#define __MESHERRORESTIMATE_H__
+#ifndef __DUAL_WEIGHTED_RESIDUAL_H__
+#define __DUAL_WEIGHTED_RESIDUAL_H__
 
-#include "parameters/all_parameters.h"
-#include "dg/dg.h"
-#include <deal.II/grid/grid_refinement.h>
-#include <deal.II/grid/tria.h>
-#include <deal.II/distributed/shared_tria.h>
-#include <deal.II/distributed/tria.h>
-#include <deal.II/distributed/grid_refinement.h>
-
-#include <vector>
-#include <iostream>
-
-#include <deal.II/lac/la_parallel_vector.h>
-#include <deal.II/distributed/solution_transfer.h>
-
-#include <deal.II/fe/fe_q.h>
-#include <deal.II/fe/fe_values.h>
-#include "functional/functional.h"
-#include "physics/physics.h"
+#include "mesh_error_estimate_base.h"
 
 namespace PHiLiP {
-
-#if PHILIP_DIM==1
-template <int dim, typename real, typename MeshType = dealii::Triangulation<dim>>
-#else
-template <int dim, typename real, typename MeshType = dealii::parallel::distributed::Triangulation<dim>>
-#endif
-
-/// Abstract class to estimate error for mesh adaptation
-class MeshErrorEstimateBase
-{
-
-public:
-
-    /// Computes the vector containing errors in each cell.
-    virtual dealii::Vector<real> compute_cellwise_errors () = 0;
-
-    /// Constructor
-    MeshErrorEstimateBase(std::shared_ptr< DGBase<dim, real, MeshType> > dg_input);
-
-    /// Virtual Destructor
-    virtual ~MeshErrorEstimateBase() = 0;
-
-    /// Pointer to DGBase
-    std::shared_ptr<DGBase<dim,real,MeshType>> dg;
-
-};
-
-#if PHILIP_DIM==1
-template <int dim, typename real, typename MeshType = dealii::Triangulation<dim>>
-#else
-template <int dim, typename real, typename MeshType = dealii::parallel::distributed::Triangulation<dim>>
-#endif
-/// Class to compute residual based error
-class ResidualErrorEstimate : public MeshErrorEstimateBase <dim, real, MeshType>
-{
-
-public:
-    /// Computes maximum residual error in each cell.
-    dealii::Vector<real> compute_cellwise_errors () override;
-
-    /// Constructor
-    ResidualErrorEstimate(std::shared_ptr<DGBase<dim,real,MeshType>> dg_input);
-
-    /// Destructor
-    ~ResidualErrorEstimate() {};
-
-};
 
 
 /// DualWeightedResidualError class
@@ -115,8 +51,7 @@ public:
      *  solution and polynomial order distribution
      */
     void reinit();
-    // to reinitialize with other pointers, just create a new class
-
+    
     /// Converts the DG solution to specified state
     /** Calls the functions coarse_to_fine() or fine_to_coarse()
      *  if the DualWeightedResidualError::solution_refinement_state is different than the input \p state
@@ -166,7 +101,7 @@ public:
      *  Eq(6) from Venditti and Darmafol (2000), cited above.
      */
     dealii::Vector<real> dual_weighted_residual();
-
+    
     /// Computes dual weighted residual error in each cell, by integrating over all quadrature points. Overwrites the virtual function in MeshErrorEstimateBase.
     dealii::Vector<real> compute_cellwise_errors () override;
 
@@ -212,7 +147,7 @@ protected:
     MPI_Comm mpi_communicator; ///< MPI communicator
     dealii::ConditionalOStream pcout; ///< Parallel std::cout that only outputs on mpi_rank==0
 
-}; // DualWeightedResidualError class
+}; // DualWeightedResidualError
 
 } // namespace PHiLiP
 

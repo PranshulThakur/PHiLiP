@@ -1,6 +1,8 @@
 set(MESH_ERROR_INDICATORS_SRC
     mesh_error_factory.cpp
-    mesh_error_estimate.cpp
+    mesh_error_estimate_base.cpp
+    residual_based_error_indicator.cpp
+    dual_weighted_residual.cpp
     )
 
 foreach(dim RANGE 1 3)

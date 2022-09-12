@@ -1,7 +1,10 @@
 #ifndef __MESH_ERROR_FACTORY_H__
 #define __MESH_ERROR_FACTORY_H__
 
-#include "mesh_error_estimate.h"
+//#include "mesh_error_estimate.h"
+#include "mesh_error_estimate_base.h"
+#include "residual_based_error_indicator.h"
+#include "dual_weighted_residual.h"
 
 namespace PHiLiP {
 

@@ -3,7 +3,6 @@
 
 #include "parameters/all_parameters.h"
 #include "dg/dg.h"
-#include "error_indicators_for_mesh_adaptation/mesh_error_estimate.h"
 #include <deal.II/grid/grid_refinement.h>
 #include <deal.II/grid/tria.h>
 #include <deal.II/distributed/shared_tria.h>
