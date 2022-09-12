@@ -1,13 +1,13 @@
-add_subdirectory(grids)
-
 set(GRID_SOURCE
     high_order_grid.cpp
     gmsh_reader.cpp
     meshmover_linear_elasticity.cpp
     free_form_deformation.cpp
-    mesh_adaptation.cpp
-    mesh_error_estimate.cpp
-    mesh_error_factory.cpp)
+    mesh_adaptation.cpp) 
+
+add_subdirectory(grids)
+
+add_subdirectory(error_indicators_for_mesh_adaptation)
 
 foreach(dim RANGE 1 3)
     # Output library
@@ -20,6 +20,9 @@ foreach(dim RANGE 1 3)
     string(CONCAT FunctionalLib Functional_${dim}D)
     target_link_libraries(${HighOrderGridLib} ${FunctionalLib})
 
+    string(CONCAT MeshErrorIndicatorsLib MeshErrorIndicators_${dim}D)
+    target_link_libraries(${HighOrderGridLib} ${MeshErrorIndicatorsLib})
+
     # Setup target with deal.II
     if(NOT DOC_ONLY)
         DEAL_II_SETUP_TARGET(${HighOrderGridLib})
@@ -27,5 +30,6 @@ foreach(dim RANGE 1 3)
 
     unset(HighOrderGridLib)
     unset(FunctionalLib)
+    unset(MeshErrorIndicatorsLib)
 
 endforeach()

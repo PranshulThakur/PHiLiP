@@ -3,13 +3,13 @@
 
 #include "parameters/all_parameters.h"
 #include "dg/dg.h"
-#include "mesh_error_estimate.h"
+#include "error_indicators_for_mesh_adaptation/mesh_error_estimate.h"
 #include <deal.II/grid/grid_refinement.h>
 #include <deal.II/grid/tria.h>
 #include <deal.II/distributed/shared_tria.h>
 #include <deal.II/distributed/tria.h>
 #include <deal.II/distributed/grid_refinement.h>
-#include "mesh_error_factory.h"
+#include "error_indicators_for_mesh_adaptation/mesh_error_factory.h"
 
 namespace PHiLiP {
 
@@ -20,7 +20,7 @@ template <int dim, typename real, typename MeshType = dealii::Triangulation<dim>
 template <int dim, typename real, typename MeshType = dealii::parallel::distributed::Triangulation<dim>>
 #endif
 
-/// Contains functions for mesh adaptation. Currently, it supports residual based mesh adaptation with fixed fraction coarsening and refinement.
+/// Contains functions for mesh adaptation. Currently, it supports residual based and goal oriented hp-adaptation with fixed fraction coarsening and refinement.
 class MeshAdaptation
 {
 public:
