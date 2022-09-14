@@ -52,7 +52,6 @@ public:
     /// Smart pointer to DGBase
     std::shared_ptr<DGBase<dim,real,MeshType>> dg;
 
-protected:
     /// Physics that should correspond to the one in DGBase
     std::shared_ptr<Physics::PhysicsBase<dim,nstate,FadFadType>> physics_fad_fad;
 
@@ -187,6 +186,7 @@ protected:
      */
     void need_compute(bool &compute_value, bool &compute_dIdW, bool &compute_dIdX, bool &compute_d2I);
 
+public:
     /// Templated function to evaluate a cell's volume functional.
     template <typename real2>
     real2 evaluate_volume_cell_functional(
@@ -234,6 +234,7 @@ protected:
     // { return (FadFadType) 0.0; }
 
     /// Templated function to evaluate a cell's boundary functional.
+    
     template <typename real2>
     real2 evaluate_boundary_cell_functional(
         const Physics::PhysicsBase<dim,nstate,real2> &physics,
@@ -244,7 +245,7 @@ protected:
         const dealii::FESystem<dim> &fe_metric,
         const unsigned int face_number,
         const dealii::Quadrature<dim-1> &face_quadrature) const;
-    
+
     /// Corresponding real function to evaluate a cell's boundary functional.
     virtual real evaluate_boundary_cell_functional(
         const Physics::PhysicsBase<dim,nstate,real> &physics,
@@ -267,6 +268,7 @@ protected:
         const unsigned int face_number,
         const dealii::Quadrature<dim-1> &face_quadrature) const;
 
+protected:
     /// Virtual function for computation of cell volume functional term
     /** Used only in the computation of evaluate_function(). If not overriden returns 0. */
     virtual real evaluate_volume_integrand(

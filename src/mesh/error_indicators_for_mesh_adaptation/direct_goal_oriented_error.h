@@ -16,6 +16,7 @@ namespace PHiLiP {
  * \f[\eta_k = \left(\mathcal{J}(\mathbf{U_h}) - \mathcal{J}(\mathbf{U_h^H}) \right) \f]
  * And the goal oriented error currently used as the objective function for optimization base goal oriented mesh adaptation is 
  * \f[ \mathcal{F}(\mathbf{U_h}, \mathbf{U_h^H}, \mathbf{x}) = \sum_k \eta_k^2 \f].
+ * @note This class is structured similar to the Functional class for evaluating derivatives using AD.
  */
 
 #if PHiLiP_DIM==1
@@ -70,64 +71,84 @@ public:
 
     VectorType solution_fine; ///< Stores fine solution \f[ \mathbf{U_h} \f].
     VectorType solution_interpolated; ///< Stores interpolated solution \f[ \mathbf{U_h} \f].
+    VectorType stored_solution; ///< Stores solution to avoid recomputing derivatives.
+    VectorType stored_volume_nodes; ///< Stores volume nodes to avoid recomputing derivatives.
+    real current_error_value; ///< Stores computed error value.
 
     dealii::ConditionalOStream pcout; ///< std::cout only by processor #0.
+
+    bool is_error_computed; ///< Stores true if computed. Used to avoid recomputing if the solution-node configuration is the same.
+    bool is_dF_dWfine_computed; ///< Stores true if computed. Used to avoid recomputing if the solution-node configuration is the same.
+    bool is_dF_dWinterp_computed; ///< Stores true if computed. Used to avoid recomputing if the solution-node configuration is the same.
+    bool is_dF_dX_computed; ///< Stores true if computed. Used to avoid recomputing if the solution-node configuration is the same.
+    bool is_d2F_computed; ///< Stores true if computed. Used to avoid recomputing if the solution-node configuration is the same.
+
+    real weight_of_mesh_error; ///< Ensures that the error is high when volume nodes are too close to each other.
 
     /** Constructor of the class.
      * @note This class assumes that dg is fine (p-refined) and solution fine and solution interpolated are already computed.
      */
-     DirectGoalOrientedError(std::shared_ptr<DGBase<dim,real,MeshType>> _dg_fine,
+    DirectGoalOrientedError( std::shared_ptr<DGBase<dim,real,MeshType>> _dg_fine,
                              VectorType & _solution_fine,
                              VectorType & _solution_interpolated);
-     /// Destructor (does nothing but included for readability).
-     ~DirectGoalOrientedError(){};
-     /// Allocate memory for storing first and second order derivatives.
-     void allocate_derivatives(const bool compute_first_order_derivatives, const bool compute_second_order_derivatives);
-     /// Evaluate functional error in cell volume \f[ \eta_k^2 \f]. Templated with real2 to facilitate AD.
-     template <typename real2>
-     real2 evaluate_functional_error_in_cell_volume(const std::vector< real2 > &soln_coeff_fine,
-                                                    const std::vector< real2 > &soln_coeff_interpolated, 
-                                                    const dealii::FESystem<dim> &fe_solution,
-                                                    const std::vector<real2> &coords_coeff,
-                                                    const dealii::FESystem<dim> &fe_metric,
-                                                    const dealii::Quadrature<dim> &volume_quadrature) const;
+    /// Destructor (does nothing, included for readability).
+    ~DirectGoalOrientedError(){};
+    /// Allocate memory for storing first and second order derivatives.
+    void allocate_derivatives(const bool compute_dF_dWfine, const bool compute_dF_dWinterp, const bool compute_dF_dX, const bool compute_d2F);
+    /// Evaluate functional error in cell volume \f[ \eta_k^2 \f]. Templated with real2 to facilitate AD.
+    template <typename real2>
+    real2 evaluate_functional_error_in_cell_volume(const std::vector< real2 > &soln_coeff_fine,
+                                                   const std::vector< real2 > &soln_coeff_interpolated, 
+                                                   const dealii::FESystem<dim> &fe_solution,
+                                                   const std::vector<real2> &coords_coeff,
+                                                   const dealii::FESystem<dim> &fe_metric,
+                                                   const dealii::Quadrature<dim> &volume_quadrature) const;
     /// Evaluate functional error in cell boundary \f[ \eta_k^2 \f] (evaluated when the cell's face is located at the boundary). Templated with real2 to facilitate AD.
-    template <typename real2> evaluate_functional_error_in_cell_boundary(const unsigned int boundary_id,
-                                                                         const std::vector< real2 > &soln_coeff_fine,
-                                                                         const std::vector< real2 > &soln_coeff_interpolated,
-                                                                         const dealii::FESystem<dim> &fe_solution,
-                                                                         const std::vector< real2 > &coords_coeff,
-                                                                         const dealii::FESystem<dim> &fe_metric,
-                                                                         const unsigned int face_number,
-                                                                         const dealii::Quadrature<dim-1> &face_quadrature) const;
+    template <typename real2> 
+    real2 evaluate_functional_error_in_cell_boundary(const unsigned int boundary_id,
+                                                     const std::vector< real2 > &soln_coeff_fine,
+                                                     const std::vector< real2 > &soln_coeff_interpolated,
+                                                     const dealii::FESystem<dim> &fe_solution,
+                                                     const std::vector< real2 > &coords_coeff,
+                                                     const dealii::FESystem<dim> &fe_metric,
+                                                     const unsigned int face_number,
+                                                     const dealii::Quadrature<dim-1> &face_quadrature) const;
     /// Evaluates the goal oriented error \f[ \mathcal{F} \f] and, if needed, it's first and second derivatives using AD.
-    real evaluate_functional_error_and_derivatives(const bool evaluate_first_order_derivatives, const bool evaluate_second_order_derivatives);
+    real evaluate_functional_error_and_derivatives(bool compute_dF_dWfine, bool compute_dF_dWinterp, bool compute_dF_dX, bool compute_d2F);
 
-    /// Sets up variables for AD
-    void setup_variables_for_automatic_differentiation(const unsigned int &n_soln_dofs_cell, 
-                                                       const unsigned int &n_metric_dofs_cell,
-                                                       const std::vector< FadFadType > &soln_coeff_fine,
-                                                       const std::vector< FadFadType > &soln_coeff_interpolated,
-                                                       const std::vector< FadFadType > &coords_coeff,
-                                                       const std::vector<dealii::types::global_dof_index> cell_soln_dofs_indices,
-                                                       const std::vector<dealii::types::global_dof_index> cell_metric_dofs_indices,
-                                                       const bool compute_second_order_derivatives);
-    /// Evaluates and stores derivatives using automatic differentiation.
-    void evaluate_derivatives( const unsigned int &n_soln_dofs_cell, 
-                               const unsigned int &n_metric_dofs_cell,
-                               const FadType cell_functional_error,
-                               const std::vector<dealii::types::global_dof_index> cell_soln_dofs_indices,
-                               const std::vector<dealii::types::global_dof_index> cell_metric_dofs_indices,
-                               const bool compute_second_order_derivatives);
-    /// Update solution fine and solution interpolated, if changed. Volume nodes are automatically updated in DG.
+    /// Update solution fine and solution interpolated, if changed. Volume nodes and solution coeffs are automatically updated in DG.
     void update_solution_fine_and_solution_interpolated(const VectorType &_solution_fine, const VectorType &_solution_interpolated);
+
+    /// Assigns values to soln and metric coeffs on each cell and sets them up as independent variables for AD.
+    void assign_and_setup_independent_variables_for_ad(
+        const bool compute_dF_dWfine,
+        const bool compute_dF_dWinterp,
+        const bool compute_dF_dX,
+        const bool compute_d2F,
+        std::vector< FadFadType > &soln_coeff_fine,
+        std::vector< FadFadType > &soln_coeff_interpolated,
+        std::vector< FadFadType > &coords_coeff); // TODO: Use this to simplify evaluate_functional_error_and_derivatives();
+
+    /// Evaluate derivatives using AD.
+    void evaluate_derivatives(
+        const bool compute_dF_dWfine,
+        const bool compute_dF_dWinterp,
+        const bool compute_dF_dX,
+        const bool compute_d2F,
+        const FadFadType local_error_fadfad);  // TODO: Use this to simplify evaluate_functional_error_and_derivatives();
+
+private:
     /** 
      * We compute the derivatives of the error w.r.t. solution fine, solution interpolated and volume nodes all at once and store it. However, Trilinos's ROL calls  
      * these derivatives individually. This function checks if the derivatives have already been computed for the present solution-node configuration. If it has, 
-     * we just return the error already computed for the solution-node configuration.  
+     * we do not recompute it.  
      */
-    bool have_error_and_its_derivatives_already_been_computed(const bool compute_first_order_derivatives, const bool compute_second_order_derivatives);
+    void have_error_and_its_derivatives_already_been_computed(
+        bool &compute_error, 
+        bool &compute_dF_dWfine, 
+        bool &compute_dF_dWinterp, 
+        bool &compute_dF_dX, 
+        bool &compute_d2F);
 };
-
-
+} // namespace PHiLiP
 #endif
