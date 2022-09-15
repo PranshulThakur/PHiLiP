@@ -1,5 +1,6 @@
 #include "direct_goal_oriented_error.h"
 #include <deal.II/dofs/dof_tools.h>
+#include "linear_solver/linear_solver.h"
 
 namespace PHiLiP {
 
@@ -60,6 +61,12 @@ void DirectGoalOrientedError<dim,nstate,real,MeshType> :: allocate_partial_deriv
 template<int dim, int nstate, typename real, typename MeshType>
 void DirectGoalOrientedError<dim,nstate,real,MeshType> :: compute_solution_fine_and_solution_interpolated()
 {
+    solution_interpolated = this->dg->solution;
+    this->dg->assemble_residual(true); // evaluate dR_dW
+    solve_linear(this->dg->system_matrix, this->dg->right_hand_side, del_solution, this->dg->all_parameters->linear_solver_param);
+    del_solution *= -1.0;
+    solution_fine = solution_interpolated;
+    solution_fine += del_solution;
 }
 
 template<int dim, int nstate, typename real, typename MeshType>
@@ -166,9 +173,18 @@ real DirectGoalOrientedError<dim,nstate,real,MeshType> :: evaluate_functional(
     if(!need_to_compute_something) {return current_error_value;}
     
     bool compute_dF_dWfine=false, compute_dF_dWinterp=false, compute_dF_dX=false, compute_d2F = false;
-    if(actually_compute_d2I) {compute_d2F = true;}
+    if(actually_compute_d2I) {compute_d2F = true; compute_dF_dWfine = true; compute_dF_dWinterp = true; compute_dF_dX = true;}
     if(actually_compute_dIdW) {compute_dF_dWfine = true; compute_dF_dWinterp = true;}
     if(actually_compute_dIdX) {compute_dF_dX = true; compute_dF_dWfine = true;}
+    
+    // Increase poly order of DG
+    if (this->dg->get_max_fe_degree() >= this->dg->max_degree)
+    {
+        this->pcout<<"Polynomial degree of DG will exceed the maximum allowable after refinement. Update max_degree in dg"<<std::endl;
+        std::abort();
+    }
+    this->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(1);
+    
     compute_solution_fine_and_solution_interpolated();
     AssertDimension(this->dg->solution.size(), solution_fine.size());
     AssertDimension(this->dg->solution.size(), solution_interpolated.size());
@@ -445,7 +461,8 @@ real DirectGoalOrientedError<dim,nstate,real,MeshType> :: evaluate_functional(
 
         d2F_volnodes_volnodes.compress(dealii::VectorOperation::add);
     }
-    // Reduce size of DG. 
+    // Decrease poly order of DG
+    this->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(-1);
     return current_error_value;
 }
 template class DirectGoalOrientedError<PHILIP_DIM, 1, double, dealii::Triangulation<PHILIP_DIM>>;

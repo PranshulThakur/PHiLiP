@@ -58,6 +58,7 @@ public:
 
     VectorType solution_fine; ///< Stores fine solution \f[ \mathbf{U_h} \f].
     VectorType solution_interpolated; ///< Stores interpolated solution \f[ \mathbf{U_h} \f].
+    VectorType del_solution; ///< Stores solution_fine - solution_interpolated
     real current_error_value; ///< Stores computed error value.
 
     real weight_of_mesh_error; ///< Ensures that the error is high when volume nodes are too close to each other.
