@@ -475,6 +475,51 @@ void DGBase<dim,real,MeshType>::set_all_cells_fe_degree ( const unsigned int deg
 }
 
 template <int dim, typename real, typename MeshType>
+void DGBase<dim,real,MeshType>::change_cells_fe_degree_by_deltadegree_and_interpolate_solution(const int delta_degree)
+{
+    [[maybe_unused]] unsigned int no_of_cells_before_changing_p = triangulation->n_active_cells(); // Used for assert.
+    using VectorType       = typename dealii::LinearAlgebra::distributed::Vector<double>;
+    using DoFHandlerType   = typename dealii::DoFHandler<dim>;
+    using SolutionTransferType = typename MeshTypeHelper<MeshType>::template SolutionTransfer<dim,VectorType,DoFHandlerType>;
+    VectorType solution_old = solution;
+
+    solution_old.update_ghost_values();
+    
+    SolutionTransferType solution_transfer(dof_handler);
+    solution_transfer.prepare_for_coarsening_and_refinement(solution_old);
+
+    high_order_grid->prepare_for_coarsening_and_refinement();
+    triangulation->prepare_coarsening_and_refinement();
+
+    for (const auto &cell : dof_handler.active_cell_iterators())
+    {
+        if (cell->is_locally_owned())
+        {
+            cell->set_future_fe_index(cell->active_fe_index() + delta_degree);
+        }
+    }
+
+    triangulation->execute_coarsening_and_refinement();
+    high_order_grid->execute_coarsening_and_refinement();
+
+    allocate_system();
+    solution.zero_out_ghosts();
+
+    if constexpr (std::is_same_v<typename dealii::SolutionTransfer<dim,VectorType,DoFHandlerType>,
+                              decltype(solution_transfer)>) {
+     solution_transfer.interpolate(solution_old, solution);
+    } else {
+     solution_transfer.interpolate(solution);
+    }
+
+    solution.update_ghost_values();
+    [[maybe_unused]] unsigned int no_of_cells_after_changing_p = triangulation->n_active_cells(); // Used for assert.
+    // Dealii's mesh smoothing algorithms might change the no. of cells when poly order is changed. Hence the need for this check.
+    AssertDimension(no_of_cells_before_changing_p, no_of_cells_after_changing_p); 
+}
+
+
+template <int dim, typename real, typename MeshType>
 unsigned int DGBase<dim,real,MeshType>::get_max_fe_degree()
 {
     unsigned int max_fe_degree = 0;

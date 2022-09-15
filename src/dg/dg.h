@@ -156,6 +156,9 @@ public:
     //dealii::hp::MappingCollection<dim> mapping_collection;
     void set_all_cells_fe_degree ( const unsigned int degree );
 
+    /// If p is the degee of a cell, this function changes it to p + delta_degree and interpolates solution on the new mesh.
+    void change_cells_fe_degree_by_deltadegree_and_interpolate_solution(const int delta_degree);
+
     /// Gets the maximum value of currently active FE degree
     unsigned int get_max_fe_degree();
 
