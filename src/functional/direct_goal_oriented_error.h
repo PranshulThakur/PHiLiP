@@ -1,7 +1,7 @@
 #ifndef __DIRECT_GOAL_ORIENTED_ERROR_H__
 #define __DIRECT_GOAL_ORIENTED_ERROR_H__
 
-#include "mesh_error_estimate_base.h"
+#include "functional.h"
 
 namespace PHiLiP {
 /// Class to evaluate direct goal oriented error.
@@ -18,14 +18,12 @@ namespace PHiLiP {
  * \f[ \mathcal{F}(\mathbf{U_h}, \mathbf{U_h^H}, \mathbf{x}) = \sum_k \eta_k^2 \f].
  * @note This class is structured similar to the Functional class for evaluating derivatives using AD.
  */
-
 #if PHiLiP_DIM==1
 template <int dim, int nstate, typename real, typename MeshType = dealii::Triangulation<dim>>
 #else
 template <int dim, int nstate, typename real, typename MeshType = dealii::parallel::distributed::Triangulation<dim>>
 #endif
-
-class DirectGoalOrientedError : public MeshErrorEstimateBase <dim, real, MeshType>
+class DirectGoalOrientedError : public Functional <dim, nstate, real, MeshType>
 {
     using FadType = Sacado::Fad::DFad<real>; ///< Sacado AD type for first derivative
     using FadFadType = Sacado::Fad::DFad<FadType>; ///< Sacado AD type for second derivative
@@ -33,20 +31,9 @@ class DirectGoalOrientedError : public MeshErrorEstimateBase <dim, real, MeshTyp
     using MatrixType = dealii::TrilinosWrappers::SparseMatrix; ///< Alias for SparseMatrix.
 
 public:
-    /** Shared pointer to fine dg.
-     * @note It is assumed that the dg is already p-enriched (i.e. it's polynomial order has already been increased by 1).
-     */
-    std::shared_ptr<DGBase<dim, real, MeshType>> dg_fine;
     /// Pointer to functional to evaluate functional values at each cell (required for computing direct error).
     std::shared_ptr<Functional<dim, nstate, real, MeshType>> functional;
 
-    /// Stores dealii's volume update flags.
-    const dealii::UpdateFlags volume_update_flags = dealii::update_values | dealii::update_gradients 
-                                                    | dealii::update_quadrature_points | dealii::update_JxW_values;
-    /// Stores dealii's face update flags.
-    const dealii::UpdateFlags face_update_flags = dealii::update_values | dealii::update_gradients | dealii::update_quadrature_points 
-                                                  | dealii::update_JxW_values | dealii::update_normal_vectors;
-    
     /// Derivative of direct goal oriented error \f[\mathcal{F} \f] w.r.t. the interpolated solution \f[ \mathbf{U_h^H} \f].
     VectorType derivative_functionalerror_wrt_solution_interpolated;
     /// Derivative of direct goal oriented error \f[\mathcal{F} \f] w.r.t. the fine solution \f[\mathbf{U_h} \f]. Refer class description for nomenclature.
@@ -71,30 +58,18 @@ public:
 
     VectorType solution_fine; ///< Stores fine solution \f[ \mathbf{U_h} \f].
     VectorType solution_interpolated; ///< Stores interpolated solution \f[ \mathbf{U_h} \f].
-    VectorType stored_solution; ///< Stores solution to avoid recomputing derivatives.
-    VectorType stored_volume_nodes; ///< Stores volume nodes to avoid recomputing derivatives.
     real current_error_value; ///< Stores computed error value.
-
-    dealii::ConditionalOStream pcout; ///< std::cout only by processor #0.
-
-    bool is_error_computed; ///< Stores true if computed. Used to avoid recomputing if the solution-node configuration is the same.
-    bool is_dF_dWfine_computed; ///< Stores true if computed. Used to avoid recomputing if the solution-node configuration is the same.
-    bool is_dF_dWinterp_computed; ///< Stores true if computed. Used to avoid recomputing if the solution-node configuration is the same.
-    bool is_dF_dX_computed; ///< Stores true if computed. Used to avoid recomputing if the solution-node configuration is the same.
-    bool is_d2F_computed; ///< Stores true if computed. Used to avoid recomputing if the solution-node configuration is the same.
 
     real weight_of_mesh_error; ///< Ensures that the error is high when volume nodes are too close to each other.
 
-    /** Constructor of the class.
-     * @note This class assumes that dg is fine (p-refined) and solution fine and solution interpolated are already computed.
-     */
-    DirectGoalOrientedError( std::shared_ptr<DGBase<dim,real,MeshType>> _dg_fine,
-                             VectorType & _solution_fine,
-                             VectorType & _solution_interpolated);
-    /// Destructor (does nothing, included for readability).
-    ~DirectGoalOrientedError(){};
+    /// Constructor of the class.
+    DirectGoalOrientedError( std::shared_ptr<DGBase<dim,real,MeshType>> _dg,
+                             const bool uses_solution_values = true,
+                             const bool uses_solution_gradient = false);
+    /// Destructor.
+    ~DirectGoalOrientedError(){}
     /// Allocate memory for storing first and second order derivatives.
-    void allocate_derivatives(const bool compute_dF_dWfine, const bool compute_dF_dWinterp, const bool compute_dF_dX, const bool compute_d2F);
+    void allocate_partial_derivatives(const bool compute_dF_dWfine, const bool compute_dF_dWinterp, const bool compute_dF_dX, const bool compute_d2F);
     /// Evaluate functional error in cell volume \f[ \eta_k^2 \f]. Templated with real2 to facilitate AD.
     template <typename real2>
     real2 evaluate_functional_error_in_cell_volume(const std::vector< real2 > &soln_coeff_fine,
@@ -114,10 +89,14 @@ public:
                                                      const unsigned int face_number,
                                                      const dealii::Quadrature<dim-1> &face_quadrature) const;
     /// Evaluates the goal oriented error \f[ \mathcal{F} \f] and, if needed, it's first and second derivatives using AD.
-    real evaluate_functional_error_and_derivatives(bool compute_dF_dWfine, bool compute_dF_dWinterp, bool compute_dF_dX, bool compute_d2F);
+    real evaluate_functional(
+        const bool compute_dIdW = false,
+        const bool compute_dIdX = false,
+        const bool compute_d2I = false) override;
 
-    /// Update solution fine and solution interpolated, if changed. Volume nodes and solution coeffs are automatically updated in DG.
-    void update_solution_fine_and_solution_interpolated(const VectorType &_solution_fine, const VectorType &_solution_interpolated);
+private:
+    /// Computes solution fine and solution interpolated and stores them in member variables.
+    void compute_solution_fine_and_solution_interpolated();
 
     /// Assigns values to soln and metric coeffs on each cell and sets them up as independent variables for AD.
     void assign_and_setup_independent_variables_for_ad(
@@ -136,19 +115,7 @@ public:
         const bool compute_dF_dX,
         const bool compute_d2F,
         const FadFadType local_error_fadfad);  // TODO: Use this to simplify evaluate_functional_error_and_derivatives();
-
-private:
-    /** 
-     * We compute the derivatives of the error w.r.t. solution fine, solution interpolated and volume nodes all at once and store it. However, Trilinos's ROL calls  
-     * these derivatives individually. This function checks if the derivatives have already been computed for the present solution-node configuration. If it has, 
-     * we do not recompute it.  
-     */
-    void have_error_and_its_derivatives_already_been_computed(
-        bool &compute_error, 
-        bool &compute_dF_dWfine, 
-        bool &compute_dF_dWinterp, 
-        bool &compute_dF_dX, 
-        bool &compute_d2F);
 };
+
 } // namespace PHiLiP
 #endif

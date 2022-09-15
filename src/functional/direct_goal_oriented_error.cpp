@@ -5,32 +5,25 @@ namespace PHiLiP {
 
 template<int dim, int nstate, typename real, typename MeshType>
 DirectGoalOrientedError<dim,nstate,real,MeshType>::DirectGoalOrientedError(
-    std::shared_ptr<DGBase<dim,real,MeshType>> _dg_fine,
-    VectorType & _solution_fine,
-    VectorType & _solution_interpolated)
-    : MeshErrorEstimateBase<dim,real,MeshType>::MeshErrorEstimateBase(_dg_fine) 
-    , dg_fine(_dg_fine)
-    , solution_fine(_solution_fine)
-    , solution_interpolated(_solution_interpolated)
-    , pcout(std::cout, dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD)==0)
+    std::shared_ptr<DGBase<dim,real,MeshType>> _dg,
+    const bool _uses_solution_values,
+    const bool _uses_solution_gradient)
+    : Functional<dim,nstate,real,MeshType>::Functional(_dg, _uses_solution_values, _uses_solution_gradient)
 {
-    Assert(dg_fine->high_order_grid->max_degree == 1, dealii::ExcMessage( "Derivatives are not implemented for high order meshes."));
-    AssertDimension(dg_fine->solution.size(), solution_fine.size());
-    AssertDimension(dg_fine->solution.size(), solution_interpolated.size());
-    functional = FunctionalFactory<dim,nstate,real,MeshType>::create_Functional(dg_fine->all_parameters->functional_param, dg_fine);
+    functional = FunctionalFactory<dim,nstate,real,MeshType>::create_Functional(this->dg->all_parameters->functional_param, this->dg);
     weight_of_mesh_error = 1.0e-15; // Hard coded for now.
 }
 
 
 template<int dim, int nstate, typename real, typename MeshType>
-void DirectGoalOrientedError<dim,nstate,real,MeshType> :: allocate_derivatives(
+void DirectGoalOrientedError<dim,nstate,real,MeshType> :: allocate_partial_derivatives(
     const bool compute_dF_dWfine, 
     const bool compute_dF_dWinterp, 
     const bool compute_dF_dX, 
     const bool compute_d2F)
 {
-    const dealii::IndexSet &locally_owned_solution_dofs = dg_fine->dof_handler.locally_owned_dofs();
-    const dealii::IndexSet &locally_owned_grid_dofs = dg_fine->high_order_grid->dof_handler_grid.locally_owned_dofs();
+    const dealii::IndexSet &locally_owned_solution_dofs = this->dg->dof_handler.locally_owned_dofs();
+    const dealii::IndexSet &locally_owned_grid_dofs = this->dg->high_order_grid->dof_handler_grid.locally_owned_dofs();
     
     if(compute_dF_dWfine) {derivative_functionalerror_wrt_solution_fine.reinit(locally_owned_solution_dofs, MPI_COMM_WORLD);}
     if(compute_dF_dWinterp) {derivative_functionalerror_wrt_solution_interpolated.reinit(locally_owned_solution_dofs, MPI_COMM_WORLD);}
@@ -38,7 +31,7 @@ void DirectGoalOrientedError<dim,nstate,real,MeshType> :: allocate_derivatives(
     if(compute_dF_dX)
     {
         dealii::IndexSet locally_relevant_grid_dofs, ghost_grid_dofs;
-        dealii::DoFTools::extract_locally_relevant_dofs(dg_fine->high_order_grid->dof_handler_grid, locally_relevant_grid_dofs);
+        dealii::DoFTools::extract_locally_relevant_dofs(this->dg->high_order_grid->dof_handler_grid, locally_relevant_grid_dofs);
         ghost_grid_dofs = locally_relevant_grid_dofs;
         ghost_grid_dofs.subtract_set(locally_owned_grid_dofs);
         derivative_functionalerror_wrt_volume_nodes.reinit(locally_owned_grid_dofs, ghost_grid_dofs, MPI_COMM_WORLD);
@@ -47,9 +40,9 @@ void DirectGoalOrientedError<dim,nstate,real,MeshType> :: allocate_derivatives(
     if(compute_d2F)
     {
         // Allocate second derivatives
-        dealii::SparsityPattern d2F_dWdW_sparsity_pattern = dg_fine->get_d2RdWdW_sparsity_pattern();
-        dealii::SparsityPattern d2F_dWdX_sparsity_pattern = dg_fine->get_d2RdWdX_sparsity_pattern();
-        dealii::SparsityPattern d2F_dXdX_sparsity_pattern = dg_fine->get_d2RdXdX_sparsity_pattern();
+        dealii::SparsityPattern d2F_dWdW_sparsity_pattern = this->dg->get_d2RdWdW_sparsity_pattern();
+        dealii::SparsityPattern d2F_dWdX_sparsity_pattern = this->dg->get_d2RdWdX_sparsity_pattern();
+        dealii::SparsityPattern d2F_dXdX_sparsity_pattern = this->dg->get_d2RdXdX_sparsity_pattern();
 
         d2F_solfine_solfine.reinit(locally_owned_solution_dofs, locally_owned_solution_dofs, d2F_dWdW_sparsity_pattern, MPI_COMM_WORLD);
         d2F_solfine_solinterp.reinit(locally_owned_solution_dofs, locally_owned_solution_dofs, d2F_dWdW_sparsity_pattern, MPI_COMM_WORLD);
@@ -65,55 +58,8 @@ void DirectGoalOrientedError<dim,nstate,real,MeshType> :: allocate_derivatives(
 }
 
 template<int dim, int nstate, typename real, typename MeshType>
-void DirectGoalOrientedError<dim,nstate,real,MeshType> :: have_error_and_its_derivatives_already_been_computed(
-    bool &compute_error,
-    bool &compute_dF_dWfine, 
-    bool &compute_dF_dWinterp, 
-    bool &compute_dF_dX, 
-    bool &compute_d2F)
+void DirectGoalOrientedError<dim,nstate,real,MeshType> :: compute_solution_fine_and_solution_interpolated()
 {
-    // Check if the configuration (solution & vol_nodes) is the same.
-    bool same_configuration = false;
-    if(dg_fine->solution.size() == stored_solution.size()
-       && dg_fine->high_order_grid->volume_nodes.size() == stored_volume_nodes.size())
-    {
-        VectorType diff_sol = dg_fine->solution; 
-        diff_sol -= stored_solution;
-        bool is_solution_same = (diff_sol.l2_norm() == 0.0);
-        if(is_solution_same)
-        {
-            VectorType diff_node = dg_fine->high_order_grid->volume_nodes;
-            diff_node -= stored_volume_nodes;
-            bool are_nodes_same = (diff_node.l2_norm() == 0.0);
-            if(are_nodes_same) same_configuration = true;
-        }
-    }
-
-    if(same_configuration)
-    {   
-        if(is_error_computed) compute_error = false;
-        if(is_dF_dWfine_computed) compute_dF_dWfine = false;
-        if(is_dF_dWinterp_computed) compute_dF_dWinterp = false;
-        if(is_dF_dX_computed) compute_dF_dX = false;
-        if(is_d2F_computed) compute_d2F = false;
-    }
-
-    // Reset stored values 
-    stored_solution = dg_fine->solution;
-    stored_volume_nodes = dg_fine->high_order_grid->volume_nodes;
-    stored_solution.update_ghost_values(); 
-    stored_volume_nodes.update_ghost_values();
-}
-
-template<int dim, int nstate, typename real, typename MeshType>
-void DirectGoalOrientedError<dim,nstate,real,MeshType> :: update_solution_fine_and_solution_interpolated(
-    const VectorType &_solution_fine, 
-    const VectorType &_solution_interpolated)
-{
-    AssertDimension(dg_fine->solution.size(), _solution_fine.size());
-    AssertDimension(dg_fine->solution.size(), _solution_interpolated.size());
-    solution_fine = _solution_fine;
-    solution_interpolated = _solution_interpolated;
 }
 
 template<int dim, int nstate, typename real, typename MeshType>
@@ -126,13 +72,13 @@ real2 DirectGoalOrientedError<dim,nstate,real,MeshType> :: evaluate_functional_e
     const dealii::FESystem<dim> &fe_metric,
     const dealii::Quadrature<dim> &volume_quadrature) const
 {
-    real2 cell_functional_value_fine = functional->evaluate_volume_cell_functional(*(functional->physics_fad_fad), 
+    real2 cell_functional_value_fine = functional->evaluate_volume_cell_functional(*(this->physics_fad_fad), 
                                                                                    soln_coeff_fine,
                                                                                    fe_solution,
                                                                                    coords_coeff,
                                                                                    fe_metric,
                                                                                    volume_quadrature);
-    real2 cell_functional_value_interpolated = functional->evaluate_volume_cell_functional(*(functional->physics_fad_fad), 
+    real2 cell_functional_value_interpolated = functional->evaluate_volume_cell_functional(*(this->physics_fad_fad), 
                                                                                            soln_coeff_interpolated,
                                                                                            fe_solution,
                                                                                            coords_coeff,
@@ -142,13 +88,7 @@ real2 DirectGoalOrientedError<dim,nstate,real,MeshType> :: evaluate_functional_e
 
     real2 cell_functional_error = std::pow(eta_cell,2);
     real2 sum_mesh_weight = 0.0;
- /*   for(unsigned int i=0; i<coords_coeff.size(); i++)
-    {
-        for(unsigned int j = i+1; j<coords_coeff.size(); j++)
-        {
-            sum_mesh_weight += weight_of_mesh_error*std::pow(coords_coeff[i] - coords_coeff[j], -2); // Ask Doug about dim > 1.
-        }
-    }*/
+    
     unsigned int n_vertex_points = coords_coeff.size()/dim;
     Assert(n_vertex_points == dealii::GeometryInfo<dim>::vertices_per_cell, dealii::ExcMessage( "The objective function is currently implemented for grid degree = 1"));
     // Store vertex points
@@ -187,7 +127,7 @@ real2 DirectGoalOrientedError<dim,nstate,real,MeshType> :: evaluate_functional_e
     const unsigned int face_number,
     const dealii::Quadrature<dim-1> &face_quadrature) const
 {
-    real2 cell_boundary_functional_value_fine = functional->evaluate_boundary_cell_functional(*(functional->physics_fad_fad), 
+    real2 cell_boundary_functional_value_fine = functional->evaluate_boundary_cell_functional(*(this->physics_fad_fad), 
                                                                                      boundary_id, 
                                                                                      soln_coeff_fine, 
                                                                                      fe_solution, 
@@ -195,7 +135,7 @@ real2 DirectGoalOrientedError<dim,nstate,real,MeshType> :: evaluate_functional_e
                                                                                      fe_metric, 
                                                                                      face_number, 
                                                                                      face_quadrature);
-    real2 cell_boundary_functional_value_interpolated = functional->evaluate_boundary_cell_functional(*(functional->physics_fad_fad), 
+    real2 cell_boundary_functional_value_interpolated = functional->evaluate_boundary_cell_functional(*(this->physics_fad_fad), 
                                                                                              boundary_id, 
                                                                                              soln_coeff_interpolated, 
                                                                                              fe_solution, 
@@ -210,54 +150,64 @@ real2 DirectGoalOrientedError<dim,nstate,real,MeshType> :: evaluate_functional_e
 }
 
 template<int dim, int nstate, typename real, typename MeshType>
-real DirectGoalOrientedError<dim,nstate,real,MeshType> :: evaluate_functional_error_and_derivatives(
-    bool compute_dF_dWfine, 
-    bool compute_dF_dWinterp, 
-    bool compute_dF_dX, 
-    bool compute_d2F)
+real DirectGoalOrientedError<dim,nstate,real,MeshType> :: evaluate_functional(
+    const bool compute_dIdW,
+    const bool compute_dIdX,
+    const bool compute_d2I)
 {
-    bool compute_value = true;
-    have_error_and_its_derivatives_already_been_computed(compute_value, compute_dF_dWfine, compute_dF_dWinterp, compute_dF_dX, compute_d2F);
-    bool need_to_compute_something = (compute_value || compute_dF_dWfine || compute_dF_dWinterp || compute_dF_dX || compute_d2F);
+    bool actually_compute_value = true;
+    bool actually_compute_dIdW = compute_dIdW;
+    bool actually_compute_dIdX = compute_dIdX;
+    bool actually_compute_d2I  = compute_d2I;
+
+    this->pcout << "Evaluating functional... "<<std::endl;
+    this->need_compute(actually_compute_value, actually_compute_dIdW, actually_compute_dIdX, actually_compute_d2I);
+    bool need_to_compute_something = (actually_compute_value || actually_compute_dIdW || actually_compute_dIdX || actually_compute_d2I);
     if(!need_to_compute_something) {return current_error_value;}
+    
+    bool compute_dF_dWfine=false, compute_dF_dWinterp=false, compute_dF_dX=false, compute_d2F = false;
+    if(actually_compute_d2I) {compute_d2F = true;}
+    if(actually_compute_dIdW) {compute_dF_dWfine = true; compute_dF_dWinterp = true;}
+    if(actually_compute_dIdX) {compute_dF_dX = true; compute_dF_dWfine = true;}
+    compute_solution_fine_and_solution_interpolated();
+    AssertDimension(this->dg->solution.size(), solution_fine.size());
+    AssertDimension(this->dg->solution.size(), solution_interpolated.size());
 
     real error_value_on_this_processor = 0.0;
     
-    const dealii::FESystem<dim,dim> &fe_metric = dg_fine->high_order_grid->fe_system;
+    const dealii::FESystem<dim,dim> &fe_metric = this->dg->high_order_grid->fe_system;
     const unsigned int n_metric_dofs_cell = fe_metric.dofs_per_cell;
     std::vector<dealii::types::global_dof_index> cell_metric_dofs_indices(n_metric_dofs_cell);
     
-    const unsigned int max_dofs_per_cell = dg_fine->dof_handler.get_fe_collection().max_dofs_per_cell();
+    const unsigned int max_dofs_per_cell = this->dg->dof_handler.get_fe_collection().max_dofs_per_cell();
     std::vector<dealii::types::global_dof_index> cell_soln_dofs_indices(max_dofs_per_cell);
 
     std::vector<FadFadType> soln_coeff_interpolated(max_dofs_per_cell); // Solution interpolated to p+1.
     std::vector<FadFadType> soln_coeff_fine(max_dofs_per_cell);         // Solution interpolated to p+1, then taylor expanded.
     std::vector< FadFadType > coords_coeff(n_metric_dofs_cell);         // Coords coeff. 
     
-    const auto mapping = (*(dg_fine->high_order_grid->mapping_fe_field));
+    const auto mapping = (*(this->dg->high_order_grid->mapping_fe_field));
 
     dealii::hp::MappingCollection<dim> mapping_collection(mapping);
-    dealii::hp::FEFaceValues<dim,dim> fe_values_collection_face(mapping_collection, dg_fine->fe_collection, dg_fine->face_quadrature_collection, face_update_flags);
+    dealii::hp::FEFaceValues<dim,dim> fe_values_collection_face(mapping_collection, this->dg->fe_collection, this->dg->face_quadrature_collection, this->face_update_flags);
 
-    allocate_derivatives(
+    allocate_partial_derivatives(
      compute_dF_dWfine, 
      compute_dF_dWinterp, 
      compute_dF_dX, 
      compute_d2F);
 
-    solution_fine.update_ghost_values(); solution_interpolated.update_ghost_values(); dg_fine->high_order_grid->volume_nodes.update_ghost_values();
+    auto metric_cell = this->dg->high_order_grid->dof_handler_grid.begin_active();
+    auto soln_cell = this->dg->dof_handler.begin_active();
 
-    auto metric_cell = dg_fine->high_order_grid->dof_handler_grid.begin_active();
-    auto soln_cell = dg_fine->dof_handler.begin_active();
-
-    for( ; soln_cell != dg_fine->dof_handler.end(); ++soln_cell, ++metric_cell)
+    for( ; soln_cell != this->dg->dof_handler.end(); ++soln_cell, ++metric_cell)
     {
         if(!soln_cell->is_locally_owned()) continue;
 
         const unsigned int cell_fe_index = soln_cell->active_fe_index();
 
         // Resize solution coefficients & get soln & metric dof indices. Grid degree and size of coords_coeff is expected to be the same for all cells.
-        const dealii::FESystem<dim,dim> &fe_solution = dg_fine->fe_collection[cell_fe_index];
+        const dealii::FESystem<dim,dim> &fe_solution = this->dg->fe_collection[cell_fe_index];
         const unsigned int n_soln_dofs_cell = fe_solution.n_dofs_per_cell();
         cell_soln_dofs_indices.resize(n_soln_dofs_cell);
         soln_cell->get_dof_indices(cell_soln_dofs_indices);
@@ -298,7 +248,7 @@ real DirectGoalOrientedError<dim,nstate,real,MeshType> :: evaluate_functional_er
         
         for (unsigned int idof = 0; idof < n_metric_dofs_cell; ++idof)
         {
-            const real value_coord_coeff = dg_fine->high_order_grid->volume_nodes[cell_metric_dofs_indices[idof]];
+            const real value_coord_coeff = this->dg->high_order_grid->volume_nodes[cell_metric_dofs_indices[idof]];
             coords_coeff[idof] = value_coord_coeff;
             if(compute_dF_dX || compute_d2F)
             {
@@ -328,7 +278,7 @@ real DirectGoalOrientedError<dim,nstate,real,MeshType> :: evaluate_functional_er
 
             for (unsigned int idof = 0; idof < n_metric_dofs_cell; ++idof)
             {
-                const real value_coord_coeff = dg_fine->high_order_grid->volume_nodes[cell_metric_dofs_indices[idof]];
+                const real value_coord_coeff = this->dg->high_order_grid->volume_nodes[cell_metric_dofs_indices[idof]];
                 coords_coeff[idof].val() = value_coord_coeff;
                 coords_coeff[idof].val().diff(n_current_independent_variable++, n_total_independent_variables);
             }
@@ -336,8 +286,8 @@ real DirectGoalOrientedError<dim,nstate,real,MeshType> :: evaluate_functional_er
         }
 //=====================================================================================================================================================================
         // Evaluate objective function on the cell.
-        const dealii::Quadrature<dim> &volume_quadratures_cell = dg_fine->volume_quadrature_collection[cell_fe_index];
-        const dealii::Quadrature<dim-1> &face_quadratures = dg_fine->face_quadrature_collection[cell_fe_index];
+        const dealii::Quadrature<dim> &volume_quadratures_cell = this->dg->volume_quadrature_collection[cell_fe_index];
+        const dealii::Quadrature<dim-1> &face_quadratures = this->dg->face_quadrature_collection[cell_fe_index];
         FadFadType local_functional_error_fadfad = this->evaluate_functional_error_in_cell_volume(soln_coeff_fine, 
                                                                                                   soln_coeff_interpolated, 
                                                                                                   fe_solution,
@@ -404,7 +354,7 @@ real DirectGoalOrientedError<dim,nstate,real,MeshType> :: evaluate_functional_er
         // Evaluate second derivatives
         if(compute_d2F)
         {
-            // Note: The variables are numbered as:
+            // Note: 
             // variables 0 to n_soln_dofs_cell refer to solution_fine. 
             // variables n_soln_dofs_cell to 2*n_soln_dofs_cell refer to solution_interpolated. 
             // variables 2*n_soln_dofs_cell to n_total_independent_variables refer to volume_nodes. 
@@ -476,15 +426,12 @@ real DirectGoalOrientedError<dim,nstate,real,MeshType> :: evaluate_functional_er
     //Compress all vectors and matrices
     if(compute_dF_dWfine) {
         derivative_functionalerror_wrt_solution_fine.compress(dealii::VectorOperation::add);
-        is_dF_dWfine_computed = true;
     }
     if(compute_dF_dWinterp) {
         derivative_functionalerror_wrt_solution_interpolated.compress(dealii::VectorOperation::add);
-        is_dF_dWinterp_computed = true;
     }
     if(compute_dF_dX) {
         derivative_functionalerror_wrt_volume_nodes.compress(dealii::VectorOperation::add);
-        is_dF_dX_computed = true;
     }
 
     if(compute_d2F)
@@ -497,10 +444,8 @@ real DirectGoalOrientedError<dim,nstate,real,MeshType> :: evaluate_functional_er
         d2F_solinterp_volnodes.compress(dealii::VectorOperation::add);
 
         d2F_volnodes_volnodes.compress(dealii::VectorOperation::add);
-        is_d2F_computed = true;
     }
-    
-    is_error_computed =true;
+    // Reduce size of DG. 
     return current_error_value;
 }
 template class DirectGoalOrientedError<PHILIP_DIM, 1, double, dealii::Triangulation<PHILIP_DIM>>;

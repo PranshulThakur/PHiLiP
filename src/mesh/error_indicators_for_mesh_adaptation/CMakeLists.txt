@@ -3,7 +3,6 @@ set(MESH_ERROR_INDICATORS_SRC
     mesh_error_estimate_base.cpp
     residual_based_error_indicator.cpp
     dual_weighted_residual.cpp
-    direct_goal_oriented_error.cpp
     )
 
 foreach(dim RANGE 1 3)
