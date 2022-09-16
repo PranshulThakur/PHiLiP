@@ -21,8 +21,8 @@
 
 #include "optimization/rol_to_dealii_vector.hpp"
 #include "optimization/dealii_solver_rol_vector.hpp"
-#include "optimization/shape_optimization/flow_constraints.hpp"
-#include "optimization/shape_optimization/rol_objective.hpp"
+#include "optimization/flow_constraints.hpp"
+#include "optimization/rol_objective.hpp"
 
 #include "optimization/kkt_operator.hpp"
 #include "optimization/kkt_birosghattas_preconditioners.hpp"

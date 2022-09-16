@@ -7,7 +7,7 @@
 #include "ROL_Constraint_SimOpt.hpp"
 #include "ROL_Vector_SimOpt.hpp"
 
-#include "shape_optimization/flow_constraints.hpp"
+#include "optimization/flow_constraints.hpp"
 
 /// Full-space system preconditioner based on the reduced-space.
 /** See Biros and Ghattas' 2005 paper.

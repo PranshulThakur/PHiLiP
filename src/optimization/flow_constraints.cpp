@@ -1,4 +1,4 @@
-#include "optimization/shape_optimization/flow_constraints.hpp"
+#include "optimization/flow_constraints.hpp"
 #include "mesh/meshmover_linear_elasticity.hpp"
 
 #include "optimization/rol_to_dealii_vector.hpp"
