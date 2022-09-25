@@ -1,7 +1,7 @@
 #ifndef __DESIGN_PARAMETERIZATION_INNERVOL_H__
 #define __DESIGN_PARAMETERIZATION_INNERVOL_H__
 
-#include "design_parameterization_base.hpp"
+#include "base_parameterization.hpp"
 
 namespace PHiLiP {
 
@@ -44,7 +44,7 @@ private:
     unsigned int n_inner_nodes;
     /// Local indices of inner volume nodes.
     dealii::IndexSet inner_vol_range;
-    /// Converts inner volume index to global index of volme nodes.
+    /// Converts inner volume index to global index of volume nodes.
     dealii::LinearAlgebra::distributed::Vector<int> inner_vol_index_to_vol_index;
 };
 
