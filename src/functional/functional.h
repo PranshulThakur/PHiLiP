@@ -196,7 +196,7 @@ protected:
     /** If the stored solution and mesh are the same as the one used to previously
      *  compute the derivative, then we do not need to recompute them.
      */
-    void need_compute(bool &compute_value, bool &compute_dIdW, bool &compute_dIdX, bool &compute_d2I);
+    virtual void need_compute(bool &compute_value, bool &compute_dIdW, bool &compute_dIdX, bool &compute_d2I);
 
     /// Templated function to evaluate a cell's volume functional.
     template <typename real2>
