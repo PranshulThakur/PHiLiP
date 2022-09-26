@@ -5,19 +5,19 @@
 
 namespace PHiLiP {
     
-using VectorType = dealii::LinearAlgebra::distributed::Vector<double>; 
-using MatrixType = dealii::TrilinosWrappers::SparseMatrix;
-
 /// Abstract class for design parameterization. Objective function and the constraints take this class's pointer as an input to parameterize design variables w.r.t. volume nodes.
 template<int dim>
 class DesignParameterizationBase {
+
+    using VectorType = dealii::LinearAlgebra::distributed::Vector<double>; ///< Alias for dealii's parallel distributed vector.
+    using MatrixType = dealii::TrilinosWrappers::SparseMatrix; ///< Alias for dealii::TrilinosWrappers::SparseMatrix.
 
 public:
     /// Constructor
     DesignParameterizationBase(std::shared_ptr<HighOrderGrid<dim,double>> _high_order_grid);
     
     /// Destructor
-    virtual ~DesignParameterizationBase();
+    virtual ~DesignParameterizationBase() {}
     
     /// Initialize design variables and set locally owned and ghost indices.     
     virtual void initialize_design_variables(VectorType &design_var) = 0; 

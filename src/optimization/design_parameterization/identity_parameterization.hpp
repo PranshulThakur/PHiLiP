@@ -8,13 +8,17 @@ namespace PHiLiP {
 /// Identity design parameterization. Control variables are all volume nodes.
 template<int dim>
 class DesignParameterizationIdentity : public DesignParameterizationBase<dim> {
+    
+    using VectorType = dealii::LinearAlgebra::distributed::Vector<double>; ///< Alias for dealii's parallel distributed vector.
+    using MatrixType = dealii::TrilinosWrappers::SparseMatrix; ///< Alias for dealii::TrilinosWrappers::SparseMatrix.
+
 public:
     /// Constructor
     DesignParameterizationIdentity(
         std::shared_ptr<HighOrderGrid<dim,double>> _high_order_grid); 
     
     /// Destructor
-    ~DesignParameterizationIdentity() override {} 
+    ~DesignParameterizationIdentity() {} 
     
     /// Initializes design variables with volume nodes and set locally owned and ghost indices. Overrides the virtual function in base class.
     void initialize_design_variables(VectorType &design_var) override;
