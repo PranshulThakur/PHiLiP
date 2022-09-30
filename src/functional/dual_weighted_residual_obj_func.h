@@ -5,11 +5,11 @@
 
 namespace PHiLiP {
 
-/// Class to compute the objective function of dual weighted residual used for optimizatio based mesh adaptation. \f[ \mathcal{F} = \eta^T \eta \f].
+/// Class to compute the objective function of dual weighted residual used for optimization based mesh adaptation. \f[ \mathcal{F} = \eta^T \eta \f].
 template <int dim, int nstate, typename real>
-class DualWeightedResidualObjFunc : public Functional<dim. nstate, real>
+class DualWeightedResidualObjFunc : public Functional<dim, nstate, real>
 {
-    using VectorType = dealii::LinearAlgebra::distributed::Vector<double>; ///< Alias for dealii's parallel distributed vector.
+    using VectorType = dealii::LinearAlgebra::distributed::Vector<real>; ///< Alias for dealii's parallel distributed vector.
     using MatrixType = dealii::TrilinosWrappers::SparseMatrix; ///< Alias for dealii::TrilinosWrappers::SparseMatrix.
 
 public:
@@ -22,11 +22,14 @@ public:
     /// Destructor
     ~DualWeightedResidualObjFunc(){}
 
-    /// Computes common vactors and matrices required for dIdW, dIdX and d2I
+    /// Computes common vectors (adjoint, residual_fine) and matrices (R_u, R_u_transpose, eta_psi and eta_R) required for dIdW, dIdX and d2I.
     void compute_common_vectors_and_matrices();
 
-    /// computes cell index range of this processor
+    /// Computes cell index range of this processor. Called by the constructor.
     void compute_cell_index_range();
+    
+    /// Computes interpolation matrix.
+    void compute_interpolation_matrix();
 
     /// Computes  \f[ out_vector = \eta_x*in_vector \f].
     void eta_x_vmult(VectorType &out_vector, const VectorType &in_vector) const;
@@ -84,6 +87,9 @@ private:
 
     /// Cell indices locally owned by this processor.
     dealii::IndexSet cell_index_range;
+
+    /// Stores interpolation matrix. 
+    MatrixType interpolation_matrix;
     
 };
 
