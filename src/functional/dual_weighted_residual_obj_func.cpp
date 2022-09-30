@@ -12,6 +12,12 @@ DualWeightedResidualObjFunc<dim, nstate, real> :: DualWeightedResidualObjFunc(
     compute_cell_index_range();
 }
 
+template<int dim, int nstate, typename real>
+void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_cell_index_range()
+{
+
+}
+
 template class DualWeightedResidualObjFunc <PHILIP_DIM, 1, double>;
 template class DualWeightedResidualObjFunc <PHILIP_DIM, 2, double>;
 template class DualWeightedResidualObjFunc <PHILIP_DIM, 3, double>;
