@@ -29,6 +29,9 @@ public:
     void compute_cell_index_range();
     
     /// Computes interpolation matrix.
+    /** Assumes the polynomial order remains constant throughout the optimization algorithm.
+     *  Also assumes that all cells have the same polynomial degree.
+     */
     void compute_interpolation_matrix();
 
     /// Computes  \f[ out_vector = \eta_x*in_vector \f].
@@ -88,9 +91,14 @@ private:
     /// Cell indices locally owned by this processor.
     dealii::IndexSet cell_index_range;
 
-    /// Stores interpolation matrix. 
+    /// Stores interpolation matrix \f[ I_h \f] to interpolate onto fine space. Used to compute \f[ U_h^H = I_h u_H \f]. 
     MatrixType interpolation_matrix;
+
+    /// Stores vector on coarse space to copy parallel partitioning later.
+    VectorType vector_coarse;
     
+    /// Stores vector on fine space (p+1) to copy parallel partitioning later.
+    VectorType vector_fine;
 };
 
 } // namespace PHiLiP
