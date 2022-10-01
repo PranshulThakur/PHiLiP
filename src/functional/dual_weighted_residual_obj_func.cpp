@@ -15,7 +15,15 @@ DualWeightedResidualObjFunc<dim, nstate, real> :: DualWeightedResidualObjFunc(
 template<int dim, int nstate, typename real>
 void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_cell_index_range()
 {
-
+    const unsigned int n_global_cells = this->dg->triangulation->n_global_active_cells();
+    cell_index_range.set_size(n_global_cells);
+    for(const auto &cell : this->dg->dof_handler.active_cell_iterators())
+    {
+        if(cell->is_locally_owned())
+        {
+            cell_index_range.add_index(cell->active_cell_index());
+        }
+    }
 }
 
 template class DualWeightedResidualObjFunc <PHILIP_DIM, 1, double>;
