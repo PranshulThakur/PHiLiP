@@ -66,6 +66,8 @@ public:
         const bool compute_dIdX = false,
         const bool compute_d2I = false) override;
 
+    void extract_interpolation_matrices(dealii::Table<2, dealii::FullMatrix<real>> &interpolation_hp);
+
 private:
     /// Stores adjoint weighted residual on each cell.
     VectorType eta;
