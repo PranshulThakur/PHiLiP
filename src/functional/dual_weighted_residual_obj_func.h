@@ -66,9 +66,13 @@ public:
         const bool compute_dIdX = false,
         const bool compute_d2I = false) override;
 
+private:
+    /// Extracts all matrices possible for various combinations of polynomial degrees.
     void extract_interpolation_matrices(dealii::Table<2, dealii::FullMatrix<real>> &interpolation_hp);
 
-private:
+    /// Returns cellwise dof indices. Used to store cellwise dof indices of higher poly order grid to form interpolation matrix.
+    std::vector<std::vector<dealii::types::global_dof_index>> get_cellwise_dof_indices();
+
     /// Stores adjoint weighted residual on each cell.
     VectorType eta;
 
