@@ -40,8 +40,8 @@ int main (int argc, char * argv[])
     const dealii::IndexSet &surface_range = dg->high_order_grid->surface_nodes.get_partitioner()->locally_owned_range();
 
 
-    std::unique_ptr<DesignParameterizationBase<dim>> design_parameterization = 
-                        std::make_unique<DesignParameterizationInnerVol<dim>>(dg->high_order_grid);
+    std::unique_ptr<BaseParameterization<dim>> design_parameterization = 
+                        std::make_unique<InnerVolParameterization<dim>>(dg->high_order_grid);
 
     VectorType design_var;
     design_parameterization->initialize_design_variables(design_var); // get inner volume nodes
@@ -64,8 +64,7 @@ int main (int argc, char * argv[])
 
     VectorType is_a_surface_node; // Stores 1 if the index corresponds to a surface node.
 
-    is_a_surface_node.reinit(initial_volume_nodes);     
-    is_a_surface_node *= 0;
+    is_a_surface_node.reinit(initial_volume_nodes); // initializes to 0 by default.    
 
 
     for(unsigned int i=0; i<dg->high_order_grid->surface_nodes.size(); ++i)
