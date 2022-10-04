@@ -12,6 +12,7 @@ DualWeightedResidualObjFunc<dim, nstate, real> :: DualWeightedResidualObjFunc(
     : Functional<dim, nstate, real> (dg_input, uses_solution_values, uses_solution_gradient)
 {
     compute_cell_index_range();
+    compute_interpolation_matrix();
 }
 
 template<int dim, int nstate, typename real>

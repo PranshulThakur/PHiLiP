@@ -51,7 +51,7 @@ public:
 
     /// Stores dIdX
     void store_dIdX();
-
+/*
     /// Computes \f[ out_vector = d2IdWdW*in_vector \f]. 
     void d2IdWdW_vmult(VectorType &out_vector, const VectorType &in_vector) const override;
     /// Computes \f[ out_vector = d2IdWdX*in_vector \f]. 
@@ -65,7 +65,7 @@ public:
         const bool compute_dIdW = false,
         const bool compute_dIdX = false,
         const bool compute_d2I = false) override;
-
+*/
 private:
     /// Extracts all matrices possible for various combinations of polynomial degrees.
     void extract_interpolation_matrices(dealii::Table<2, dealii::FullMatrix<real>> &interpolation_hp);
@@ -96,7 +96,7 @@ private:
 
     /// Cell indices locally owned by this processor.
     dealii::IndexSet cell_index_range;
-
+public:
     /// Stores interpolation matrix \f[ I_h \f] to interpolate onto fine space. Used to compute \f[ U_h^H = I_h u_H \f]. 
     MatrixType interpolation_matrix;
 
