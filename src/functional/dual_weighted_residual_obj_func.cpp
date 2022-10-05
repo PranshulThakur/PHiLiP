@@ -1,6 +1,7 @@
 #include "dual_weighted_residual_obj_func.h"
 #include <deal.II/lac/dynamic_sparsity_pattern.h>
 #include <deal.II/lac/sparsity_tools.h>
+#include "linear_solver/linear_solver.h"
 
 namespace PHiLiP {
 
@@ -12,6 +13,7 @@ DualWeightedResidualObjFunc<dim, nstate, real> :: DualWeightedResidualObjFunc(
     : Functional<dim, nstate, real> (dg_input, uses_solution_values, uses_solution_gradient)
 {
     compute_interpolation_matrix(); // also stores cellwise_dofs_fine, vector coarse and vector fine.
+    functional = FunctionalFactory<dim,nstate,real>::create_Functional(this->dg->all_parameters->functional_param, this->dg);
 }
 
 //===================================================================================================================================================
@@ -181,7 +183,7 @@ real DualWeightedResidualObjFunc<dim, nstate, real> :: evaluate_functional(
 
     if(actually_compute_value)
     {
-        this->current_functional_value = evaluate_objective_function(); // also stores adjoint and resiudal_fine.
+        this->current_functional_value = evaluate_objective_function(); // also stores adjoint, residual_fine and J_u.
     }
 
     if(compute_derivatives)
@@ -198,7 +200,46 @@ real DualWeightedResidualObjFunc<dim, nstate, real> :: evaluate_functional(
 template<int dim, int nstate, typename real>
 real DualWeightedResidualObjFunc<dim, nstate, real> :: evaluate_objective_function()
 {
-    return 0.0;
+    eta.reinit(this->dg->triangulation->n_active_cells());
+
+    // Evaluate adjoint and residual fine
+    this->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(1);
+    const bool compute_dRdW = true;
+    this->dg->assemble_residual(compute_dRdW);
+    
+    residual_fine = this->dg->right_hand_side;
+    adjoint.reinit(residual_fine);
+    const bool compute_dIdW = true;
+    functional->evaluate_functional(compute_dIdW);
+    J_u = functional->dIdw;
+    J_u.update_ghost_values();
+    residual_fine.update_ghost_values();
+    
+    solve_linear(this->dg->system_matrix_transpose, J_u, adjoint, this->dg->all_parameters->linear_solver_param);
+    adjoint *= -1.0;
+    adjoint.update_ghost_values();
+    
+    this->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(-1);
+    
+    for(const auto &cell : this->dg->dof_handler.active_cell_iterators())
+    {
+        if (!cell->is_locally_owned()) continue;
+
+        const dealii::types::global_dof_index cell_index = cell->active_cell_index();
+        
+        const std::vector<dealii::types::global_dof_index> &dof_indices_fine = cellwise_dofs_fine[cell_index];
+        eta[cell_index] = 0.0;
+
+        for(unsigned int i_dof=0; i_dof < dof_indices_fine.size(); ++i_dof)
+        {
+            eta[cell_index] += adjoint(dof_indices_fine[i_dof])*residual_fine(dof_indices_fine[i_dof]);
+        }
+
+    } // cell loop ends
+
+    real obj_func_local = eta*eta;
+    real obj_func_global = dealii::Utilities::MPI::sum(obj_func_local, MPI_COMM_WORLD);
+    return obj_func_global;
 }
 
 template<int dim, int nstate, typename real>

@@ -11,6 +11,7 @@ class DualWeightedResidualObjFunc : public Functional<dim, nstate, real>
 {
     using VectorType = dealii::LinearAlgebra::distributed::Vector<real>; ///< Alias for dealii's parallel distributed vector.
     using MatrixType = dealii::TrilinosWrappers::SparseMatrix; ///< Alias for dealii::TrilinosWrappers::SparseMatrix.
+    using NormalVector = dealii::Vector<real>; ///< Alias for serial vector.
 
 public:
     /// Constructor
@@ -74,7 +75,7 @@ private:
     real evaluate_objective_function();
 
     /// Stores adjoint weighted residual on each cell.
-    VectorType eta;
+    NormalVector eta;
 
     /// Stores \f[R_u \f] on fine space. 
     MatrixType R_u;
@@ -93,6 +94,12 @@ private:
     
     /// Stores vector on fine space (p+1) to copy parallel partitioning later.
     VectorType vector_fine;
+
+    /// Stores dIdW  (functional deriative wrt solution fine)
+    VectorType J_u;
+
+    /// Functional used to create the objective function.
+    std::shared_ptr< Functional<dim, nstate, real> > functional;
     
 public:
     /// Stores global dof indices of the fine mesh.
