@@ -76,7 +76,7 @@ int main (int argc, char * argv[])
 
     diff -= solution_fine_from_solution_transfer;
 
-    if(diff.l2_norm() > 1.0e-15) 
+    if(diff.l2_norm() > 1.0e-12) 
     {
         pcout<<"Test failed. Interpolation isn't done properly."<<std::endl;
         pcout<<" Diff l2 norm = "<<diff.l2_norm()<<std::endl;
@@ -85,6 +85,38 @@ int main (int argc, char * argv[])
 
 
     pcout<<"Interpolation matrix is good"<<std::endl;
+
+    pcout<<"Now checking if stored dof_indices are good..."<<std::endl;
+    
+    dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(1);
+
+    std::vector<dealii::types::global_dof_index> dof_indices;
+    
+    for(const auto &cell : dg->dof_handler.active_cell_iterators())
+    {
+        if (!cell->is_locally_owned()) continue;
+
+        const dealii::types::global_dof_index cell_index = cell->active_cell_index();
+        const unsigned int i_fele = cell->active_fe_index();
+        const dealii::FESystem<dim,dim> &fe_ref = dg->fe_collection[i_fele];
+        const unsigned int n_dofs_cell = fe_ref.n_dofs_per_cell();
+
+        dof_indices.resize(n_dofs_cell);
+        cell->get_dof_indices (dof_indices);
+        const std::vector<dealii::types::global_dof_index> &dof_indices_fine = dwr_objfunc->cellwise_dofs_fine[cell_index];
+
+        for(unsigned int i_dof=0; i_dof < n_dofs_cell; ++i_dof)
+        {
+            if( dof_indices_fine[i_dof] != dof_indices[i_dof])
+            {
+                pcout<<"Dof indices are different"<<std::endl;
+                return 1;
+            }
+        }
+
+    } // cell loop ends
+
+    pcout<<"Dof indices are the same."<<std::endl;
 
     return 0; // Test passed
 }

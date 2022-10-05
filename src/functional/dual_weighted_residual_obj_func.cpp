@@ -11,24 +11,12 @@ DualWeightedResidualObjFunc<dim, nstate, real> :: DualWeightedResidualObjFunc(
     const bool uses_solution_gradient)
     : Functional<dim, nstate, real> (dg_input, uses_solution_values, uses_solution_gradient)
 {
-    compute_cell_index_range();
-    compute_interpolation_matrix();
+    compute_interpolation_matrix(); // also stores cellwise_dofs_fine, vector coarse and vector fine.
 }
 
-template<int dim, int nstate, typename real>
-void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_cell_index_range()
-{
-    const unsigned int n_global_cells = this->dg->triangulation->n_global_active_cells();
-    cell_index_range.set_size(n_global_cells);
-    for(const auto &cell : this->dg->dof_handler.active_cell_iterators())
-    {
-        if(cell->is_locally_owned())
-        {
-            cell_index_range.add_index(cell->active_cell_index());
-        }
-    }
-}
-
+//===================================================================================================================================================
+//                          Functions used only once in constructor
+//===================================================================================================================================================
 template<int dim, int nstate, typename real>
 void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_interpolation_matrix()
 { 
@@ -38,7 +26,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_interpolation_mat
     vector_fine = this->dg->solution;
     unsigned int n_dofs_fine = this->dg->n_dofs();
     const dealii::IndexSet dofs_fine_locally_relevant_range = this->dg->locally_relevant_dofs;
-    std::vector<std::vector<dealii::types::global_dof_index>> cellwise_dofs_fine = get_cellwise_dof_indices();
+    cellwise_dofs_fine = get_cellwise_dof_indices();
     this->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(-1);
     AssertDimension(vector_coarse.size(), this->dg->solution.size());     
 
@@ -159,7 +147,76 @@ std::vector<std::vector<dealii::types::global_dof_index>> DualWeightedResidualOb
         const dealii::types::global_dof_index cell_index = cell->active_cell_index();
         cellwise_dof_indices[cell_index] = dof_indices;
     }
+
     return cellwise_dof_indices;
+}
+
+//===================================================================================================================================================
+//                          Functions used in evaluate_functional
+//===================================================================================================================================================
+
+template<int dim, int nstate, typename real>
+real DualWeightedResidualObjFunc<dim, nstate, real> :: evaluate_functional(
+    const bool compute_dIdW,
+    const bool compute_dIdX,
+    const bool compute_d2I)
+{
+    bool actually_compute_value = true;
+    bool actually_compute_dIdW = compute_dIdW;
+    bool actually_compute_dIdX = compute_dIdX;
+    bool actually_compute_d2I  = compute_d2I;
+
+
+    if(compute_dIdW || compute_dIdX || compute_d2I)
+    {
+        actually_compute_dIdW = true;
+        actually_compute_dIdX = true;
+        actually_compute_d2I  = true; 
+    }
+
+    this->need_compute(actually_compute_value, actually_compute_dIdW, actually_compute_dIdX, actually_compute_d2I);
+    
+    bool compute_derivatives = false;
+    if(actually_compute_dIdW || actually_compute_dIdX || actually_compute_d2I) {compute_derivatives = true;}
+
+    if(actually_compute_value)
+    {
+        this->current_functional_value = evaluate_objective_function(); // also stores adjoint and resiudal_fine.
+    }
+
+    if(compute_derivatives)
+    {
+        compute_common_vectors_and_matrices();
+        store_dIdX();
+        store_dIdW();
+    }
+
+    return this->current_functional_value;
+}
+
+
+template<int dim, int nstate, typename real>
+real DualWeightedResidualObjFunc<dim, nstate, real> :: evaluate_objective_function()
+{
+    return 0.0;
+}
+
+template<int dim, int nstate, typename real>
+void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_common_vectors_and_matrices()
+{
+
+}
+
+template<int dim, int nstate, typename real>
+void DualWeightedResidualObjFunc<dim, nstate, real> :: store_dIdX()
+{
+
+}
+
+template<int dim, int nstate, typename real>
+void DualWeightedResidualObjFunc<dim, nstate, real> :: store_dIdW()
+{
+
 }
 
 
