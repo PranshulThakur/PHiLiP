@@ -11,6 +11,11 @@ DualWeightedResidualObjFunc<dim, nstate, real> :: DualWeightedResidualObjFunc(
     const bool uses_solution_values,
     const bool uses_solution_gradient)
     : Functional<dim, nstate, real> (dg_input, uses_solution_values, uses_solution_gradient)
+    , R_u(std::make_unique<MatrixType>())
+    , R_u_transpose(std::make_unique<MatrixType>())
+    , matrix_ux(std::make_unique<MatrixType>())
+    , matrix_uu(std::make_unique<MatrixType>())
+    , interpolation_matrix(std::make_unique<MatrixType>())
 {
     compute_interpolation_matrix(); // also stores cellwise_dofs_fine, vector coarse and vector fine.
     functional = FunctionalFactory<dim,nstate,real>::create_Functional(this->dg->all_parameters->functional_param, this->dg);
@@ -67,7 +72,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_interpolation_mat
     } // cell loop ends
 
     dealii::SparsityTools::distribute_sparsity_pattern(dsp, dofs_range_fine, MPI_COMM_WORLD, dofs_fine_locally_relevant_range);
-    interpolation_matrix.reinit(dofs_range_fine, dofs_range_coarse, dsp, MPI_COMM_WORLD);
+    interpolation_matrix->reinit(dofs_range_fine, dofs_range_coarse, dsp, MPI_COMM_WORLD);
 
     for(const auto &cell : this->dg->dof_handler.active_cell_iterators())
     {
@@ -91,13 +96,13 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_interpolation_mat
         {
             for(unsigned int j=0; j < n_dofs_cell; ++j)
             {
-                interpolation_matrix.set(dof_indices_fine[i], dof_indices[j], interpolation_matrix_local(i,j));
+                interpolation_matrix->set(dof_indices_fine[i], dof_indices[j], interpolation_matrix_local(i,j));
             }
         }
 
     } // cell loop ends
 
-    interpolation_matrix.compress(dealii::VectorOperation::insert);
+    interpolation_matrix->compress(dealii::VectorOperation::insert);
 }
 
 template<int dim, int nstate, typename real>
@@ -208,14 +213,12 @@ real DualWeightedResidualObjFunc<dim, nstate, real> :: evaluate_objective_functi
     this->dg->assemble_residual(compute_dRdW);
     
     residual_fine = this->dg->right_hand_side;
+    residual_fine.update_ghost_values();
     adjoint.reinit(residual_fine);
     const bool compute_dIdW = true;
     functional->evaluate_functional(compute_dIdW);
-    J_u = functional->dIdw;
-    J_u.update_ghost_values();
-    residual_fine.update_ghost_values();
     
-    solve_linear(this->dg->system_matrix_transpose, J_u, adjoint, this->dg->all_parameters->linear_solver_param);
+    solve_linear(this->dg->system_matrix_transpose, functional->dIdw, adjoint, this->dg->all_parameters->linear_solver_param);
     adjoint *= -1.0;
     adjoint.update_ghost_values();
     
@@ -250,24 +253,24 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_common_vectors_an
     // Store derivatives related to the residual
     bool compute_dRdW = true, compute_dRdX=false, compute_d2R=false;
     this->dg->assemble_residual(compute_dRdW, compute_dRdX, compute_d2R);
-    R_u.copy_from(this->dg->system_matrix);
-    R_u_transpose.copy_from(this->dg->system_matrix_transpose);
+    R_u->copy_from(this->dg->system_matrix);
+    R_u_transpose->copy_from(this->dg->system_matrix_transpose);
     
     this->dg->set_dual(adjoint);
     compute_dRdW = false, compute_dRdX = false, compute_d2R = true;
     this->dg->assemble_residual(compute_dRdW, compute_dRdX, compute_d2R);
-    //adjoint_times_Rux.copy_from(this->dg->d2RdWdX);
-    matrix_ux.copy_from(this->dg->d2RdWdX);
-   // adjoint_times_Ruu.copy_from(this->dg->d2RdWdW);
-    matrix_uu.copy_from(this->dg->d2RdWdW);
+    //adjoint_times_Rux->copy_from(this->dg->d2RdWdX);
+    matrix_ux->copy_from(this->dg->d2RdWdX);
+   // adjoint_times_Ruu->copy_from(this->dg->d2RdWdW);
+    matrix_uu->copy_from(this->dg->d2RdWdW);
 
     // Store derivatives relate to functional J.
     const bool compute_dIdW = false,  compute_dIdX = false, compute_d2I = true;
     functional->evaluate_functional(compute_dIdW, compute_dIdX, compute_d2I);
-   // J_uu.copy_from(*functional->d2IdWdW);
-   // J_ux.copy_from(*functional->d2IdWdX);
-    matrix_ux.add(1.0, *functional->d2IdWdX);
-    matrix_uu.add(1.0, *functional->d2IdWdW);
+   // J_uu->copy_from(*functional->d2IdWdW);
+   // J_ux->copy_from(*functional->d2IdWdX);
+    matrix_ux->add(1.0, *functional->d2IdWdX);
+    matrix_uu->add(1.0, *functional->d2IdWdW);
 
     this->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(-1);
 }
