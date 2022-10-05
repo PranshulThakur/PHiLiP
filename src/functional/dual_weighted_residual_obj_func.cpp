@@ -245,7 +245,31 @@ real DualWeightedResidualObjFunc<dim, nstate, real> :: evaluate_objective_functi
 template<int dim, int nstate, typename real>
 void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_common_vectors_and_matrices()
 {
+    this->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(1);
+    
+    // Store derivatives related to the residual
+    bool compute_dRdW = true, compute_dRdX=false, compute_d2R=false;
+    this->dg->assemble_residual(compute_dRdW, compute_dRdX, compute_d2R);
+    R_u.copy_from(this->dg->system_matrix);
+    R_u_transpose.copy_from(this->dg->system_matrix_transpose);
+    
+    this->dg->set_dual(adjoint);
+    compute_dRdW = false, compute_dRdX = false, compute_d2R = true;
+    this->dg->assemble_residual(compute_dRdW, compute_dRdX, compute_d2R);
+    //adjoint_times_Rux.copy_from(this->dg->d2RdWdX);
+    matrix_ux.copy_from(this->dg->d2RdWdX);
+   // adjoint_times_Ruu.copy_from(this->dg->d2RdWdW);
+    matrix_uu.copy_from(this->dg->d2RdWdW);
 
+    // Store derivatives relate to functional J.
+    const bool compute_dIdW = false,  compute_dIdX = false, compute_d2I = true;
+    functional->evaluate_functional(compute_dIdW, compute_dIdX, compute_d2I);
+   // J_uu.copy_from(*functional->d2IdWdW);
+   // J_ux.copy_from(*functional->d2IdWdX);
+    matrix_ux.add(1.0, *functional->d2IdWdX);
+    matrix_uu.add(1.0, *functional->d2IdWdW);
+
+    this->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(-1);
 }
 
 template<int dim, int nstate, typename real>

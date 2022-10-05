@@ -82,7 +82,13 @@ private:
     
     /// Stores \f[R_u^T \f] on fine space. 
     MatrixType R_u_transpose;
-
+/*    
+    /// Stores \f[ \mathbf{\psi^TR_{ux}} \f].
+    MatrixType adjoint_times_Rux;
+    
+    /// Stores \f[ \mathbf{\psi^TR_{uu}} \f].
+    MatrixType adjoint_times_Ruu;
+*/
     /// Stores adjoint.
     VectorType adjoint;
 
@@ -97,6 +103,18 @@ private:
 
     /// Stores dIdW  (functional deriative wrt solution fine)
     VectorType J_u;
+/*
+    /// Stores d2IdWdW of the functional used in the objective function.
+    MatrixType J_uu;
+
+    /// Stores d2IdWdX of the functional used in the objective function.
+    MatrixType J_ux;
+*/
+    /// Stores \f[ J_{ux} + \psi^TR_{ux} \f]
+    MatrixType matrix_ux;
+
+    /// Stores \f[ J_{uu} + \psi^TR_{uu} \f]
+    MatrixType matrix_uu;
 
     /// Functional used to create the objective function.
     std::shared_ptr< Functional<dim, nstate, real> > functional;
