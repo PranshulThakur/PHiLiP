@@ -27,7 +27,7 @@ int main (int argc, char * argv[])
     
     // Create grid and dg. 
     std::shared_ptr<MeshType> grid = std::make_shared<MeshType>(MPI_COMM_WORLD);
-    unsigned int grid_refinement_val = 4;
+    unsigned int grid_refinement_val = 3;
     dealii::GridGenerator::hyper_cube(*grid);
     grid->refine_global(grid_refinement_val);
 
@@ -40,6 +40,7 @@ int main (int argc, char * argv[])
 
     std::shared_ptr < DGBase<dim, double> > dg = DGFactory<dim, double>::create_discontinuous_galerkin(&all_parameters, poly_degree,poly_degree + 1, grid_degree, grid);
     dg->allocate_system();
+    unsigned int n_dofs_coarse = dg->n_dofs();
 
     std::shared_ptr <Physics::PhysicsBase<dim,nstate,double>> physics_double = Physics::PhysicsFactory<dim, nstate, double>::create_Physics(&all_parameters);
     VectorType solution_with_ghost;
@@ -125,7 +126,7 @@ int main (int argc, char * argv[])
     pcout<<"Evaluated analytical dIdw."<<std::endl; 
 
     VectorType dIdw_fd;
-    dIdw_fd.reinit(dwr_objfunc->dIdw);
+    dIdw_fd.reinit(dg->solution);
 
     double value_original = dwr_objfunc->current_functional_value;
     double value_perturbed = value_original;
@@ -134,6 +135,10 @@ int main (int argc, char * argv[])
     // const dealii::IndexSet &vol_nodes_range = dg->high_order_grid->volume_nodes.get_partitioner()->locally_owned_range();
 
     unsigned int n_dofs = dg->solution.size();
+    AssertDimension(n_dofs, n_dofs_coarse);
+    AssertDimension(n_dofs, dwr_objfunc->dIdw.size());
+    AssertDimension(n_dofs, dIdw_fd.size());
+    pcout<<"All dimensions are good."<<std::endl; 
    // unsigned int n_vol_nodes = dg->high_order_grid->volume_nodes.size();
 
     double step_size = 1.0e-5;
@@ -155,6 +160,7 @@ int main (int argc, char * argv[])
 
     VectorType diff_dIdw = dwr_objfunc->dIdw;
     diff_dIdw -= dIdw_fd;
+    diff_dIdw.update_ghost_values();
 
     if(diff_dIdw.l2_norm() > 1.0e-15)
     {

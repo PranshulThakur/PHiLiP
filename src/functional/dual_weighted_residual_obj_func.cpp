@@ -258,7 +258,6 @@ real DualWeightedResidualObjFunc<dim, nstate, real> :: evaluate_objective_functi
 template<int dim, int nstate, typename real>
 void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_common_vectors_and_matrices()
 {
-    this->pcout<<"Reached here 1."<<std::endl;
     this->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(1);
     
     // Store derivatives related to the residual
@@ -268,57 +267,44 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_common_vectors_an
     R_u.copy_from(this->dg->system_matrix);
     R_u_transpose.reinit(this->dg->system_matrix_transpose);
     R_u_transpose.copy_from(this->dg->system_matrix_transpose);
-    std::cout<<"Reached here 2."<<std::endl;
     
     compute_dRdW = false, compute_dRdX = true, compute_d2R = false;
     this->dg->assemble_residual(compute_dRdW, compute_dRdX, compute_d2R);
-    this->pcout<<"Reached here 2.1"<<std::endl;
     R_x.reinit(this->dg->dRdXv);
     R_x.copy_from(this->dg->dRdXv);
-    this->pcout<<"Reached here 2.2"<<std::endl;
-    this->pcout<<"Reached here 3."<<std::endl;
  
     AssertDimension(adjoint.size(), vector_fine.size());
     AssertDimension(adjoint.size(), this->dg->solution.size());
-    this->pcout<<"Reached here 3.1"<<std::endl;
     this->dg->set_dual(adjoint);
-    this->pcout<<"Reached here 3.2"<<std::endl;
     compute_dRdW = false, compute_dRdX = false, compute_d2R = true;
     this->dg->assemble_residual(compute_dRdW, compute_dRdX, compute_d2R);
-    this->pcout<<"Reached here 3.3"<<std::endl;
     matrix_ux.reinit(this->dg->d2RdWdX);
     matrix_ux.copy_from(this->dg->d2RdWdX);
     matrix_uu.reinit(this->dg->d2RdWdW);
     matrix_uu.copy_from(this->dg->d2RdWdW);
-    this->pcout<<"Reached here 4."<<std::endl;
 
     // Store derivatives relate to functional J.
     const bool compute_dIdW = false,  compute_dIdX = false, compute_d2I = true;
     functional->evaluate_functional(compute_dIdW, compute_dIdX, compute_d2I);
     matrix_ux.add(1.0, *functional->d2IdWdX);
     matrix_uu.add(1.0, *functional->d2IdWdW);
-    this->pcout<<"Reached here 5."<<std::endl;
 
     matrix_ux *= -1.0;
     matrix_uu *= -1.0;
-    this->pcout<<"Reached here 6."<<std::endl;
 
     this->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(-1);
-    this->pcout<<"Reached here 7."<<std::endl;
 }
 
 template<int dim, int nstate, typename real>
 void DualWeightedResidualObjFunc<dim, nstate, real> :: store_dIdX()
 { 
     eta_x_Tvmult(this->dIdX, eta);
-    this->pcout<<"Reached here 8."<<std::endl;
 }
 
 template<int dim, int nstate, typename real>
 void DualWeightedResidualObjFunc<dim, nstate, real> :: store_dIdW()
 {
     eta_u_Tvmult(this->dIdw, eta);
-    this->pcout<<"Reached here 9."<<std::endl;
 }
 
 template<int dim, int nstate, typename real>
