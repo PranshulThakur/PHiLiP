@@ -85,7 +85,8 @@ int main (int argc, char * argv[])
 
 
     pcout<<"Interpolation matrix is good"<<std::endl;
-
+// ====== Dof indices check ==========================================================================================
+/*
     pcout<<"Now checking if stored dof_indices are good..."<<std::endl;
     
     dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(1);
@@ -117,6 +118,50 @@ int main (int argc, char * argv[])
     } // cell loop ends
 
     pcout<<"Dof indices are the same."<<std::endl;
+*/
+// ====== Check dIdw finite difference ==========================================================================================
+    pcout<<"Now checking dIdw analytical vs finite difference."<<std::endl; 
+    dwr_objfunc->evaluate_functional(true, true, false);
+    pcout<<"Evaluated analytical dIdw."<<std::endl; 
+
+    VectorType dIdw_fd;
+    dIdw_fd.reinit(dwr_objfunc->dIdw);
+
+    double value_original = dwr_objfunc->current_functional_value;
+    double value_perturbed = value_original;
+
+    const dealii::IndexSet &dof_range = dg->solution.get_partitioner()->locally_owned_range();
+    // const dealii::IndexSet &vol_nodes_range = dg->high_order_grid->volume_nodes.get_partitioner()->locally_owned_range();
+
+    unsigned int n_dofs = dg->solution.size();
+   // unsigned int n_vol_nodes = dg->high_order_grid->volume_nodes.size();
+
+    double step_size = 1.0e-5;
+    pcout<<"Evaluating dIdw using finite difference."<<std::endl; 
+
+    for(unsigned int i_dof = 0; i_dof < n_dofs; ++i_dof)
+    {
+        if(! dof_range.is_element(i_dof)) {continue;}
+
+        dg->solution(i_dof) += step_size; // perturb solution
+
+        value_perturbed = dwr_objfunc->evaluate_functional();
+
+        dIdw_fd(i_dof) = (value_perturbed - value_original)/step_size;
+
+        dg->solution(i_dof) -= step_size; // reset solution
+    }
+    pcout<<"Done evaluating dIdw using finite difference."<<std::endl; 
+
+    VectorType diff_dIdw = dwr_objfunc->dIdw;
+    diff_dIdw -= dIdw_fd;
+
+    if(diff_dIdw.l2_norm() > 1.0e-15)
+    {
+        pcout<<"Difference between finite difference and analytical dIdw is high. L2 norm of diff_dIdw = "<<diff_dIdw.l2_norm()<<std::endl;
+        return 1;
+    }
+
 
     return 0; // Test passed
 }
