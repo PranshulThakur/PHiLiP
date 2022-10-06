@@ -35,6 +35,7 @@ int main (int argc, char * argv[])
     Parameters::AllParameters::declare_parameters (parameter_handler);
     Parameters::AllParameters all_parameters;
     all_parameters.parse_parameters (parameter_handler);
+    all_parameters.linear_solver_param.linear_residual = 1.0e-14;
     const unsigned int poly_degree = 1;
     const unsigned int grid_degree = 1;
 
@@ -141,8 +142,10 @@ int main (int argc, char * argv[])
     pcout<<"All dimensions are good."<<std::endl; 
    // unsigned int n_vol_nodes = dg->high_order_grid->volume_nodes.size();
 
-    double step_size = 1.0e-5;
+    double step_size = 1.0e-6;
     pcout<<"Evaluating dIdw using finite difference."<<std::endl; 
+    dealii::Vector<double> dIdw_fd_serial(n_dofs);
+    dealii::Vector<double> dIdw_serial(n_dofs);
 
     for(unsigned int i_dof = 0; i_dof < n_dofs; ++i_dof)
     {
@@ -153,20 +156,30 @@ int main (int argc, char * argv[])
         value_perturbed = dwr_objfunc->evaluate_functional();
 
         dIdw_fd(i_dof) = (value_perturbed - value_original)/step_size;
-
+        
+        dIdw_fd_serial(i_dof) = (value_perturbed - value_original)/step_size;
+        dIdw_serial(i_dof) = dwr_objfunc->dIdw(i_dof);
         dg->solution(i_dof) -= step_size; // reset solution
     }
-    pcout<<"Done evaluating dIdw using finite difference."<<std::endl; 
+    dIdw_fd.update_ghost_values();
+    pcout<<"Done evaluating dIdw using finite difference."<<std::endl;
 
     VectorType diff_dIdw = dwr_objfunc->dIdw;
     diff_dIdw -= dIdw_fd;
     diff_dIdw.update_ghost_values();
 
+    pcout<<"dIdw analytical = "<<std::endl;
+    dIdw_serial.print(std::cout, 3, true, false);
+    
+    pcout<<"dIdw finite difference = "<<std::endl;
+    dIdw_fd_serial.print(std::cout, 3, true, false);
+    
     if(diff_dIdw.l2_norm() > 1.0e-15)
     {
         pcout<<"Difference between finite difference and analytical dIdw is high. L2 norm of diff_dIdw = "<<diff_dIdw.l2_norm()<<std::endl;
         return 1;
     }
+
 
 
     return 0; // Test passed

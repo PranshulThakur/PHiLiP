@@ -16,7 +16,7 @@ void ManufacturedSolutionParam::declare_parameters(dealii::ParameterHandler &prm
                       dealii::Patterns::Bool(),
                       "Uses non-zero source term based on the manufactured solution and the PDE.");
 
-    prm.declare_entry("manufactured_solution_type","exp_solution",
+    prm.declare_entry("manufactured_solution_type","sine_solution",
                       dealii::Patterns::Selection(
                       " sine_solution | "
                       " zero_solution | "
