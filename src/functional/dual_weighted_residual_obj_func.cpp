@@ -34,6 +34,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_interpolation_mat
     unsigned int n_dofs_fine = this->dg->n_dofs();
     const dealii::IndexSet dofs_fine_locally_relevant_range = this->dg->locally_relevant_dofs;
     cellwise_dofs_fine = get_cellwise_dof_indices();
+
     this->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(-1);
     AssertDimension(vector_coarse.size(), this->dg->solution.size());     
 
@@ -248,6 +249,7 @@ real DualWeightedResidualObjFunc<dim, nstate, real> :: evaluate_objective_functi
     } // cell loop ends
 
     real obj_func_local = eta*eta;
+    obj_func_local *= 1.0/2.0;
     real obj_func_global = dealii::Utilities::MPI::sum(obj_func_local, MPI_COMM_WORLD);
     return obj_func_global;
 }
@@ -261,21 +263,31 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_common_vectors_an
     // Store derivatives related to the residual
     bool compute_dRdW = true, compute_dRdX=false, compute_d2R=false;
     this->dg->assemble_residual(compute_dRdW, compute_dRdX, compute_d2R);
+    R_u->reinit(this->dg->system_matrix);
     R_u->copy_from(this->dg->system_matrix);
+    R_u_transpose->reinit(this->dg->system_matrix_transpose);
     R_u_transpose->copy_from(this->dg->system_matrix_transpose);
-    this->pcout<<"Reached here 2."<<std::endl;
+    std::cout<<"Reached here 2."<<std::endl;
     
     compute_dRdW = false, compute_dRdX = true, compute_d2R = false;
     this->dg->assemble_residual(compute_dRdW, compute_dRdX, compute_d2R);
+    this->pcout<<"Reached here 2.1"<<std::endl;
+    R_x->reinit(this->dg->dRdXv);
     R_x->copy_from(this->dg->dRdXv);
+    this->pcout<<"Reached here 2.2"<<std::endl;
     this->pcout<<"Reached here 3."<<std::endl;
-   
+ 
     AssertDimension(adjoint.size(), vector_fine.size());
     AssertDimension(adjoint.size(), this->dg->solution.size());
+    this->pcout<<"Reached here 3.1"<<std::endl;
     this->dg->set_dual(adjoint);
+    this->pcout<<"Reached here 3.2"<<std::endl;
     compute_dRdW = false, compute_dRdX = false, compute_d2R = true;
     this->dg->assemble_residual(compute_dRdW, compute_dRdX, compute_d2R);
+    this->pcout<<"Reached here 3.3"<<std::endl;
+    matrix_ux->reinit(this->dg->d2RdWdX);
     matrix_ux->copy_from(this->dg->d2RdWdX);
+    matrix_uu->reinit(this->dg->d2RdWdW);
     matrix_uu->copy_from(this->dg->d2RdWdW);
     this->pcout<<"Reached here 4."<<std::endl;
 

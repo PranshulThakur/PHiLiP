@@ -27,7 +27,7 @@ int main (int argc, char * argv[])
     
     // Create grid and dg. 
     std::shared_ptr<MeshType> grid = std::make_shared<MeshType>(MPI_COMM_WORLD);
-    unsigned int grid_refinement_val = 5;
+    unsigned int grid_refinement_val = 4;
     dealii::GridGenerator::hyper_cube(*grid);
     grid->refine_global(grid_refinement_val);
 
@@ -35,7 +35,7 @@ int main (int argc, char * argv[])
     Parameters::AllParameters::declare_parameters (parameter_handler);
     Parameters::AllParameters all_parameters;
     all_parameters.parse_parameters (parameter_handler);
-    const unsigned int poly_degree = 3;
+    const unsigned int poly_degree = 1;
     const unsigned int grid_degree = 1;
 
     std::shared_ptr < DGBase<dim, double> > dg = DGFactory<dim, double>::create_discontinuous_galerkin(&all_parameters, poly_degree,poly_degree + 1, grid_degree, grid);
