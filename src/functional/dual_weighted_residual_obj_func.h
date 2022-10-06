@@ -23,33 +23,7 @@ public:
     /// Destructor
     ~DualWeightedResidualObjFunc(){}
 
-    /// Computes common vectors (adjoint, residual_fine) and matrices (R_u, R_u_transpose, eta_psi and eta_R) required for dIdW, dIdX and d2I.
-    void compute_common_vectors_and_matrices();
 
-    /// Computes interpolation matrix.
-    /** Assumes the polynomial order remains constant throughout the optimization algorithm.
-     *  Also assumes that all cells have the same polynomial degree.
-     */
-    void compute_interpolation_matrix();
-
-    /// Computes  \f[ out_vector = \eta_x*in_vector \f].
-    void eta_x_vmult(VectorType &out_vector, const VectorType &in_vector) const;
-
-    /// Computes  \f[ out_vector = \eta_u*in_vector \f].
-    void eta_u_vmult(VectorType &out_vector, const VectorType &in_vector) const;
-    
-    /// Computes  \f[ out_vector = \eta_x^T*in_vector \f].
-    void eta_x_Tvmult(VectorType &out_vector, const VectorType &in_vector) const;
-
-    /// Computes  \f[ out_vector = \eta_u^T*in_vector \f].
-    void eta_u_Tvmult(VectorType &out_vector, const VectorType &in_vector) const;
-
-    /// Stores dIdW
-    void store_dIdW();
-
-    /// Stores dIdX
-    void store_dIdX();
-/*
     /// Computes \f[ out_vector = d2IdWdW*in_vector \f]. 
     void d2IdWdW_vmult(VectorType &out_vector, const VectorType &in_vector) const override;
     /// Computes \f[ out_vector = d2IdWdX*in_vector \f]. 
@@ -58,12 +32,13 @@ public:
     void d2IdWdX_Tvmult(VectorType &out_vector, const VectorType &in_vector) const override;
     /// Computes \f[ out_vector = d2IdXdX*in_vector \f]. 
     void d2IdXdX_vmult(VectorType &out_vector, const VectorType &in_vector) const override;
-*/
+
     /// Evaluates \f[ \mathcal{F} = \eta^T \eta \f] and derivatives, if needed.
     real evaluate_functional(
         const bool compute_dIdW = false,
         const bool compute_dIdX = false,
         const bool compute_d2I = false) override;
+
 private:
     /// Extracts all matrices possible for various combinations of polynomial degrees.
     void extract_interpolation_matrices(dealii::Table<2, dealii::FullMatrix<real>> &interpolation_hp);
@@ -74,6 +49,45 @@ private:
     /// Evaluates objective function and also stores adjoint and residual.
     real evaluate_objective_function();
 
+    /// Computes common vectors (adjoint, residual_fine) and matrices (R_u, R_u_transpose, eta_psi and eta_R) required for dIdW, dIdX and d2I.
+    void compute_common_vectors_and_matrices();
+
+    /// Computes interpolation matrix.
+    /** Assumes the polynomial order remains constant throughout the optimization algorithm.
+     *  Also assumes that all cells have the same polynomial degree.
+     */
+    void compute_interpolation_matrix();
+
+    /// Computes  \f[ out_vector = \eta_x*in_vector \f].
+    void eta_x_vmult(NormalVector &out_vector, const VectorType &in_vector) const;
+
+    /// Computes  \f[ out_vector = \eta_u*in_vector \f].
+    void eta_u_vmult(NormalVector &out_vector, const VectorType &in_vector) const;
+    
+    /// Computes  \f[ out_vector = \eta_x^T*in_vector \f].
+    void eta_x_Tvmult(VectorType &out_vector, const NormalVector &in_vector) const;
+
+    /// Computes  \f[ out_vector = \eta_u^T*in_vector \f].
+    void eta_u_Tvmult(VectorType &out_vector, const NormalVector &in_vector) const;
+    
+    /// Computes  \f[ out_vector = \eta_{\psi}*in_vector \f].
+    void eta_psi_vmult(NormalVector &out_vector, const VectorType &in_vector) const;
+
+    /// Computes  \f[ out_vector = \eta_R*in_vector \f].
+    void eta_R_vmult(NormalVector &out_vector, const VectorType &in_vector) const;
+    
+    /// Computes  \f[ out_vector = \eta_{\psi}^T*in_vector \f].
+    void eta_psi_Tvmult(VectorType &out_vector, const NormalVector &in_vector) const;
+
+    /// Computes  \f[ out_vector = \eta_u^T*in_vector \f].
+    void eta_R_Tvmult(VectorType &out_vector, const NormalVector &in_vector) const;
+
+    /// Stores dIdW
+    void store_dIdW();
+
+    /// Stores dIdX
+    void store_dIdX();
+    
     /// Stores adjoint weighted residual on each cell.
     NormalVector eta;
 
@@ -82,13 +96,10 @@ private:
     
     /// Stores \f[R_u^T \f] on fine space. 
     std::unique_ptr<MatrixType> R_u_transpose;
-/*    
-    /// Stores \f[ \mathbf{\psi^TR_{ux}} \f].
-    MatrixType adjoint_times_Rux;
     
-    /// Stores \f[ \mathbf{\psi^TR_{uu}} \f].
-    MatrixType adjoint_times_Ruu;
-*/
+    /// Stores \f[R_x \f] on fine space. 
+    std::unique_ptr<MatrixType> R_x;
+    
     /// Stores adjoint.
     VectorType adjoint;
 
@@ -101,15 +112,6 @@ private:
     /// Stores vector on fine space (p+1) to copy parallel partitioning later.
     VectorType vector_fine;
 
-    /// Stores dIdW  (functional deriative wrt solution fine)
-    VectorType J_u;
-/*
-    /// Stores d2IdWdW of the functional used in the objective function.
-    MatrixType J_uu;
-
-    /// Stores d2IdWdX of the functional used in the objective function.
-    MatrixType J_ux;
-*/
     /// Stores \f[ J_{ux} + \psi^TR_{ux} \f]
     std::unique_ptr<MatrixType> matrix_ux;
 

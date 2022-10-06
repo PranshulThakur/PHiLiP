@@ -256,37 +256,338 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_common_vectors_an
     R_u->copy_from(this->dg->system_matrix);
     R_u_transpose->copy_from(this->dg->system_matrix_transpose);
     
+    compute_dRdW = false, compute_dRdX = true, compute_d2R = false;
+    this->dg->assemble_residual(compute_dRdW, compute_dRdX, compute_d2R);
+    R_x->copy_from(this->dg->dRdXv);
+    
     this->dg->set_dual(adjoint);
     compute_dRdW = false, compute_dRdX = false, compute_d2R = true;
     this->dg->assemble_residual(compute_dRdW, compute_dRdX, compute_d2R);
-    //adjoint_times_Rux->copy_from(this->dg->d2RdWdX);
     matrix_ux->copy_from(this->dg->d2RdWdX);
-   // adjoint_times_Ruu->copy_from(this->dg->d2RdWdW);
     matrix_uu->copy_from(this->dg->d2RdWdW);
 
     // Store derivatives relate to functional J.
     const bool compute_dIdW = false,  compute_dIdX = false, compute_d2I = true;
     functional->evaluate_functional(compute_dIdW, compute_dIdX, compute_d2I);
-   // J_uu->copy_from(*functional->d2IdWdW);
-   // J_ux->copy_from(*functional->d2IdWdX);
     matrix_ux->add(1.0, *functional->d2IdWdX);
     matrix_uu->add(1.0, *functional->d2IdWdW);
+
+    (*matrix_ux) *= -1.0;
+    (*matrix_uu) *= -1.0;
 
     this->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(-1);
 }
 
 template<int dim, int nstate, typename real>
 void DualWeightedResidualObjFunc<dim, nstate, real> :: store_dIdX()
-{
-
+{ 
+    eta_x_Tvmult(this->dIdX, eta);
 }
 
 template<int dim, int nstate, typename real>
 void DualWeightedResidualObjFunc<dim, nstate, real> :: store_dIdW()
 {
+    eta_u_Tvmult(this->dIdw, eta);
+}
+
+template<int dim, int nstate, typename real>
+void DualWeightedResidualObjFunc<dim, nstate, real> :: d2IdWdW_vmult(
+    VectorType &out_vector, 
+    const VectorType &in_vector) const
+{ 
+    NormalVector v_interm;
+    eta_u_vmult(v_interm, in_vector);
+    eta_u_Tvmult(out_vector, v_interm);
+}
+
+template<int dim, int nstate, typename real>
+void DualWeightedResidualObjFunc<dim, nstate, real> :: d2IdWdX_vmult(
+    VectorType &out_vector, 
+    const VectorType &in_vector) const
+{ 
+    NormalVector v_interm;
+    eta_x_vmult(v_interm, in_vector);
+    eta_u_Tvmult(out_vector, v_interm);
+}
+
+template<int dim, int nstate, typename real>
+void DualWeightedResidualObjFunc<dim, nstate, real> :: d2IdWdX_Tvmult(
+    VectorType &out_vector, 
+    const VectorType &in_vector) const
+{ 
+    NormalVector v_interm;
+    eta_u_vmult(v_interm, in_vector);
+    eta_x_Tvmult(out_vector, v_interm);
+}
+
+template<int dim, int nstate, typename real>
+void DualWeightedResidualObjFunc<dim, nstate, real> :: d2IdXdX_vmult(
+    VectorType &out_vector, 
+    const VectorType &in_vector) const
+{ 
+    NormalVector v_interm;
+    eta_x_vmult(v_interm, in_vector);
+    eta_x_Tvmult(out_vector, v_interm);
+}
+
+//===================================================================================================================================================
+//                          Functions used to evaluate vmults and Tvmults
+//===================================================================================================================================================
+
+template<int dim, int nstate, typename real>
+void DualWeightedResidualObjFunc<dim, nstate, real> :: eta_psi_vmult(
+    NormalVector &out_vector, 
+    const VectorType &in_vector) const
+{
+    out_vector.reinit(this->dg->triangulation->n_active_cells());
+    AssertDimension(in_vector.size(), vector_fine.size());
+    
+    for(const auto &cell : this->dg->dof_handler.active_cell_iterators())
+    {
+        if (!cell->is_locally_owned()) continue;
+
+        const dealii::types::global_dof_index cell_index = cell->active_cell_index();
+        
+        const std::vector<dealii::types::global_dof_index> &dof_indices_fine = cellwise_dofs_fine[cell_index];
+        out_vector[cell_index] = 0.0;
+
+        for(unsigned int i_dof=0; i_dof < dof_indices_fine.size(); ++i_dof)
+        {
+            out_vector[cell_index] += residual_fine(dof_indices_fine[i_dof])*in_vector(dof_indices_fine[i_dof]);
+        }
+
+    } // cell loop ends
 
 }
 
+template<int dim, int nstate, typename real>
+void DualWeightedResidualObjFunc<dim, nstate, real> :: eta_R_vmult(
+    NormalVector &out_vector, 
+    const VectorType &in_vector) const
+{
+    AssertDimension(in_vector.size(), vector_fine.size());
+    out_vector.reinit(this->dg->triangulation->n_active_cells());
+    
+    for(const auto &cell : this->dg->dof_handler.active_cell_iterators())
+    {
+        if (!cell->is_locally_owned()) continue;
+
+        const dealii::types::global_dof_index cell_index = cell->active_cell_index();
+        
+        const std::vector<dealii::types::global_dof_index> &dof_indices_fine = cellwise_dofs_fine[cell_index];
+        out_vector[cell_index] = 0.0;
+
+        for(unsigned int i_dof=0; i_dof < dof_indices_fine.size(); ++i_dof)
+        {
+            out_vector[cell_index] += adjoint(dof_indices_fine[i_dof])*in_vector(dof_indices_fine[i_dof]);
+        }
+
+    } // cell loop ends
+
+}
+
+template<int dim, int nstate, typename real>
+void DualWeightedResidualObjFunc<dim, nstate, real> :: eta_psi_Tvmult(
+    VectorType &out_vector, 
+    const NormalVector &in_vector) const
+{
+    AssertDimension(in_vector.size(), this->dg->triangulation->n_active_cells());
+    out_vector.reinit(vector_fine);
+    
+    for(const auto &cell : this->dg->dof_handler.active_cell_iterators())
+    {
+        if (!cell->is_locally_owned()) continue;
+
+        const dealii::types::global_dof_index cell_index = cell->active_cell_index();
+        
+        const std::vector<dealii::types::global_dof_index> &dof_indices_fine = cellwise_dofs_fine[cell_index];
+
+        for(unsigned int i_dof = 0; i_dof < dof_indices_fine.size(); ++i_dof)
+        {
+            out_vector(dof_indices_fine[i_dof]) = in_vector[cell_index] * residual_fine(dof_indices_fine[i_dof]);
+        }
+    } // cell loop ends
+
+    out_vector.update_ghost_values();
+}
+
+template<int dim, int nstate, typename real>
+void DualWeightedResidualObjFunc<dim, nstate, real> :: eta_R_Tvmult(
+    VectorType &out_vector, 
+    const NormalVector &in_vector) const
+{
+    AssertDimension(in_vector.size(), this->dg->triangulation->n_active_cells());
+    out_vector.reinit(vector_fine);
+    
+    for(const auto &cell : this->dg->dof_handler.active_cell_iterators())
+    {
+        if (!cell->is_locally_owned()) continue;
+
+        const dealii::types::global_dof_index cell_index = cell->active_cell_index();
+        
+        const std::vector<dealii::types::global_dof_index> &dof_indices_fine = cellwise_dofs_fine[cell_index];
+
+        for(unsigned int i_dof = 0; i_dof < dof_indices_fine.size(); ++i_dof)
+        {
+            out_vector(dof_indices_fine[i_dof]) = in_vector[cell_index] * adjoint(dof_indices_fine[i_dof]);
+        }
+    } // cell loop ends
+
+    out_vector.update_ghost_values();
+}
+
+template<int dim, int nstate, typename real>
+void DualWeightedResidualObjFunc<dim, nstate, real> :: eta_x_vmult(
+    NormalVector &out_vector, 
+    const VectorType &in_vector) const
+{
+    AssertDimension(in_vector.size(), this->dg->high_order_grid->volume_nodes.size());
+    out_vector.reinit(this->dg->triangulation->n_active_cells());
+//========================================================================================
+    // Compute v1 = Rx*in_vector.
+    VectorType v1;
+    v1.reinit(vector_fine);
+    R_x->vmult(v1, in_vector);
+    
+    // Compute v2 = eta_R*v1 = eta_R*Rx*in_vector.
+    NormalVector v2;
+    eta_R_vmult(v2, v1);
+//========================================================================================
+//========================================================================================
+    VectorType v3;
+    v3.reinit(vector_fine);
+
+    matrix_ux->vmult(v3, in_vector);
+
+    VectorType v4;
+    v4.reinit(vector_fine);
+
+    solve_linear(*R_u_transpose, v3, v4, this->dg->all_parameters->linear_solver_param);
+    v4.update_ghost_values();
+    
+    //v5 = eta_psi*R_u^{-T} * matrix_ux * in_vector 
+    NormalVector v5;
+    eta_psi_vmult(v5, v4);
+//========================================================================================
+    out_vector = v2;
+    out_vector += v5;
+}
+
+
+template<int dim, int nstate, typename real>
+void DualWeightedResidualObjFunc<dim, nstate, real> :: eta_u_vmult(
+    NormalVector &out_vector, 
+    const VectorType &in_vector) const
+{
+    AssertDimension(in_vector.size(), vector_coarse.size());
+    out_vector.reinit(this->dg->triangulation->n_active_cells());
+
+    VectorType in_vector_fine;
+    in_vector_fine.reinit(vector_fine);
+    interpolation_matrix->vmult(in_vector_fine, in_vector);
+//========================================================================================
+    // Compute v1 = Ru*in_vector.
+    VectorType v1;
+    v1.reinit(vector_fine);
+    R_u->vmult(v1, in_vector_fine);
+    
+    // Compute v2 = eta_R*v1 = eta_R*Ru*in_vector.
+    NormalVector v2;
+    eta_R_vmult(v2, v1);
+//========================================================================================
+//========================================================================================
+    VectorType v3;
+    v3.reinit(vector_fine);
+    // v3 = Muu*I_h*in_vector
+    matrix_uu->vmult(v3, in_vector_fine);
+
+    VectorType v4;
+    v4.reinit(vector_fine);
+
+    solve_linear(*R_u_transpose, v3, v4, this->dg->all_parameters->linear_solver_param);
+    v4.update_ghost_values();
+    
+    //v5 = eta_psi*R_u^{-T} * matrix_uu * I_h*in_vector 
+    NormalVector v5;
+    eta_psi_vmult(v5, v4);
+//========================================================================================
+    out_vector = v2;
+    out_vector += v5;
+}
+
+template<int dim, int nstate, typename real>
+void DualWeightedResidualObjFunc<dim, nstate, real> :: eta_x_Tvmult(
+    VectorType &out_vector, 
+    const NormalVector &in_vector) const
+{
+    AssertDimension(in_vector.size(), this->dg->triangulation->n_active_cells());
+    out_vector.reinit(this->dg->high_order_grid->volume_nodes);
+//========================================================================================
+    VectorType v1;
+    eta_psi_Tvmult(v1, in_vector);
+
+    VectorType v2;
+    v2.reinit(vector_fine);
+
+    solve_linear(*R_u, v1, v2, this->dg->all_parameters->linear_solver_param);
+    v2.update_ghost_values();
+    
+    // v3 = in_vector^T*eta_psi*R_u^{-T}*matrix_ux
+    VectorType v3 (this->dg->high_order_grid->volume_nodes);
+    matrix_ux->Tvmult(v3, v2);
+    v3.update_ghost_values();
+//========================================================================================
+//========================================================================================
+
+    VectorType v4;
+    eta_R_Tvmult(v4, in_vector);
+    
+    // v5 = in_vector^T * eta_R * R_x
+    VectorType v5 (this->dg->high_order_grid->volume_nodes);
+    R_x->Tvmult(v5, v4);
+    v5.update_ghost_values();
+//========================================================================================
+    out_vector = v3;
+    out_vector += v5;
+    out_vector.update_ghost_values();
+}
+
+template<int dim, int nstate, typename real>
+void DualWeightedResidualObjFunc<dim, nstate, real> :: eta_u_Tvmult(
+    VectorType &out_vector, 
+    const NormalVector &in_vector) const
+{
+    AssertDimension(in_vector.size(), this->dg->triangulation->n_active_cells());
+    out_vector.reinit(vector_coarse);
+//========================================================================================
+    VectorType v1;
+    eta_psi_Tvmult(v1, in_vector);
+
+    VectorType v2;
+    v2.reinit(vector_fine);
+
+    solve_linear(*R_u, v1, v2, this->dg->all_parameters->linear_solver_param);
+    v2.update_ghost_values();
+    
+    // v3 = in_vector^T*eta_psi*R_u^{-T}*matrix_uu
+    VectorType v3 (vector_fine);
+    matrix_uu->Tvmult(v3, v2);
+    v3.update_ghost_values();
+//========================================================================================
+//========================================================================================
+    VectorType v4;
+    eta_R_Tvmult(v4, in_vector);
+    
+    // v5 = in_vector^T * eta_R * R_u
+    VectorType v5 (vector_fine);
+    R_u->Tvmult(v5, v4);
+    v5.update_ghost_values();
+//========================================================================================
+    VectorType v6 = v5;
+    v6 += v3;
+    interpolation_matrix->Tvmult(out_vector, v6);
+    out_vector.update_ghost_values();
+}
 
 template class DualWeightedResidualObjFunc <PHILIP_DIM, 1, double>;
 template class DualWeightedResidualObjFunc <PHILIP_DIM, 2, double>;
