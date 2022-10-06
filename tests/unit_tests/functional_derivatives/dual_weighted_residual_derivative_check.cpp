@@ -59,7 +59,7 @@ int main (int argc, char * argv[])
     VectorType solution_coarse = dg->solution;
     std::unique_ptr<DualWeightedResidualObjFunc<dim, nstate, double>> dwr_objfunc = std::make_unique<DualWeightedResidualObjFunc<dim, nstate, double>> (dg);
     MatrixType interpolation_matrix;
-    interpolation_matrix.copy_from(*dwr_objfunc->interpolation_matrix);
+    interpolation_matrix.copy_from(dwr_objfunc->interpolation_matrix);
     
     dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(1);
     VectorType solution_fine_from_solution_transfer = dg->solution;

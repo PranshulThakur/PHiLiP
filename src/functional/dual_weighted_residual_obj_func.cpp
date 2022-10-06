@@ -11,11 +11,12 @@ DualWeightedResidualObjFunc<dim, nstate, real> :: DualWeightedResidualObjFunc(
     const bool uses_solution_values,
     const bool uses_solution_gradient)
     : Functional<dim, nstate, real> (dg_input, uses_solution_values, uses_solution_gradient)
-    , R_u(std::make_unique<MatrixType>())
+/*    , R_u(std::make_unique<MatrixType>())
     , R_u_transpose(std::make_unique<MatrixType>())
     , matrix_ux(std::make_unique<MatrixType>())
     , matrix_uu(std::make_unique<MatrixType>())
     , interpolation_matrix(std::make_unique<MatrixType>())
+*/
 {
     compute_interpolation_matrix(); // also stores cellwise_dofs_fine, vector coarse and vector fine.
     functional = FunctionalFactory<dim,nstate,real>::create_Functional(this->dg->all_parameters->functional_param, this->dg);
@@ -73,7 +74,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_interpolation_mat
     } // cell loop ends
 
     dealii::SparsityTools::distribute_sparsity_pattern(dsp, dofs_range_fine, MPI_COMM_WORLD, dofs_fine_locally_relevant_range);
-    interpolation_matrix->reinit(dofs_range_fine, dofs_range_coarse, dsp, MPI_COMM_WORLD);
+    interpolation_matrix.reinit(dofs_range_fine, dofs_range_coarse, dsp, MPI_COMM_WORLD);
 
     for(const auto &cell : this->dg->dof_handler.active_cell_iterators())
     {
@@ -97,13 +98,13 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_interpolation_mat
         {
             for(unsigned int j=0; j < n_dofs_cell; ++j)
             {
-                interpolation_matrix->set(dof_indices_fine[i], dof_indices[j], interpolation_matrix_local(i,j));
+                interpolation_matrix.set(dof_indices_fine[i], dof_indices[j], interpolation_matrix_local(i,j));
             }
         }
 
     } // cell loop ends
 
-    interpolation_matrix->compress(dealii::VectorOperation::insert);
+    interpolation_matrix.compress(dealii::VectorOperation::insert);
 }
 
 template<int dim, int nstate, typename real>
@@ -263,17 +264,17 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_common_vectors_an
     // Store derivatives related to the residual
     bool compute_dRdW = true, compute_dRdX=false, compute_d2R=false;
     this->dg->assemble_residual(compute_dRdW, compute_dRdX, compute_d2R);
-    R_u->reinit(this->dg->system_matrix);
-    R_u->copy_from(this->dg->system_matrix);
-    R_u_transpose->reinit(this->dg->system_matrix_transpose);
-    R_u_transpose->copy_from(this->dg->system_matrix_transpose);
+    R_u.reinit(this->dg->system_matrix);
+    R_u.copy_from(this->dg->system_matrix);
+    R_u_transpose.reinit(this->dg->system_matrix_transpose);
+    R_u_transpose.copy_from(this->dg->system_matrix_transpose);
     std::cout<<"Reached here 2."<<std::endl;
     
     compute_dRdW = false, compute_dRdX = true, compute_d2R = false;
     this->dg->assemble_residual(compute_dRdW, compute_dRdX, compute_d2R);
     this->pcout<<"Reached here 2.1"<<std::endl;
-    R_x->reinit(this->dg->dRdXv);
-    R_x->copy_from(this->dg->dRdXv);
+    R_x.reinit(this->dg->dRdXv);
+    R_x.copy_from(this->dg->dRdXv);
     this->pcout<<"Reached here 2.2"<<std::endl;
     this->pcout<<"Reached here 3."<<std::endl;
  
@@ -285,21 +286,21 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_common_vectors_an
     compute_dRdW = false, compute_dRdX = false, compute_d2R = true;
     this->dg->assemble_residual(compute_dRdW, compute_dRdX, compute_d2R);
     this->pcout<<"Reached here 3.3"<<std::endl;
-    matrix_ux->reinit(this->dg->d2RdWdX);
-    matrix_ux->copy_from(this->dg->d2RdWdX);
-    matrix_uu->reinit(this->dg->d2RdWdW);
-    matrix_uu->copy_from(this->dg->d2RdWdW);
+    matrix_ux.reinit(this->dg->d2RdWdX);
+    matrix_ux.copy_from(this->dg->d2RdWdX);
+    matrix_uu.reinit(this->dg->d2RdWdW);
+    matrix_uu.copy_from(this->dg->d2RdWdW);
     this->pcout<<"Reached here 4."<<std::endl;
 
     // Store derivatives relate to functional J.
     const bool compute_dIdW = false,  compute_dIdX = false, compute_d2I = true;
     functional->evaluate_functional(compute_dIdW, compute_dIdX, compute_d2I);
-    matrix_ux->add(1.0, *functional->d2IdWdX);
-    matrix_uu->add(1.0, *functional->d2IdWdW);
+    matrix_ux.add(1.0, *functional->d2IdWdX);
+    matrix_uu.add(1.0, *functional->d2IdWdW);
     this->pcout<<"Reached here 5."<<std::endl;
 
-    (*matrix_ux) *= -1.0;
-    (*matrix_uu) *= -1.0;
+    matrix_ux *= -1.0;
+    matrix_uu *= -1.0;
     this->pcout<<"Reached here 6."<<std::endl;
 
     this->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(-1);
@@ -477,7 +478,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: eta_x_vmult(
     // Compute v1 = Rx*in_vector.
     VectorType v1;
     v1.reinit(vector_fine);
-    R_x->vmult(v1, in_vector);
+    R_x.vmult(v1, in_vector);
     
     // Compute v2 = eta_R*v1 = eta_R*Rx*in_vector.
     NormalVector v2;
@@ -487,12 +488,12 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: eta_x_vmult(
     VectorType v3;
     v3.reinit(vector_fine);
 
-    matrix_ux->vmult(v3, in_vector);
+    matrix_ux.vmult(v3, in_vector);
 
     VectorType v4;
     v4.reinit(vector_fine);
 
-    solve_linear(*R_u_transpose, v3, v4, this->dg->all_parameters->linear_solver_param);
+    solve_linear(R_u_transpose, v3, v4, this->dg->all_parameters->linear_solver_param);
     v4.update_ghost_values();
     
     //v5 = eta_psi*R_u^{-T} * matrix_ux * in_vector 
@@ -514,12 +515,12 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: eta_u_vmult(
 
     VectorType in_vector_fine;
     in_vector_fine.reinit(vector_fine);
-    interpolation_matrix->vmult(in_vector_fine, in_vector);
+    interpolation_matrix.vmult(in_vector_fine, in_vector);
 //========================================================================================
     // Compute v1 = Ru*in_vector.
     VectorType v1;
     v1.reinit(vector_fine);
-    R_u->vmult(v1, in_vector_fine);
+    R_u.vmult(v1, in_vector_fine);
     
     // Compute v2 = eta_R*v1 = eta_R*Ru*in_vector.
     NormalVector v2;
@@ -529,12 +530,12 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: eta_u_vmult(
     VectorType v3;
     v3.reinit(vector_fine);
     // v3 = Muu*I_h*in_vector
-    matrix_uu->vmult(v3, in_vector_fine);
+    matrix_uu.vmult(v3, in_vector_fine);
 
     VectorType v4;
     v4.reinit(vector_fine);
 
-    solve_linear(*R_u_transpose, v3, v4, this->dg->all_parameters->linear_solver_param);
+    solve_linear(R_u_transpose, v3, v4, this->dg->all_parameters->linear_solver_param);
     v4.update_ghost_values();
     
     //v5 = eta_psi*R_u^{-T} * matrix_uu * I_h*in_vector 
@@ -559,12 +560,12 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: eta_x_Tvmult(
     VectorType v2;
     v2.reinit(vector_fine);
 
-    solve_linear(*R_u, v1, v2, this->dg->all_parameters->linear_solver_param);
+    solve_linear(R_u, v1, v2, this->dg->all_parameters->linear_solver_param);
     v2.update_ghost_values();
     
     // v3 = in_vector^T*eta_psi*R_u^{-T}*matrix_ux
     VectorType v3 (this->dg->high_order_grid->volume_nodes);
-    matrix_ux->Tvmult(v3, v2);
+    matrix_ux.Tvmult(v3, v2);
     v3.update_ghost_values();
 //========================================================================================
 //========================================================================================
@@ -574,7 +575,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: eta_x_Tvmult(
     
     // v5 = in_vector^T * eta_R * R_x
     VectorType v5 (this->dg->high_order_grid->volume_nodes);
-    R_x->Tvmult(v5, v4);
+    R_x.Tvmult(v5, v4);
     v5.update_ghost_values();
 //========================================================================================
     out_vector = v3;
@@ -596,12 +597,12 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: eta_u_Tvmult(
     VectorType v2;
     v2.reinit(vector_fine);
 
-    solve_linear(*R_u, v1, v2, this->dg->all_parameters->linear_solver_param);
+    solve_linear(R_u, v1, v2, this->dg->all_parameters->linear_solver_param);
     v2.update_ghost_values();
     
     // v3 = in_vector^T*eta_psi*R_u^{-T}*matrix_uu
     VectorType v3 (vector_fine);
-    matrix_uu->Tvmult(v3, v2);
+    matrix_uu.Tvmult(v3, v2);
     v3.update_ghost_values();
 //========================================================================================
 //========================================================================================
@@ -610,12 +611,12 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: eta_u_Tvmult(
     
     // v5 = in_vector^T * eta_R * R_u
     VectorType v5 (vector_fine);
-    R_u->Tvmult(v5, v4);
+    R_u.Tvmult(v5, v4);
     v5.update_ghost_values();
 //========================================================================================
     VectorType v6 = v5;
     v6 += v3;
-    interpolation_matrix->Tvmult(out_vector, v6);
+    interpolation_matrix.Tvmult(out_vector, v6);
     out_vector.update_ghost_values();
 }
 

@@ -92,13 +92,13 @@ private:
     NormalVector eta;
 
     /// Stores \f[R_u \f] on fine space. 
-    std::unique_ptr<MatrixType> R_u;
+    MatrixType R_u;
     
     /// Stores \f[R_u^T \f] on fine space. 
-    std::unique_ptr<MatrixType> R_u_transpose;
+    MatrixType R_u_transpose;
     
     /// Stores \f[R_x \f] on fine space. 
-    std::unique_ptr<MatrixType> R_x;
+    MatrixType R_x;
     
     /// Stores adjoint.
     VectorType adjoint;
@@ -113,10 +113,10 @@ private:
     VectorType vector_fine;
 
     /// Stores \f[ J_{ux} + \psi^TR_{ux} \f]
-    std::unique_ptr<MatrixType> matrix_ux;
+    MatrixType matrix_ux;
 
     /// Stores \f[ J_{uu} + \psi^TR_{uu} \f]
-    std::unique_ptr<MatrixType> matrix_uu;
+    MatrixType matrix_uu;
 
     /// Functional used to create the objective function.
     std::shared_ptr< Functional<dim, nstate, real> > functional;
@@ -126,7 +126,7 @@ public:
     std::vector<std::vector<dealii::types::global_dof_index>> cellwise_dofs_fine;
 
     /// Stores interpolation matrix \f[ I_h \f] to interpolate onto fine space. Used to compute \f[ U_h^H = I_h u_H \f]. 
-    std::unique_ptr<MatrixType> interpolation_matrix;
+    MatrixType interpolation_matrix;
 };
 
 } // namespace PHiLiP
