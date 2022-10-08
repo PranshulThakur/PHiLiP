@@ -59,9 +59,9 @@ int main (int argc, char * argv[])
     dg->solution.update_ghost_values();
     
     VectorType solution_coarse = dg->solution;
-    std::unique_ptr<DualWeightedResidualObjFunc<dim, nstate, double>> dwr_objfunc = std::make_unique<DualWeightedResidualObjFunc<dim, nstate, double>> (dg);
+    std::unique_ptr<DualWeightedResidualObjFunc<dim, nstate, double>> dwr_func = std::make_unique<DualWeightedResidualObjFunc<dim, nstate, double>> (dg);
     MatrixType interpolation_matrix;
-    interpolation_matrix.copy_from(dwr_objfunc->interpolation_matrix);
+    interpolation_matrix.copy_from(dwr_func->interpolation_matrix);
     
     dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(1);
     VectorType solution_fine_from_solution_transfer = dg->solution;
@@ -106,7 +106,7 @@ int main (int argc, char * argv[])
 
         dof_indices.resize(n_dofs_cell);
         cell->get_dof_indices (dof_indices);
-        const std::vector<dealii::types::global_dof_index> &dof_indices_fine = dwr_objfunc->cellwise_dofs_fine[cell_index];
+        const std::vector<dealii::types::global_dof_index> &dof_indices_fine = dwr_func->cellwise_dofs_fine[cell_index];
 
         for(unsigned int i_dof=0; i_dof < n_dofs_cell; ++i_dof)
         {
@@ -124,6 +124,7 @@ int main (int argc, char * argv[])
 
 // ======= Check if volume nodes and the solution remain the same after evaluating the functional ============================================================================
     // This check ensures that volume_node/solution configuration stays the same. If this same configuration is used again, already computed values aren't re-evaluated. 
+    std::unique_ptr<Functional<dim, nstate, double>> dwr_objfunc = std::make_unique<DualWeightedResidualObjFunc<dim, nstate, double>> (dg);
     VectorType diff_vol_nodes = dg->high_order_grid->volume_nodes;
     VectorType diff_sol = dg->solution;
  
@@ -145,12 +146,25 @@ int main (int argc, char * argv[])
         return 1;
     }
     
+//================ Check if Gauss-Newton hessians work. Gives error if stored d2IdWdW is called (it has no dimensions and remains unintialized). ====================================================
+    pcout<<"Checking dimensionalities of Gauss-Newton hessian vector products.\n"
+          <<"If it gives an error, consider re-running the test in debug mode to check which assert statement has been triggered."<<std::endl; 
+    VectorType vector_u_size; 
+    VectorType vector_x_size; 
+    vector_u_size.reinit(dg->solution);
+    vector_x_size.reinit(dg->high_order_grid->volume_nodes);
+    dwr_objfunc->d2IdWdW_vmult(vector_u_size, dg->solution);
+    dwr_objfunc->d2IdXdX_vmult(vector_x_size, dg->high_order_grid->volume_nodes);
+    dwr_objfunc->d2IdWdX_vmult(vector_u_size, dg->high_order_grid->volume_nodes);
+    dwr_objfunc->d2IdWdX_Tvmult(vector_x_size, dg->solution);
+    pcout<<"Gauss-Newton vector products seem to be fine."<<std::endl;
+    
 // ====== Check dIdX finite difference ==========================================================================================
     pcout<<"Checking dIdX analytical vs finite difference."<<std::endl; 
     dwr_objfunc->evaluate_functional(true, true, false); // Shouldn't evaluate derivatives as it's already computed above.
     if(value_original != dwr_objfunc->current_functional_value) 
     {
-        pcout<<"Value of the bjective function has changed. Something's wrong.."<<std::endl;
+        pcout<<"Value of the objective function has changed. Something's wrong.."<<std::endl;
         pcout<<"Difference = "<<value_original - dwr_objfunc->current_functional_value<<std::endl;
         return 1;
     }
