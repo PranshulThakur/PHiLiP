@@ -125,7 +125,7 @@ int main (int argc, char * argv[])
     pcout<<"Now checking dIdX analytical vs finite difference."<<std::endl; 
     dwr_objfunc->evaluate_functional(true, true, false);
     pcout<<"Evaluated analytical dIdX."<<std::endl; 
-
+/*
     VectorType dIdX_fd;
     dIdX_fd.reinit(dg->high_order_grid->volume_nodes); // Change here==========================================================================================>>>
 
@@ -179,7 +179,10 @@ int main (int argc, char * argv[])
         pcout<<"Difference between finite difference and analytical dIdX is high. L2 norm of diff_dIdX = "<<diff_dIdX.l2_norm()<<std::endl;
         return 1;
     }
-
+*/
+    pcout<<"Objective function val = "<<dwr_objfunc->current_functional_value<<std::endl;
+    pcout<<"dIdw l2 norm = "<<dwr_objfunc->dIdw.l2_norm()<<std::endl;
+    pcout<<"dIdX l2 norm = "<<dwr_objfunc->dIdX.l2_norm()<<std::endl;
 
 
     return 0; // Test passed
