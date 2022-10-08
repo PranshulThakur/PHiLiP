@@ -217,6 +217,7 @@ real DualWeightedResidualObjFunc<dim, nstate, real> :: evaluate_objective_functi
     eta.reinit(this->dg->triangulation->n_active_cells());
 
     // Evaluate adjoint and residual fine
+    VectorType solution_coarse_stored = this->dg->solution;
     this->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(1);
     const bool compute_dRdW = true;
     this->dg->assemble_residual(compute_dRdW);
@@ -232,6 +233,10 @@ real DualWeightedResidualObjFunc<dim, nstate, real> :: evaluate_objective_functi
     adjoint.update_ghost_values();
     
     this->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(-1);
+    /* Interpolating one poly order up and then down changes solution by ~1.0e-12, which causes functional to be re-evaluated when the solution-node configuration is the same. 
+    Resetting of solution to stored coarse solution prevents this issue.     */
+    this->dg->solution = solution_coarse_stored; 
+    this->dg->solution.update_ghost_values();
     
     for(const auto &cell : this->dg->dof_handler.active_cell_iterators())
     {
@@ -258,6 +263,7 @@ real DualWeightedResidualObjFunc<dim, nstate, real> :: evaluate_objective_functi
 template<int dim, int nstate, typename real>
 void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_common_vectors_and_matrices()
 {
+    VectorType solution_coarse_stored = this->dg->solution;
     this->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(1);
     
     // Store derivatives related to the residual
@@ -293,6 +299,18 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_common_vectors_an
     matrix_uu *= -1.0;
 
     this->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(-1);
+    
+    /* Interpolating one poly order up and then down changes solution by ~1.0e-12, which causes functional to be re-evaluated when the solution-node configuration is the same. 
+    Resetting of solution to stored coarse solution prevents this issue.     */
+    this->dg->solution = solution_coarse_stored; 
+    this->dg->solution.update_ghost_values();
+
+    // Compress all matrices
+    R_u.compress(dealii::VectorOperation::add);
+    R_u_transpose.compress(dealii::VectorOperation::add);
+    R_x.compress(dealii::VectorOperation::add);
+    matrix_ux.compress(dealii::VectorOperation::add);
+    matrix_uu.compress(dealii::VectorOperation::add);
 }
 
 template<int dim, int nstate, typename real>
@@ -465,6 +483,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: eta_x_vmult(
     VectorType v1;
     v1.reinit(vector_fine);
     R_x.vmult(v1, in_vector);
+    v1.update_ghost_values();
     
     // Compute v2 = eta_R*v1 = eta_R*Rx*in_vector.
     NormalVector v2;
@@ -475,6 +494,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: eta_x_vmult(
     v3.reinit(vector_fine);
 
     matrix_ux.vmult(v3, in_vector);
+    v3.update_ghost_values();
 
     VectorType v4;
     v4.reinit(vector_fine);
@@ -502,11 +522,13 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: eta_u_vmult(
     VectorType in_vector_fine;
     in_vector_fine.reinit(vector_fine);
     interpolation_matrix.vmult(in_vector_fine, in_vector);
+    in_vector_fine.update_ghost_values();
 //========================================================================================
     // Compute v1 = Ru*in_vector.
     VectorType v1;
     v1.reinit(vector_fine);
     R_u.vmult(v1, in_vector_fine);
+    v1.update_ghost_values();
     
     // Compute v2 = eta_R*v1 = eta_R*Ru*in_vector.
     NormalVector v2;
@@ -517,6 +539,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: eta_u_vmult(
     v3.reinit(vector_fine);
     // v3 = Muu*I_h*in_vector
     matrix_uu.vmult(v3, in_vector_fine);
+    v3.update_ghost_values();
 
     VectorType v4;
     v4.reinit(vector_fine);
@@ -602,6 +625,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: eta_u_Tvmult(
 //========================================================================================
     VectorType v6 = v5;
     v6 += v3;
+    v6.update_ghost_values();
     interpolation_matrix.Tvmult(out_vector, v6);
     out_vector.update_ghost_values();
 }

@@ -88,7 +88,7 @@ int main (int argc, char * argv[])
 
     pcout<<"Interpolation matrix is good"<<std::endl;
 // ====== Dof indices check ==========================================================================================
-/*
+
     pcout<<"Now checking if stored dof_indices are good..."<<std::endl;
     
     dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(1);
@@ -120,71 +120,148 @@ int main (int argc, char * argv[])
     } // cell loop ends
 
     pcout<<"Dof indices are the same."<<std::endl;
-*/
-// ====== Check dIdX finite difference ==========================================================================================
-    pcout<<"Now checking dIdX analytical vs finite difference."<<std::endl; 
-    dwr_objfunc->evaluate_functional(true, true, false);
-    pcout<<"Evaluated analytical dIdX."<<std::endl; 
-/*
-    VectorType dIdX_fd;
-    dIdX_fd.reinit(dg->high_order_grid->volume_nodes); // Change here==========================================================================================>>>
+    dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(-1);
 
-    double value_original = dwr_objfunc->current_functional_value;
+// ======= Check if volume nodes and the solution remain the same after evaluating the functional ============================================================================
+    // This check ensures that volume_node/solution configuration stays the same. If this same configuration is used again, already computed values aren't re-evaluated. 
+    VectorType diff_vol_nodes = dg->high_order_grid->volume_nodes;
+    VectorType diff_sol = dg->solution;
+ 
+    dwr_objfunc->evaluate_functional(true, true, false);
+    const double value_original = dwr_objfunc->current_functional_value;
+    
+    diff_vol_nodes -= dg->high_order_grid->volume_nodes;
+    diff_sol -= dg->solution;
+    diff_vol_nodes.update_ghost_values();
+    diff_sol.update_ghost_values();
+    if(diff_vol_nodes.l2_norm() != 0.0) 
+    {
+        pcout<<"Volume nodes have been changed when not expected to change"<<std::endl;
+        return 1;
+    }
+    if(diff_sol.l2_norm() != 0.0) 
+    {
+        pcout<<"Solution has changed. It wasn't expected to change."<<std::endl;
+        return 1;
+    }
+    
+// ====== Check dIdX finite difference ==========================================================================================
+    pcout<<"Checking dIdX analytical vs finite difference."<<std::endl; 
+    dwr_objfunc->evaluate_functional(true, true, false); // Shouldn't evaluate derivatives as it's already computed above.
+    if(value_original != dwr_objfunc->current_functional_value) 
+    {
+        pcout<<"Value of the bjective function has changed. Something's wrong.."<<std::endl;
+        pcout<<"Difference = "<<value_original - dwr_objfunc->current_functional_value<<std::endl;
+        return 1;
+    }
+
+    pcout<<"Evaluated analytical dIdX."<<std::endl; 
+
+    VectorType dIdX_fd;
+    dIdX_fd.reinit(dg->high_order_grid->volume_nodes); 
+    
     double value_perturbed = value_original;
 
-    const dealii::IndexSet &dof_range = dg->high_order_grid->volume_nodes.get_partitioner()->locally_owned_range();  // Change here======================================================================>>
-    // const dealii::IndexSet &vol_nodes_range = dg->high_order_grid->volume_nodes.get_partitioner()->locally_owned_range();
+    const dealii::IndexSet &vol_range = dg->high_order_grid->volume_nodes.get_partitioner()->locally_owned_range();
 
-    unsigned int n_dofs = dg->high_order_grid->volume_nodes.size(); // Change here===============================================================================================>>
-  //  AssertDimension(n_dofs, n_dofs_coarse);
-    AssertDimension(n_dofs, dwr_objfunc->dIdX.size());// Change here===============================================================================================>>
-    AssertDimension(n_dofs, dIdX_fd.size()); // Change here===============================================================================================>>
+    unsigned int n_vol_nodes = dg->high_order_grid->volume_nodes.size();
+    AssertDimension(n_vol_nodes, dwr_objfunc->dIdX.size());
+    AssertDimension(n_vol_nodes, dIdX_fd.size()); 
     pcout<<"All dimensions are good."<<std::endl; 
-   // unsigned int n_vol_nodes = dg->high_order_grid->volume_nodes.size();
 
-    double step_size = 1.0e-6;
-    pcout<<"Evaluating dIdX using finite difference."<<std::endl; 
-    dealii::Vector<double> dIdX_fd_serial(n_dofs);
-    dealii::Vector<double> dIdX_serial(n_dofs);
+    double step_size_delx = 1.0e-6;
+    pcout<<"Evaluating dIdX using finite difference."<<std::endl;
 
-    for(unsigned int i_dof = 0; i_dof < n_dofs; ++i_dof)
+    for(unsigned int i_node = 0; i_node < n_vol_nodes; ++i_node)
     {
-        if(! dof_range.is_element(i_dof)) {continue;}
-
-        dg->high_order_grid->volume_nodes(i_dof) += step_size; // perturb solution// Change here===============================================================================================>>
-
+        if(vol_range.is_element(i_node)) {
+            dg->high_order_grid->volume_nodes(i_node) += step_size_delx; // perturb node
+        }
+        dg->high_order_grid->volume_nodes.update_ghost_values();
+        
         value_perturbed = dwr_objfunc->evaluate_functional();
 
-        dIdX_fd(i_dof) = (value_perturbed - value_original)/step_size;
-        
-      //  dIdX_fd_serial(i_dof) = (value_perturbed - value_original)/step_size;
-      //  dIdX_serial(i_dof) = dwr_objfunc->dIdX(i_dof);  //// Change here===============================================================================================>>
-        dg->high_order_grid->volume_nodes(i_dof) -= step_size; // reset solution // Change here===============================================================================================>>
+        if(vol_range.is_element(i_node)) {
+            dIdX_fd(i_node) = (value_perturbed - value_original)/step_size_delx; 
+            dg->high_order_grid->volume_nodes(i_node) -= step_size_delx; // reset 
+        }
+        dg->high_order_grid->volume_nodes.update_ghost_values();
     }
+
     dIdX_fd.update_ghost_values();
     pcout<<"Done evaluating dIdX using finite difference."<<std::endl;
 
-    VectorType diff_dIdX = dwr_objfunc->dIdX; // Change here===============================================================================================>>
+    VectorType diff_dIdX = dwr_objfunc->dIdX; 
     diff_dIdX -= dIdX_fd;
     diff_dIdX.update_ghost_values();
 
     pcout<<"dIdX analytical = "<<std::endl;
-    dIdX_serial.print(std::cout, 3, true, false);
+    dwr_objfunc->dIdX.print(std::cout, 3, true, false);
     
     pcout<<"dIdX finite difference = "<<std::endl;
-    dIdX_fd_serial.print(std::cout, 3, true, false);
+    dIdX_fd.print(std::cout, 3, true, false);
     
-    if(diff_dIdX.l2_norm() > 1.0e-15)
+// ====== Check dIdw finite difference ==========================================================================================
+    pcout<<"Now checking dIdw analytical vs finite difference."<<std::endl; 
+    // Should just return without re-evaluate derivatives again. If there is a difference in solution/nodes, it is caught by the if statement below comparing values of objective function.
+    dwr_objfunc->evaluate_functional(true, true, false); 
+    pcout<<"Evaluated analytical dIdw."<<std::endl; 
+
+    VectorType dIdw_fd;
+    dIdw_fd.reinit(dg->solution); 
+
+    const dealii::IndexSet &dof_range = dg->solution.get_partitioner()->locally_owned_range();  
+
+    unsigned int n_dofs = dg->solution.size(); 
+    AssertDimension(n_dofs, n_dofs_coarse);
+    AssertDimension(n_dofs, dwr_objfunc->dIdw.size());
+    AssertDimension(n_dofs, dIdw_fd.size()); 
+    pcout<<"All dimensions are good."<<std::endl; 
+
+    double step_size_delu = 1.0e-6;
+    pcout<<"Evaluating dIdw using finite difference."<<std::endl; 
+
+    for(unsigned int i_dof = 0; i_dof < n_dofs; ++i_dof)
     {
-        pcout<<"Difference between finite difference and analytical dIdX is high. L2 norm of diff_dIdX = "<<diff_dIdX.l2_norm()<<std::endl;
+        if(dof_range.is_element(i_dof)){
+            dg->solution(i_dof) += step_size_delu; // perturb solution
+        }
+        dg->solution.update_ghost_values();
+        
+        value_perturbed = dwr_objfunc->evaluate_functional();
+
+        if(dof_range.is_element(i_dof)){
+            dIdw_fd(i_dof) = (value_perturbed - value_original)/step_size_delu; 
+            dg->solution(i_dof) -= step_size_delu; // reset solution 
+        }
+        dg->solution.update_ghost_values();
+    }
+
+    dIdw_fd.update_ghost_values();
+    pcout<<"Done evaluating dIdw using finite difference."<<std::endl;
+
+    VectorType diff_dIdw = dwr_objfunc->dIdw; 
+    diff_dIdw -= dIdw_fd;
+    diff_dIdw.update_ghost_values();
+
+    pcout<<"dIdw analytical = "<<std::endl;
+    dwr_objfunc->dIdw.print(std::cout, 3, true, false);
+    
+    pcout<<"dIdw finite difference = "<<std::endl;
+    dIdw_fd.print(std::cout, 3, true, false);
+    
+    double tol_dIdw = 1.0e-4;
+    double tol_dIdX = 1.0e-2;
+  
+    pcout<<"Analytical - finite difference dIdw = "<<diff_dIdw.l2_norm()<<std::endl;
+    pcout<<"Analytical - finite difference dIdX = "<<diff_dIdX.l2_norm()<<std::endl;
+    
+    if(diff_dIdw.l2_norm() > tol_dIdw || diff_dIdX.l2_norm() > tol_dIdX)
+    {
+        pcout<<"Difference between finite difference and analytical dIdw or dIdX is high."<<std::endl;
         return 1;
     }
-*/
-    pcout<<"Objective function val = "<<dwr_objfunc->current_functional_value<<std::endl;
-    pcout<<"dIdw l2 norm = "<<dwr_objfunc->dIdw.l2_norm()<<std::endl;
-    pcout<<"dIdX l2 norm = "<<dwr_objfunc->dIdX.l2_norm()<<std::endl;
 
-
+    pcout<<"Analytical derivatives match well with finite difference."<<std::endl;
     return 0; // Test passed
-    pcout<<n_dofs_coarse;
 }
