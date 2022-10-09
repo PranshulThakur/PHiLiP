@@ -35,12 +35,12 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
     int test_error = 0;
     const Parameters::AllParameters param = *(TestsBase::all_parameters);
 
-    const std::string line_search_curvature = "Null Curvature Condition";
+    const std::string line_search_curvature = //"Null Curvature Condition";
                                                //"Goldstein Conditions";
-                                               //"Strong Wolfe Conditions";
+                                               "Strong Wolfe Conditions";
     const std::string line_search_method = "Backtracking";
-    const int max_design_cycle = 1000;
-    const int iteration_limit = 200;
+    const int max_design_cycle = 20;
+    const int linear_iteration_limit = 20;
 
     const std::string optimization_output_name = "reduced_space_newton";
     const std::string descent_method = "Newton-Krylov";
@@ -51,7 +51,8 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
     std::ostream std_outstream(&filebuffer);
 
     Teuchos::RCP<std::ostream> rcp_outstream;
-    if (this->mpi_rank == 0) rcp_outstream = ROL::makePtrFromRef(std_outstream);
+    if (this->mpi_rank == 0) {rcp_outstream = ROL::makePtrFromRef(std_outstream);}
+    else if (this->mpi_rank == 1) {rcp_outstream = ROL::makePtrFromRef(std::cout);}
     else rcp_outstream = ROL::makePtrFromRef(null_stream);
 
     using DealiiVector = dealii::LinearAlgebra::distributed::Vector<double>;
@@ -106,7 +107,7 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
     parlist.sublist("Status Test").set("Iteration Limit", max_design_cycle);
 
     parlist.sublist("Step").sublist("Line Search").set("User Defined Initial Step Size",true);
-    parlist.sublist("Step").sublist("Line Search").set("Initial Step Size",1e-0);
+    parlist.sublist("Step").sublist("Line Search").set("Initial Step Size",1.0);
     parlist.sublist("Step").sublist("Line Search").set("Function Evaluation Limit",30); // 0.5^30 ~  1e-10
     parlist.sublist("Step").sublist("Line Search").set("Accept Linesearch Minimizer",true);
     parlist.sublist("Step").sublist("Line Search").sublist("Line-Search Method").set("Type",line_search_method);
@@ -138,12 +139,11 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
 
     if (descent_method == "Newton-Krylov") {
         parlist.sublist("General").sublist("Secant").set("Use as Preconditioner", true);
-        const double em4 = 1.0e-8, em2 = 1.0e-6;
         //parlist.sublist("General").sublist("Krylov").set("Type","Conjugate Gradients");
         parlist.sublist("General").sublist("Krylov").set("Type","GMRES");
-        parlist.sublist("General").sublist("Krylov").set("Absolute Tolerance", em4);
-        parlist.sublist("General").sublist("Krylov").set("Relative Tolerance", em2);
-        parlist.sublist("General").sublist("Krylov").set("Iteration Limit", iteration_limit);
+        parlist.sublist("General").sublist("Krylov").set("Absolute Tolerance", 1.0e-8);
+        parlist.sublist("General").sublist("Krylov").set("Relative Tolerance", 1.0e-4);
+        parlist.sublist("General").sublist("Krylov").set("Iteration Limit", linear_iteration_limit);
         parlist.sublist("General").set("Inexact Hessian-Times-A-Vector",false);
     }
     
