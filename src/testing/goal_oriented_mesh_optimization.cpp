@@ -1,13 +1,13 @@
 #include <stdlib.h> 
 #include <iostream>
-#include "dual_weighted_residual_mesh_adaptation.h"
+#include "goal_oriented_mesh_optimization.h"
 #include "flow_solver/flow_solver_factory.h"
 
 namespace PHiLiP {
 namespace Tests {
 
 template <int dim, int nstate>
-DualWeightedResidualMeshAdaptation<dim, nstate> :: DualWeightedResidualMeshAdaptation(
+GoalOrientedMeshOptimization<dim, nstate> :: GoalOrientedMeshOptimization(
     const Parameters::AllParameters *const parameters_input,
     const dealii::ParameterHandler &parameter_handler_input)
     : TestsBase::TestsBase(parameters_input)
@@ -15,7 +15,7 @@ DualWeightedResidualMeshAdaptation<dim, nstate> :: DualWeightedResidualMeshAdapt
 {}
 
 template <int dim, int nstate>
-int DualWeightedResidualMeshAdaptation<dim, nstate> :: run_test () const
+int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
 {
     const Parameters::AllParameters param = *(TestsBase::all_parameters);
     const bool use_mesh_adaptation = param.mesh_adaptation_param.total_mesh_adaptation_cycles > 0;
@@ -56,9 +56,7 @@ int DualWeightedResidualMeshAdaptation<dim, nstate> :: run_test () const
     }
 }
 
-#if PHILIP_DIM==2
-template class DualWeightedResidualMeshAdaptation <PHILIP_DIM, 1>;
-#endif
+template class GoalOrientedMeshOptimization <PHILIP_DIM, 1>;
 
 } // namespace Tests
 } // namespace PHiLiP 

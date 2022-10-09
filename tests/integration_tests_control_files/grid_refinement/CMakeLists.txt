@@ -172,7 +172,7 @@ add_test(
   WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
 )
 
-# Dual Weighted Residual and Convergence Tests
+# Tests to check fixed-fraction goal oriented mesh adaptation.
 configure_file(2d_sshock_dual_weighted_residual_h_adaptation.prm 2d_sshock_dual_weighted_residual_h_adaptation.prm  COPYONLY)
 add_test(
   NAME MPI_2D_DUAL_WEIGHTED_RESIDUAL_SSHOCK_H_ADAPTATION
@@ -183,5 +183,13 @@ configure_file(2d_sshock_dual_weighted_residual_p_adaptation.prm 2d_sshock_dual_
 add_test(
   NAME MPI_2D_DUAL_WEIGHTED_RESIDUAL_SSHOCK_P_ADAPTATION
   COMMAND mpirun -n ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_2D -i ${CMAKE_CURRENT_BINARY_DIR}/2d_sshock_dual_weighted_residual_p_adaptation.prm 
+  WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
+)
+
+#  Optimization based goal oriented mesh adaptation tests.
+configure_file(reduced_space_goal_oriented_mesh_optimization.prm reduced_space_goal_oriented_mesh_optimization.prm  COPYONLY)
+add_test(
+  NAME MPI_REDUCED_SPACE_GOAL_ORIENTED_MESH_OPTIMIZATION
+  COMMAND mpirun -n ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_2D -i ${CMAKE_CURRENT_BINARY_DIR}/reduced_space_goal_oriented_mesh_optimization.prm 
   WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
 )

@@ -20,6 +20,7 @@ set(TESTS_SOURCE
     euler_split_inviscid_taylor_green_vortex.cpp
     optimization_inverse_manufactured/optimization_inverse_manufactured.cpp
     dual_weighted_residual_mesh_adaptation.cpp
+    goal_oriented_mesh_optimization.cpp
     taylor_green_vortex_energy_check.cpp
     taylor_green_vortex_restart_check.cpp
     pod_adaptive_sampling.cpp

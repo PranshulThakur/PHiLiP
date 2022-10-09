@@ -126,6 +126,7 @@ void AllParameters::declare_parameters (dealii::ParameterHandler &prm)
                       " finite_difference_sensitivity | "
                       " advection_periodicity | "
                       " dual_weighted_residual_mesh_adaptation | "
+                      " goal_oriented_mesh_optimization | "
                       " taylor_green_vortex_energy_check | "
                       " taylor_green_vortex_restart_check | "
                       " time_refinement_study | "
@@ -157,6 +158,7 @@ void AllParameters::declare_parameters (dealii::ParameterHandler &prm)
                       "  finite_difference_sensitivity | "
                       "  advection_periodicity | "
                       "  dual_weighted_residual_mesh_adaptation | "
+                      "  goal_oriented_mesh_optimization | "
                       "  taylor_green_vortex_energy_check | "
                       "  taylor_green_vortex_restart_check | "
                       "  time_refinement_study | "
@@ -271,6 +273,7 @@ void AllParameters::parse_parameters (dealii::ParameterHandler &prm)
     else if (test_string == "euler_naca0012")                           { test_type = euler_naca0012; }
     else if (test_string == "optimization_inverse_manufactured")        { test_type = optimization_inverse_manufactured; }
     else if (test_string == "dual_weighted_residual_mesh_adaptation")   { test_type = dual_weighted_residual_mesh_adaptation; }
+    else if (test_string == "goal_oriented_mesh_optimization")          { test_type = goal_oriented_mesh_optimization; }
     else if (test_string == "taylor_green_vortex_energy_check")         { test_type = taylor_green_vortex_energy_check; }
     else if (test_string == "taylor_green_vortex_restart_check")        { test_type = taylor_green_vortex_restart_check; }
     else if (test_string == "time_refinement_study")                    { test_type = time_refinement_study; }
