@@ -149,15 +149,24 @@ int main (int argc, char * argv[])
 //================ Check if Gauss-Newton hessians work. Gives error if stored d2IdWdW is called (it has no dimensions and remains unintialized). ====================================================
     pcout<<"Checking dimensionalities of Gauss-Newton hessian vector products.\n"
           <<"If it gives an error, consider re-running the test in debug mode to check which assert statement has been triggered."<<std::endl; 
-    VectorType vector_u_size; 
-    VectorType vector_x_size; 
-    vector_u_size.reinit(dg->solution);
-    vector_x_size.reinit(dg->high_order_grid->volume_nodes);
-    dwr_objfunc->d2IdWdW_vmult(vector_u_size, dg->solution);
-    dwr_objfunc->d2IdXdX_vmult(vector_x_size, dg->high_order_grid->volume_nodes);
-    dwr_objfunc->d2IdWdX_vmult(vector_u_size, dg->high_order_grid->volume_nodes);
-    dwr_objfunc->d2IdWdX_Tvmult(vector_x_size, dg->solution);
-    pcout<<"Gauss-Newton vector products seem to be fine."<<std::endl;
+    VectorType vector_u_size1; 
+    VectorType vector_x_size1; 
+    VectorType vector_u_size2; 
+    VectorType vector_x_size2; 
+    
+    dwr_objfunc->d2IdWdW_vmult(vector_u_size1, dg->solution);
+    if(vector_u_size1.size() != dg->solution.size()) {return 1;}
+
+    dwr_objfunc->d2IdXdX_vmult(vector_x_size1, dg->high_order_grid->volume_nodes);
+    if(vector_x_size1.size() != dg->high_order_grid->volume_nodes.size()) {return 1;}
+    
+    dwr_objfunc->d2IdWdX_vmult(vector_u_size2, dg->high_order_grid->volume_nodes);
+    if(vector_u_size2.size() != dg->solution.size()) {return 1;}
+    
+    dwr_objfunc->d2IdWdX_Tvmult(vector_x_size2, dg->solution);
+    if(vector_x_size2.size() != dg->high_order_grid->volume_nodes.size()) {return 1;}
+    
+    pcout<<"Dimensions of Gauss-Newton vector products seem to be fine."<<std::endl;
     
 // ====== Check dIdX finite difference ==========================================================================================
     pcout<<"Checking dIdX analytical vs finite difference."<<std::endl; 
