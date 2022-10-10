@@ -36,11 +36,11 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
     const Parameters::AllParameters param = *(TestsBase::all_parameters);
 
     const std::string line_search_curvature = //"Null Curvature Condition";
-                                               "Goldstein Conditions";
-                                              // "Strong Wolfe Conditions";
+                                              // "Goldstein Conditions";
+                                               "Strong Wolfe Conditions";
     const std::string line_search_method = "Backtracking";
-    const int max_design_cycle = 20;
-    const int linear_iteration_limit = 200;
+    const int max_design_cycle = 13;
+    const int linear_iteration_limit = 20;
 
     const std::string optimization_output_name = "reduced_space_newton";
     const std::string descent_method = "Newton-Krylov";

@@ -132,6 +132,7 @@ void FlowConstraints<dim>
     const int mesh_will_be_invalid = design_parameterization->is_design_variable_valid(dXvdXp, ROL_vector_to_dealii_vector_reference(des_var_ctl));
     if(mesh_will_be_invalid)
     {
+        std::cout<<"Adding big_number"<<std::endl;
         constraint.add(big_number);
     }
     else

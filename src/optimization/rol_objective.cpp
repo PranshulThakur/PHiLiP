@@ -58,7 +58,11 @@ double ROLObjectiveSimOpt<dim,nstate>::value(
 
     // If design variable distors the mesh, return a high value to tell optimizer to reduce step size. 
     const int mesh_will_be_invalid = design_parameterization->is_design_variable_valid(dXvdXp, ROL_vector_to_dealii_vector_reference(des_var_ctl));
-    if(mesh_will_be_invalid) {return big_number;}
+    if(mesh_will_be_invalid) 
+    {
+        std::cout<<"Returning big_number"<<std::endl;
+        return big_number;
+    }
 
     update(des_var_sim, des_var_ctl);
 

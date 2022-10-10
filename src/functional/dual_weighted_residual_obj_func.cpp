@@ -18,6 +18,7 @@ DualWeightedResidualObjFunc<dim, nstate, real> :: DualWeightedResidualObjFunc(
     , interpolation_matrix(std::make_unique<MatrixType>())
 */
 {
+    AssertDimension(this->dg->high_order_grid->max_degree, 1);
     compute_interpolation_matrix(); // also stores cellwise_dofs_fine, vector coarse and vector fine.
     functional = FunctionalFactory<dim,nstate,real>::create_Functional(this->dg->all_parameters->functional_param, this->dg);
 }
