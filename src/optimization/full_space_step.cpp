@@ -840,6 +840,7 @@ void FullSpace_BirosGhattas<Real>::update(
         ;
     }
     MPI_Barrier(MPI_COMM_WORLD);
+    flow_constraint.output_results_vtk(output_count++);
 }
 
 template <class Real>

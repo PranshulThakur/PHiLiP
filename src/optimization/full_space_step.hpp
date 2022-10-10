@@ -97,6 +97,9 @@ private:
 
     /// Number of line searches used in the last design cycle.
     int n_linesearches;
+
+    /// Number of the output file. Mesh and solution are output in update(), after updating the variables.   
+    unsigned int output_count = 2000;
 public:
   
     using Step<Real>::initialize; ///< See base class.
