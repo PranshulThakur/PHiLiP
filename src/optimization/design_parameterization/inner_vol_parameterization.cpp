@@ -152,5 +152,73 @@ unsigned int InnerVolParameterization<dim> :: get_number_of_design_variables() c
     return n_inner_nodes;
 }
 
+template<int dim>
+int InnerVolParameterization<dim> :: is_design_variable_valid(
+    const MatrixType &dXv_dXp, 
+    const VectorType &design_var) const
+{
+    // NOTE: This function is only coded for grid degree of 1. Needs to be changed if higher order grids are used.
+    this->pcout<<"Checking if mesh is valid before updating variables..."<<std::endl;
+    int mesh_error_this_processor = 0;
+    VectorType vol_nodes_from_design_var = this->high_order_grid->volume_nodes;
+    VectorType change_in_des_var = design_var;
+    change_in_des_var -= current_design_var;
+
+    dXv_dXp.vmult_add(vol_nodes_from_design_var, change_in_des_var); // Xv = Xv + dXv_dXp*(Xp,new - Xp); Gives Xv for surface nodes and Xp,new for inner vol nodes. 
+    
+    // For storing local vol nodes
+    const dealii::FESystem<dim,dim> &fe_metric = this->high_order_grid->fe_system;
+    const unsigned int n_vol_nodes_cell = fe_metric.dofs_per_cell;
+    std::vector<double> vol_coeffs_cell(n_vol_nodes_cell);
+    std::vector<dealii::types::global_dof_index> cell_vol_indices(n_vol_nodes_cell);
+    dealii::QGauss<dim> quadrature(n_vol_nodes_cell); // hardcoded for now as it doesn't matter for grids of order 1.
+    const unsigned int n_quad_pts = quadrature.size();
+    for(const auto &metric_cell : this->high_order_grid->dof_handler_grid.active_cell_iterators())
+    {
+        if(! metric_cell->is_locally_owned()) {continue;}
+        
+        metric_cell->get_dof_indices(cell_vol_indices);
+
+        for(unsigned int i_vol = 0; i_vol < n_vol_nodes_cell; ++i_vol)
+        {
+            vol_coeffs_cell[i_vol] = vol_nodes_from_design_var(cell_vol_indices[i_vol]);
+        }
+        
+        std::array< dealii::Tensor<1,dim,double>, dim > coord_grad; // Initialized with 0.
+        dealii::Tensor<2,dim,double> metric_jacobian;
+       // double cell_volume = 0.0;
+        for(unsigned int iquad = 0; iquad < n_quad_pts; ++iquad)
+        {
+            const dealii::Point<dim,double> &ref_point = quadrature.point(iquad);
+         //   const double quad_weight = quadrature.weight(iquad);
+
+            for (unsigned int i_vol = 0; i_vol < n_vol_nodes_cell; ++i_vol) {
+                const unsigned int axis = fe_metric.system_to_component_index(i_vol).first;
+                coord_grad[axis] += vol_coeffs_cell[i_vol] * fe_metric.shape_grad (i_vol, ref_point);
+            }
+
+            for (int row=0;row<dim;++row) {
+                for (int col=0;col<dim;++col) {
+                    metric_jacobian[row][col] = coord_grad[row][col];
+                }
+            }
+            const double jacobian_determinant = dealii::determinant(metric_jacobian);
+         //   cell_volume += jacobian_determinant * quad_weight;
+            if(jacobian_determinant <  1.0e-12 * dealii::Utilities::fixed_power<dim>(metric_cell->diameter() / std::sqrt(double(dim))))
+            {
+                mesh_error_this_processor++;
+                std::cout<<"Cell is distorted."<<std::endl; // Output by the processor containing invalid cell.
+                break;
+            }
+        } // quadrature loop ends
+        
+        if(mesh_error_this_processor != 0) {break;}
+
+    } // cell loop ends
+
+    int mesh_error_mpi = dealii::Utilities::MPI::sum(mesh_error_this_processor, this->mpi_communicator);
+    return mesh_error_mpi;
+}
+
 template class InnerVolParameterization<PHILIP_DIM>;
 } // namespace PHiLiP

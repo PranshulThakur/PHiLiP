@@ -32,6 +32,9 @@ public:
 
     /// Outputs design variables. Doesn't output anything if not overridden.
     virtual void output_design_variables(const unsigned int /*iteration_no*/) const;
+
+    /// Checks if the updated design variable doesn't distort the mesh (which is possible when backtracking with high initial step length). Returns 0 if everything is good.
+    virtual int is_design_variable_valid(const MatrixType &dXv_dXp, const VectorType &design_var) const;
     
     /// Returns the number of design variables. To be implemented by derived classes.
     virtual unsigned int get_number_of_design_variables() const = 0;

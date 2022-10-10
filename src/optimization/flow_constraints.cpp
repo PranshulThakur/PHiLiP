@@ -125,13 +125,22 @@ void FlowConstraints<dim>
     double &/*tol*/
     )
 {
-
-    update_1(des_var_sim);
-    update_2(des_var_ctl);
-
-    dg->assemble_residual();
     auto &constraint = ROL_vector_to_dealii_vector_reference(constraint_values);
-    constraint = dg->right_hand_side;
+    
+    double big_number = 1.0e200;
+    // If design variable distors the mesh, return a high value to tell optimizer to reduce step size. 
+    const int mesh_will_be_invalid = design_parameterization->is_design_variable_valid(dXvdXp, ROL_vector_to_dealii_vector_reference(des_var_ctl));
+    if(mesh_will_be_invalid)
+    {
+        constraint.add(big_number);
+    }
+    else
+    {
+        update_1(des_var_sim);
+        update_2(des_var_ctl);
+        dg->assemble_residual();
+        constraint = dg->right_hand_side;
+    }
 }
     
 template<int dim>
