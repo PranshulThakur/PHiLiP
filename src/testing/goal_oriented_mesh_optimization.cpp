@@ -118,7 +118,7 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
     parlist.sublist("Status Test").set("Iteration Limit", max_design_cycle);
 
     parlist.sublist("Step").sublist("Line Search").set("User Defined Initial Step Size",true);
-    parlist.sublist("Step").sublist("Line Search").set("Initial Step Size", 1.0e-1);
+    parlist.sublist("Step").sublist("Line Search").set("Initial Step Size", 1.0);
     parlist.sublist("Step").sublist("Line Search").set("Function Evaluation Limit", 30); // 0.5^30 ~  1e-10
     parlist.sublist("Step").sublist("Line Search").set("Accept Linesearch Minimizer",true);
     parlist.sublist("Step").sublist("Line Search").sublist("Line-Search Method").set("Type",line_search_method);

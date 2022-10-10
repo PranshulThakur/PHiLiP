@@ -386,7 +386,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: d2IdXdX_vmult(
     NormalVector v_interm;
     eta_x_vmult(v_interm, in_vector);
     eta_x_Tvmult(out_vector, v_interm);
-    out_vector += in_vector;
+    out_vector.add(1.0, in_vector);
     out_vector.update_ghost_values();
 }
 
