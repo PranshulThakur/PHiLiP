@@ -312,13 +312,16 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_common_vectors_an
     this->dg->solution = solution_coarse_stored; 
     this->dg->solution.update_ghost_values();
     // Compute r_u and r_x
-    compute_dRdW = true; compute_dRdX = false;
-    this->dg->assemble_residual(compute_dRdW, compute_dRdX);
-    r_u.copy_from(this->dg->system_matrix);
-    
-    compute_dRdW = false; compute_dRdX = true;
-    this->dg->assemble_residual(compute_dRdW, compute_dRdX);
-    r_x.copy_from(this->dg->dRdXv);
+    if(use_coarse_residual)
+    {
+        compute_dRdW = true; compute_dRdX = false;
+        this->dg->assemble_residual(compute_dRdW, compute_dRdX);
+        r_u.copy_from(this->dg->system_matrix);
+        
+        compute_dRdW = false; compute_dRdX = true;
+        this->dg->assemble_residual(compute_dRdW, compute_dRdX);
+        r_x.copy_from(this->dg->dRdXv);
+    }
 
     // Compress all matrices
     R_u.compress(dealii::VectorOperation::add);
@@ -326,8 +329,11 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_common_vectors_an
     R_x.compress(dealii::VectorOperation::add);
     matrix_ux.compress(dealii::VectorOperation::add);
     matrix_uu.compress(dealii::VectorOperation::add);
-    r_u.compress(dealii::VectorOperation::add);
-    r_x.compress(dealii::VectorOperation::add);
+    if(use_coarse_residual)
+    {
+        r_u.compress(dealii::VectorOperation::add);
+        r_x.compress(dealii::VectorOperation::add);
+    }
 }
 
 template<int dim, int nstate, typename real>
