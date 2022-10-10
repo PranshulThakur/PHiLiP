@@ -99,7 +99,7 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
     ROL::Ptr<ROL::Vector<double>> simulation_variables_rol_ptr = ROL::makePtr<VectorAdaptor>(simulation_variables_rol);
     ROL::Ptr<ROL::Vector<double>> design_variables_rol_ptr = ROL::makePtr<VectorAdaptor>(design_variables_rol);
     ROL::Ptr<ROL::Vector<double>> adjoint_variables_rol_ptr = ROL::makePtr<VectorAdaptor>(adjoint_variables_rol);
-    const bool use_coarse_residual = true;
+    const bool use_coarse_residual = false;
     DualWeightedResidualObjFunc<dim, nstate, double> dwr_obj_function(flow_solver->dg, true, false, use_coarse_residual);
 
     auto objective_function = ROL::makePtr<ROLObjectiveSimOpt<dim,nstate>>(dwr_obj_function, design_parameterization); 
@@ -118,7 +118,7 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
     parlist.sublist("Status Test").set("Iteration Limit", max_design_cycle);
 
     parlist.sublist("Step").sublist("Line Search").set("User Defined Initial Step Size",true);
-    parlist.sublist("Step").sublist("Line Search").set("Initial Step Size", 1.0e-4);
+    parlist.sublist("Step").sublist("Line Search").set("Initial Step Size", 1.0e-1);
     parlist.sublist("Step").sublist("Line Search").set("Function Evaluation Limit", 30); // 0.5^30 ~  1e-10
     parlist.sublist("Step").sublist("Line Search").set("Accept Linesearch Minimizer",true);
     parlist.sublist("Step").sublist("Line Search").sublist("Line-Search Method").set("Type",line_search_method);
