@@ -18,7 +18,8 @@ public:
     DualWeightedResidualObjFunc( 
         std::shared_ptr<DGBase<dim,real>> dg_input,
         const bool uses_solution_values = true,
-        const bool uses_solution_gradient = false);
+        const bool uses_solution_gradient = false,
+        const bool _use_coarse_residual = false);
 
     /// Destructor
     ~DualWeightedResidualObjFunc(){}
@@ -40,6 +41,9 @@ public:
         const bool compute_d2I = false) override;
 
 private:
+    /// Stores true if coarse residual is used to compute objective function.
+    const bool use_coarse_residual;
+
     /// Extracts all matrices possible for various combinations of polynomial degrees.
     void extract_interpolation_matrices(dealii::Table<2, dealii::FullMatrix<real>> &interpolation_hp);
     
@@ -103,8 +107,8 @@ private:
     /// Stores adjoint.
     VectorType adjoint;
 
-    /// Stores residual evaluated on fine (p+1) space.
-    VectorType residual_fine;
+    /// Residual used to evaluate objective function. Can be residual_fine or residual_fine - residual_coarse_interpolated.
+    VectorType residual_used;
 
     /// Stores vector on coarse space to copy parallel partitioning later.
     VectorType vector_coarse;
@@ -117,6 +121,12 @@ private:
 
     /// Stores \f[ J_{uu} + \psi^TR_{uu} \f]
     MatrixType matrix_uu;
+    
+    /// Stores \f[r_u \f] on coarse space. 
+    MatrixType r_u;
+    
+    /// Stores \f[r_x \f] on coarse space. 
+    MatrixType r_x;
 
     /// Functional used to create the objective function.
     std::shared_ptr< Functional<dim, nstate, real> > functional;

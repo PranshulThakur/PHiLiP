@@ -9,14 +9,10 @@ template <int dim, int nstate, typename real>
 DualWeightedResidualObjFunc<dim, nstate, real> :: DualWeightedResidualObjFunc( 
     std::shared_ptr<DGBase<dim,real>> dg_input,
     const bool uses_solution_values,
-    const bool uses_solution_gradient)
+    const bool uses_solution_gradient,
+    const bool _use_coarse_residual)
     : Functional<dim, nstate, real> (dg_input, uses_solution_values, uses_solution_gradient)
-/*    , R_u(std::make_unique<MatrixType>())
-    , R_u_transpose(std::make_unique<MatrixType>())
-    , matrix_ux(std::make_unique<MatrixType>())
-    , matrix_uu(std::make_unique<MatrixType>())
-    , interpolation_matrix(std::make_unique<MatrixType>())
-*/
+    , use_coarse_residual(_use_coarse_residual)
 {
     AssertDimension(this->dg->high_order_grid->max_degree, 1);
     compute_interpolation_matrix(); // also stores cellwise_dofs_fine, vector coarse and vector fine.
@@ -191,7 +187,7 @@ real DualWeightedResidualObjFunc<dim, nstate, real> :: evaluate_functional(
 
     if(actually_compute_value)
     {
-        this->current_functional_value = evaluate_objective_function(); // also stores adjoint, residual_fine and J_u.
+        this->current_functional_value = evaluate_objective_function(); // also stores adjoint, residual_used and J_u.
         this->pcout<<"Evaluated objective function."<<std::endl;
         AssertDimension(this->dg->solution.size(), vector_coarse.size());
     }
@@ -223,7 +219,7 @@ real DualWeightedResidualObjFunc<dim, nstate, real> :: evaluate_objective_functi
     const bool compute_dRdW = true;
     this->dg->assemble_residual(compute_dRdW);
     
-    residual_fine = this->dg->right_hand_side;
+    VectorType residual_fine = this->dg->right_hand_side;
     residual_fine.update_ghost_values();
     adjoint.reinit(residual_fine);
     const bool compute_dIdW = true;
@@ -232,12 +228,22 @@ real DualWeightedResidualObjFunc<dim, nstate, real> :: evaluate_objective_functi
     solve_linear(this->dg->system_matrix_transpose, functional->dIdw, adjoint, this->dg->all_parameters->linear_solver_param);
     adjoint *= -1.0;
     adjoint.update_ghost_values();
-    
     this->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(-1);
     /* Interpolating one poly order up and then down changes solution by ~1.0e-12, which causes functional to be re-evaluated when the solution-node configuration is the same. 
     Resetting of solution to stored coarse solution prevents this issue.     */
     this->dg->solution = solution_coarse_stored; 
     this->dg->solution.update_ghost_values();
+    
+    residual_used = residual_fine;
+    if(use_coarse_residual)
+    {
+        this->dg->assemble_residual();
+        VectorType coarse_residual_interpolated;
+        coarse_residual_interpolated.reinit(residual_fine);
+        interpolation_matrix.vmult(coarse_residual_interpolated, this->dg->right_hand_side);
+        residual_used -= coarse_residual_interpolated;
+    }
+    residual_used.update_ghost_values();
     
     for(const auto &cell : this->dg->dof_handler.active_cell_iterators())
     {
@@ -250,7 +256,7 @@ real DualWeightedResidualObjFunc<dim, nstate, real> :: evaluate_objective_functi
 
         for(unsigned int i_dof=0; i_dof < dof_indices_fine.size(); ++i_dof)
         {
-            eta[cell_index] += adjoint(dof_indices_fine[i_dof])*residual_fine(dof_indices_fine[i_dof]);
+            eta[cell_index] += adjoint(dof_indices_fine[i_dof])*residual_used(dof_indices_fine[i_dof]);
         }
 
     } // cell loop ends
@@ -305,6 +311,14 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_common_vectors_an
     Resetting of solution to stored coarse solution prevents this issue.     */
     this->dg->solution = solution_coarse_stored; 
     this->dg->solution.update_ghost_values();
+    // Compute r_u and r_x
+    compute_dRdW = true; compute_dRdX = false;
+    this->dg->assemble_residual(compute_dRdW, compute_dRdX);
+    r_u.copy_from(this->dg->system_matrix);
+    
+    compute_dRdW = false; compute_dRdX = true;
+    this->dg->assemble_residual(compute_dRdW, compute_dRdX);
+    r_x.copy_from(this->dg->dRdXv);
 
     // Compress all matrices
     R_u.compress(dealii::VectorOperation::add);
@@ -312,6 +326,8 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_common_vectors_an
     R_x.compress(dealii::VectorOperation::add);
     matrix_ux.compress(dealii::VectorOperation::add);
     matrix_uu.compress(dealii::VectorOperation::add);
+    r_u.compress(dealii::VectorOperation::add);
+    r_x.compress(dealii::VectorOperation::add);
 }
 
 template<int dim, int nstate, typename real>
@@ -389,7 +405,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: eta_psi_vmult(
 
         for(unsigned int i_dof=0; i_dof < dof_indices_fine.size(); ++i_dof)
         {
-            out_vector[cell_index] += residual_fine(dof_indices_fine[i_dof])*in_vector(dof_indices_fine[i_dof]);
+            out_vector[cell_index] += residual_used(dof_indices_fine[i_dof])*in_vector(dof_indices_fine[i_dof]);
         }
 
     } // cell loop ends
@@ -440,7 +456,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: eta_psi_Tvmult(
 
         for(unsigned int i_dof = 0; i_dof < dof_indices_fine.size(); ++i_dof)
         {
-            out_vector(dof_indices_fine[i_dof]) = in_vector[cell_index] * residual_fine(dof_indices_fine[i_dof]);
+            out_vector(dof_indices_fine[i_dof]) = in_vector[cell_index] * residual_used(dof_indices_fine[i_dof]);
         }
     } // cell loop ends
 
@@ -509,6 +525,23 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: eta_x_vmult(
 //========================================================================================
     out_vector = v2;
     out_vector += v5;
+
+//==== Evaluate extra term for coarse residual============================================================
+    if(use_coarse_residual)
+    {
+        VectorType extra_v1(vector_coarse);
+        r_x.vmult(extra_v1, in_vector);
+        extra_v1.update_ghost_values();
+        
+        VectorType extra_v2(vector_fine);
+        interpolation_matrix.vmult(extra_v2, extra_v1);
+        extra_v2.update_ghost_values();
+        
+        NormalVector extra_out_vector;
+        eta_R_vmult(extra_out_vector, extra_v2);
+        
+        out_vector -= extra_out_vector;
+    }
 }
 
 
@@ -554,6 +587,23 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: eta_u_vmult(
 //========================================================================================
     out_vector = v2;
     out_vector += v5;
+
+//==== Evaluate extra term for coarse residual============================================================
+    if(use_coarse_residual)
+    {
+        VectorType extra_v1(vector_coarse);
+        r_u.vmult(extra_v1, in_vector);
+        extra_v1.update_ghost_values();
+        
+        VectorType extra_v2(vector_fine);
+        interpolation_matrix.vmult(extra_v2, extra_v1);
+        extra_v2.update_ghost_values();
+        
+        NormalVector extra_out_vector;
+        eta_R_vmult(extra_out_vector, extra_v2);
+        
+        out_vector -= extra_out_vector;
+    }
 }
 
 template<int dim, int nstate, typename real>
@@ -590,6 +640,23 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: eta_x_Tvmult(
 //========================================================================================
     out_vector = v3;
     out_vector += v5;
+
+//==== Evaluate extra term for coarse residual============================================================
+    if(use_coarse_residual)
+    {
+        VectorType extra_v1(vector_fine);
+        eta_R_Tvmult(extra_v1, in_vector);
+
+        VectorType extra_v2(vector_coarse);
+        interpolation_matrix.Tvmult(extra_v2, extra_v1);
+        extra_v2.update_ghost_values();
+
+        VectorType extra_out_vector(this->dg->high_order_grid->volume_nodes);
+        r_x.Tvmult(extra_out_vector, extra_v2);
+        extra_out_vector.update_ghost_values();
+
+        out_vector -= extra_out_vector;
+    }
     out_vector.update_ghost_values();
 }
 
@@ -628,6 +695,23 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: eta_u_Tvmult(
     v6 += v3;
     v6.update_ghost_values();
     interpolation_matrix.Tvmult(out_vector, v6);
+
+//==== Evaluate extra term for coarse residual============================================================
+    if(use_coarse_residual)
+    {
+        VectorType extra_v1(vector_fine);
+        eta_R_Tvmult(extra_v1, in_vector);
+
+        VectorType extra_v2(vector_coarse);
+        interpolation_matrix.Tvmult(extra_v2, extra_v1);
+        extra_v2.update_ghost_values();
+
+        VectorType extra_out_vector(vector_coarse);
+        r_u.Tvmult(extra_out_vector, extra_v2);
+        extra_out_vector.update_ghost_values();
+
+        out_vector -= extra_out_vector;
+    }
     out_vector.update_ghost_values();
 }
 
