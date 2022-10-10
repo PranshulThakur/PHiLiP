@@ -193,3 +193,9 @@ add_test(
   COMMAND mpirun -n ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_2D -i ${CMAKE_CURRENT_BINARY_DIR}/reduced_space_goal_oriented_mesh_optimization.prm 
   WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
 )
+configure_file(full_space_goal_oriented_mesh_optimization.prm full_space_goal_oriented_mesh_optimization.prm  COPYONLY)
+add_test(
+  NAME MPI_FULL_SPACE_GOAL_ORIENTED_MESH_OPTIMIZATION
+  COMMAND mpirun -n ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_2D -i ${CMAKE_CURRENT_BINARY_DIR}/full_space_goal_oriented_mesh_optimization.prm 
+  WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
+)
