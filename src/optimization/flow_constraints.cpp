@@ -850,6 +850,12 @@ void FlowConstraints<dim>
 //     const ROL::Vector<double> &b1_ctl = *(b1_simctl.get_2());
 // }
 
+template<int dim>
+void FlowConstraints<dim>
+::output_results_vtk (const unsigned int output_number) const
+{
+    dg->output_results_vtk(output_number);
+}
 template class FlowConstraints<PHILIP_DIM>;
 
 } // PHiLiP namespace
