@@ -34,6 +34,7 @@ template <int dim, int nstate>
 int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
 {
     const bool use_full_space = true;
+    const bool use_coarse_residual = false;
     int test_error = 0;
     const Parameters::AllParameters param = *(TestsBase::all_parameters);
 
@@ -41,7 +42,7 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
                                               // "Goldstein Conditions";
                                                "Strong Wolfe Conditions";
     const std::string line_search_method = "Backtracking";
-    const int max_design_cycle = 20;
+    const int max_design_cycle = 40;
     const int linear_iteration_limit = 200;
 
     std::string optimization_output_name;
@@ -99,7 +100,6 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
     ROL::Ptr<ROL::Vector<double>> simulation_variables_rol_ptr = ROL::makePtr<VectorAdaptor>(simulation_variables_rol);
     ROL::Ptr<ROL::Vector<double>> design_variables_rol_ptr = ROL::makePtr<VectorAdaptor>(design_variables_rol);
     ROL::Ptr<ROL::Vector<double>> adjoint_variables_rol_ptr = ROL::makePtr<VectorAdaptor>(adjoint_variables_rol);
-    const bool use_coarse_residual = false;
     DualWeightedResidualObjFunc<dim, nstate, double> dwr_obj_function(flow_solver->dg, true, false, use_coarse_residual);
 
     auto objective_function = ROL::makePtr<ROLObjectiveSimOpt<dim,nstate>>(dwr_obj_function, design_parameterization); 
