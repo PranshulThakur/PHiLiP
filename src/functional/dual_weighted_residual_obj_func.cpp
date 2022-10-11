@@ -358,7 +358,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: d2IdWdW_vmult(
     eta_u_Tvmult(out_vector, v_interm);
     if(this->current_functional_value > 1.0e-7)
     {
-        out_vector.add(0.01, in_vector);
+        out_vector.add(1.0e-3, in_vector);
         out_vector.update_ghost_values();
     }
 }
@@ -393,7 +393,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: d2IdXdX_vmult(
     eta_x_Tvmult(out_vector, v_interm);
     if(this->current_functional_value > 1.0e-7)
     {
-        out_vector.add(0.01, in_vector);
+        out_vector.add(1.0e-3, in_vector);
         out_vector.update_ghost_values();
     }
 }
