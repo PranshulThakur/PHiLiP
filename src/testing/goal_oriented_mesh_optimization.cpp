@@ -42,7 +42,7 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
                                               // "Goldstein Conditions";
                                                "Strong Wolfe Conditions";
     const std::string line_search_method = "Backtracking";
-    const int max_design_cycle = 40;
+    const int max_design_cycle = 12;
     const int linear_iteration_limit = 200;
 
     std::string optimization_output_name;
