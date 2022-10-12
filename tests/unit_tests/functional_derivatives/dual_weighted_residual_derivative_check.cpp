@@ -59,7 +59,7 @@ int main (int argc, char * argv[])
     dg->solution.update_ghost_values();
     
     VectorType solution_coarse = dg->solution;
-    std::unique_ptr<DualWeightedResidualObjFunc<dim, nstate, double>> dwr_func = std::make_unique<DualWeightedResidualObjFunc<dim, nstate, double>> (dg, true, false, true);
+    std::unique_ptr<DualWeightedResidualObjFunc<dim, nstate, double>> dwr_func = std::make_unique<DualWeightedResidualObjFunc<dim, nstate, double>> (dg);
     MatrixType interpolation_matrix;
     interpolation_matrix.copy_from(dwr_func->interpolation_matrix);
     
@@ -124,7 +124,7 @@ int main (int argc, char * argv[])
 
 // ======= Check if volume nodes and the solution remain the same after evaluating the functional ============================================================================
     // This check ensures that volume_node/solution configuration stays the same. If this same configuration is used again, already computed values aren't re-evaluated. 
-    std::unique_ptr<Functional<dim, nstate, double>> dwr_objfunc = std::make_unique<DualWeightedResidualObjFunc<dim, nstate, double>> (dg, true, false, true);
+    std::unique_ptr<Functional<dim, nstate, double>> dwr_objfunc = std::make_unique<DualWeightedResidualObjFunc<dim, nstate, double>> (dg);
     VectorType diff_vol_nodes = dg->high_order_grid->volume_nodes;
     VectorType diff_sol = dg->solution;
  

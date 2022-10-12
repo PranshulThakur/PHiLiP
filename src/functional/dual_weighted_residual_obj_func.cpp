@@ -2,6 +2,7 @@
 #include <deal.II/lac/dynamic_sparsity_pattern.h>
 #include <deal.II/lac/sparsity_tools.h>
 #include "linear_solver/linear_solver.h"
+#include "cell_volume_objective_function.h"
 
 namespace PHiLiP {
 
@@ -17,6 +18,8 @@ DualWeightedResidualObjFunc<dim, nstate, real> :: DualWeightedResidualObjFunc(
     AssertDimension(this->dg->high_order_grid->max_degree, 1);
     compute_interpolation_matrix(); // also stores cellwise_dofs_fine, vector coarse and vector fine.
     functional = FunctionalFactory<dim,nstate,real>::create_Functional(this->dg->all_parameters->functional_param, this->dg);
+    real mu_val = 1.0e-5;
+    cell_weight_functional = std::make_unique<CellVolumeObjFunc<dim, nstate, real>> (this->dg, mu_val);
 }
 
 //===================================================================================================================================================
@@ -264,6 +267,7 @@ real DualWeightedResidualObjFunc<dim, nstate, real> :: evaluate_objective_functi
     real obj_func_local = eta*eta;
     obj_func_local *= 1.0/2.0;
     real obj_func_global = dealii::Utilities::MPI::sum(obj_func_local, MPI_COMM_WORLD);
+    obj_func_global += cell_weight_functional->evaluate_functional();
     return obj_func_global;
 }
 
@@ -340,6 +344,11 @@ template<int dim, int nstate, typename real>
 void DualWeightedResidualObjFunc<dim, nstate, real> :: store_dIdX()
 { 
     eta_x_Tvmult(this->dIdX, eta);
+
+    const bool compute_dIdW = false, compute_dIdX = true, compute_d2I = false;
+    cell_weight_functional->evaluate_functional(compute_dIdW, compute_dIdX, compute_d2I);
+    this->dIdX += cell_weight_functional->dIdX;
+    this->dIdX.update_ghost_values();
 }
 
 template<int dim, int nstate, typename real>
@@ -356,11 +365,6 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: d2IdWdW_vmult(
     NormalVector v_interm;
     eta_u_vmult(v_interm, in_vector);
     eta_u_Tvmult(out_vector, v_interm);
-    if(this->current_functional_value > 1.0e-7)
-    {
-        out_vector.add(1.0e-3, in_vector);
-        out_vector.update_ghost_values();
-    }
 }
 
 template<int dim, int nstate, typename real>
@@ -391,11 +395,15 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: d2IdXdX_vmult(
     NormalVector v_interm;
     eta_x_vmult(v_interm, in_vector);
     eta_x_Tvmult(out_vector, v_interm);
-    if(this->current_functional_value > 1.0e-7)
-    {
-        out_vector.add(1.0e-3, in_vector);
-        out_vector.update_ghost_values();
-    }
+   
+   // Add (cell_weight)_xx * in_vector
+    const bool compute_dIdW = false, compute_dIdX = false, compute_d2I = true;
+    cell_weight_functional->evaluate_functional(compute_dIdW, compute_dIdX, compute_d2I);
+    VectorType out_vector2(out_vector);
+    cell_weight_functional->d2IdXdX_vmult(out_vector2, in_vector);
+
+    out_vector += out_vector2;
+    out_vector.update_ghost_values();
 }
 
 //===================================================================================================================================================
