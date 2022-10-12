@@ -6,6 +6,7 @@ SET(SOURCE
     lift_drag.cpp
     target_wall_pressure.cpp
     dual_weighted_residual_obj_func.cpp
+    cell_volume_objective_function.cpp
     )
 
 foreach(dim RANGE 1 3)
