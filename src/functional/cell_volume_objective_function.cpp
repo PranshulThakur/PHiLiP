@@ -48,7 +48,7 @@ real2 CellVolumeObjFunc<dim, nstate, real> :: evaluate_volume_cell_functional(
         cell_volume += 1.0 * jacobian_determinant * quad_weight;
     } // quad loop ends
 
-    real2 cell_volume_obj_func = weight_of_mesh/pow(cell_volume, -1);
+    real2 cell_volume_obj_func = weight_of_mesh/pow(cell_volume, 2);
     
     return cell_volume_obj_func;
 }
