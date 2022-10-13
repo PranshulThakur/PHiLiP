@@ -10,9 +10,13 @@ NonPeriodicCubeFlow<dim, nstate>::NonPeriodicCubeFlow(const PHiLiP::Parameters::
 {}
 
 template <int dim, int nstate>
-std::shared_ptr<Triangulation> NonPeriodicCubeFlow<dim,nstate>::generate_grid() const
+std::shared_ptr<MeshType> NonPeriodicCubeFlow<dim,nstate>::generate_grid() const
 {
-    std::shared_ptr<Triangulation> grid = std::make_shared<Triangulation> (this->mpi_communicator); // Mesh smoothing is set to none by default.
+    std::shared_ptr<MeshType> grid = std::make_shared<MeshType> (
+#if PHILIP_DIM!=1
+    this->mpi_communicator
+#endif
+    ); // Mesh smoothing is set to none by default.
     
     const unsigned int number_of_refinements = this->all_param.flow_solver_param.number_of_mesh_refinements;
     const double domain_left = this->all_param.flow_solver_param.grid_left_bound;
@@ -31,8 +35,7 @@ void NonPeriodicCubeFlow<dim,nstate>::display_additional_flow_case_specific_para
     // Display nothing for now.
 }
 
-#if PHILIP_DIM==2
-    template class NonPeriodicCubeFlow<PHILIP_DIM, 1>;
-#endif
+template class NonPeriodicCubeFlow<PHILIP_DIM, 1>;
+
 } // FlowSolver namespace
 } // PHiLiP namespace

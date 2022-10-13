@@ -62,6 +62,11 @@ FlowSolverFactory<dim,nstate>
             std::shared_ptr<FlowSolverCaseBase<dim, nstate>> flow_solver_case = std::make_shared<NonPeriodicCubeFlow<dim, nstate>>(parameters_input);
             return std::make_unique<FlowSolver<dim, nstate>>(parameters_input, flow_solver_case, parameter_handler_input);
         }
+    } else if (flow_type == FlowCaseEnum::atan_shock){
+        if constexpr (dim==1 && nstate==dim){
+            std::shared_ptr<FlowSolverCaseBase<dim, nstate>> flow_solver_case = std::make_shared<NonPeriodicCubeFlow<dim, nstate>>(parameters_input);
+            return std::make_unique<FlowSolver<dim, nstate>>(parameters_input, flow_solver_case, parameter_handler_input);
+        }
     } else {
         std::cout << "Invalid flow case. You probably forgot to add it to the list of flow cases in flow_solver.cpp" << std::endl;
         std::abort();

@@ -6,21 +6,21 @@
 namespace PHiLiP {
 namespace FlowSolver {
 
+#if PHILIP_DIM==1
+     using MeshType = dealii::Triangulation<PHILIP_DIM>;
+#else
+     using MeshType = dealii::parallel::distributed::Triangulation<PHILIP_DIM>;
+#endif
+
 template <int dim, int nstate>
 class NonPeriodicCubeFlow : public FlowSolverCaseBase<dim, nstate>
 {
-#if PHILIP_DIM==1
-     using Triangulation = dealii::Triangulation<PHILIP_DIM>;
- #else
-     using Triangulation = dealii::parallel::distributed::Triangulation<PHILIP_DIM>;
- #endif
-
  public:
      NonPeriodicCubeFlow(const Parameters::AllParameters *const parameters_input);
      
      ~NonPeriodicCubeFlow() {};
  
-     std::shared_ptr<Triangulation> generate_grid() const override;
+     std::shared_ptr<MeshType> generate_grid() const override;
 
      void display_additional_flow_case_specific_parameters() const override;
 };
