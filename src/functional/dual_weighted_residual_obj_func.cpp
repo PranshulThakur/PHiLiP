@@ -214,6 +214,7 @@ template<int dim, int nstate, typename real>
 real DualWeightedResidualObjFunc<dim, nstate, real> :: evaluate_objective_function()
 {
     eta.reinit(this->dg->triangulation->n_active_cells());
+    eta = 0.0;
 
     // Evaluate adjoint and residual fine
     VectorType solution_coarse_stored = this->dg->solution;
