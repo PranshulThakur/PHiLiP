@@ -342,6 +342,7 @@ public:
         x_j.resize(dim);
 
         for(unsigned int i = 0; i<dim; ++i){
+            /* Previous values. Use a parameter file later.
             n_shocks[i] = 2;
 
             S_j[i].resize(n_shocks[i]);
@@ -358,6 +359,17 @@ public:
 
             // x_j[i][0] = 1-1/sqrt(2);
             // x_j[i][1] = 1/sqrt(2);
+            */
+
+            n_shocks[i] = 3;
+
+            S_j[i][0] = 100;
+            S_j[i][1] = -200;
+            S_j[i][2] = 100;
+            
+            x_j[i][0] = 0.25;
+            x_j[i][1] = 0.5;
+            x_j[i][2] = 0.7;
         }
     }
     /// Value
