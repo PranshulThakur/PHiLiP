@@ -187,15 +187,28 @@ add_test(
 )
 
 #  Optimization based goal oriented mesh adaptation tests.
-configure_file(reduced_space_goal_oriented_mesh_optimization.prm reduced_space_goal_oriented_mesh_optimization.prm  COPYONLY)
+configure_file(sshock_reduced_space_goal_oriented_mesh_optimization.prm sshock_reduced_space_goal_oriented_mesh_optimization.prm  COPYONLY)
 add_test(
-  NAME MPI_REDUCED_SPACE_GOAL_ORIENTED_MESH_OPTIMIZATION
-  COMMAND mpirun -n ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_2D -i ${CMAKE_CURRENT_BINARY_DIR}/reduced_space_goal_oriented_mesh_optimization.prm 
+  NAME MPI_SSHOCK_REDUCED_SPACE_GOAL_ORIENTED_MESH_OPTIMIZATION
+  COMMAND mpirun -n ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_2D -i ${CMAKE_CURRENT_BINARY_DIR}/sshock_reduced_space_goal_oriented_mesh_optimization.prm 
   WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
 )
-configure_file(full_space_goal_oriented_mesh_optimization.prm full_space_goal_oriented_mesh_optimization.prm  COPYONLY)
+configure_file(sshock_full_space_goal_oriented_mesh_optimization.prm sshock_full_space_goal_oriented_mesh_optimization.prm  COPYONLY)
 add_test(
-  NAME MPI_FULL_SPACE_GOAL_ORIENTED_MESH_OPTIMIZATION
-  COMMAND mpirun -n ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_2D -i ${CMAKE_CURRENT_BINARY_DIR}/full_space_goal_oriented_mesh_optimization.prm 
+  NAME MPI_SSHOCK_FULL_SPACE_GOAL_ORIENTED_MESH_OPTIMIZATION
+  COMMAND mpirun -n ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_2D -i ${CMAKE_CURRENT_BINARY_DIR}/sshock_full_space_goal_oriented_mesh_optimization.prm 
+  WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
+)
+
+configure_file(atan_reduced_space_goal_oriented_mesh_optimization.prm atan_reduced_space_goal_oriented_mesh_optimization.prm  COPYONLY)
+add_test(
+  NAME MPI_ATAN_REDUCED_SPACE_GOAL_ORIENTED_MESH_OPTIMIZATION
+  COMMAND mpirun -n ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_2D -i ${CMAKE_CURRENT_BINARY_DIR}/atan_reduced_space_goal_oriented_mesh_optimization.prm 
+  WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
+)
+configure_file(atan_full_space_goal_oriented_mesh_optimization.prm atan_full_space_goal_oriented_mesh_optimization.prm  COPYONLY)
+add_test(
+  NAME MPI_ATAN_FULL_SPACE_GOAL_ORIENTED_MESH_OPTIMIZATION
+  COMMAND mpirun -n ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_2D -i ${CMAKE_CURRENT_BINARY_DIR}/atan_full_space_goal_oriented_mesh_optimization.prm 
   WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
 )
