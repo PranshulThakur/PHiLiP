@@ -36,6 +36,8 @@ int main (int argc, char * argv[])
     Parameters::AllParameters all_parameters;
     all_parameters.parse_parameters (parameter_handler);
     all_parameters.linear_solver_param.linear_residual = 1.0e-14;
+    all_parameters.optimization_param.mesh_weight_factor = 1.0;
+    all_parameters.optimization_param.mesh_volume_power = -2;
     const unsigned int poly_degree = 1;
     const unsigned int grid_degree = 1;
 
@@ -160,13 +162,22 @@ int main (int argc, char * argv[])
     dwr_objfunc->d2IdXdX_vmult(vector_x_size1, dg->high_order_grid->volume_nodes);
     if(vector_x_size1.size() != dg->high_order_grid->volume_nodes.size()) {return 1;}
     
+    
     dwr_objfunc->d2IdWdX_vmult(vector_u_size2, dg->high_order_grid->volume_nodes);
     if(vector_u_size2.size() != dg->solution.size()) {return 1;}
     
+    
     dwr_objfunc->d2IdWdX_Tvmult(vector_x_size2, dg->solution);
     if(vector_x_size2.size() != dg->high_order_grid->volume_nodes.size()) {return 1;}
+   
+    pcout<<"d2IdWdW*dg->solution = "<<vector_u_size1.l2_norm()<<std::endl;
+    pcout<<"d2IdXdX*dg->high_order_grid->volume_nodes = "<<vector_x_size1.l2_norm()<<std::endl;
+    pcout<<"d2IdWdX*dg->high_order_grid->volume_nodes = "<<vector_u_size2.l2_norm()<<std::endl;
+    pcout<<"d2IdWdX^T*dg->solution = "<<vector_x_size2.l2_norm()<<std::endl;
+
     
     pcout<<"Dimensions of Gauss-Newton vector products seem to be fine."<<std::endl;
+    return 0;
     
 // ====== Check dIdX finite difference ==========================================================================================
     pcout<<"Checking dIdX analytical vs finite difference."<<std::endl; 
