@@ -28,7 +28,7 @@ std::shared_ptr<Triangulation> NonPeriodicCubeFlow<dim,nstate>::generate_grid() 
 template <int dim, int nstate>
 void NonPeriodicCubeFlow<dim,nstate>::display_additional_flow_case_specific_parameters() const
 {
-    // Do nothing for now.
+    // Display nothing for now.
 }
 
 #if PHILIP_DIM==2
