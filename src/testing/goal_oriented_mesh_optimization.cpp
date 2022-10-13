@@ -33,29 +33,24 @@ GoalOrientedMeshOptimization<dim, nstate> :: GoalOrientedMeshOptimization(
 template <int dim, int nstate>
 int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
 {
-    const bool use_full_space = true;
-    const bool use_coarse_residual = false;
     int test_error = 0;
-    const Parameters::AllParameters param = *(TestsBase::all_parameters);
-
-    const std::string line_search_curvature = //"Null Curvature Condition";
-                                              // "Goldstein Conditions";
-                                               "Strong Wolfe Conditions";
-    const std::string line_search_method = "Backtracking";
-    const int max_design_cycle = 12;
-    const int linear_iteration_limit = 200;
+    const Parameters::AllParameters all_param = *(TestsBase::all_parameters);
+    using OptiParam = Parameters::OptimizationParam;
 
     std::string optimization_output_name;
-    if(use_full_space)
+    if(all_param.optimization_param.optimization_type == OptiParam::OptimizationType::full_space)
     {
         optimization_output_name = "full_space";
     }
-    else
+    else if(all_param.optimization_param.optimization_type == OptiParam::OptimizationType::reduced_space)
     {
       optimization_output_name  = "reduced_space_newton";
     }
-    const std::string descent_method = "Newton-Krylov";
-    const std::string preconditioner_string = "P4";
+    else
+    {
+        pcout<<"Invalid optimization type. Aborting.."<<std::endl;
+        std::abort();
+    }
     
     ROL::nullstream null_stream; // outputs nothing
     std::filebuf filebuffer;
@@ -63,15 +58,15 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
     std::ostream std_outstream(&filebuffer);
 
     Teuchos::RCP<std::ostream> rcp_outstream;
-    if (this->mpi_rank == 0) {rcp_outstream = ROL::makePtrFromRef(std_outstream);}
-    else if (this->mpi_rank == 1) {rcp_outstream = ROL::makePtrFromRef(std::cout);}
+    if (this->mpi_rank == 0) {rcp_outstream = ROL::makePtrFromRef(std_outstream);} // processor #0 outputs in file
+    else if (this->mpi_rank == 1) {rcp_outstream = ROL::makePtrFromRef(std::cout);} // processor #1 outputs on screen
     else rcp_outstream = ROL::makePtrFromRef(null_stream);
 
     using DealiiVector = dealii::LinearAlgebra::distributed::Vector<double>;
     using VectorAdaptor = dealii::Rol::VectorAdaptor<DealiiVector>;
     
-    AssertDimension(dim, param.dimension);    
-    std::unique_ptr<FlowSolver::FlowSolver<dim,nstate>> flow_solver = FlowSolver::FlowSolverFactory<dim,nstate>::select_flow_case(&param, parameter_handler);
+    AssertDimension(dim, all_param.dimension);    
+    std::unique_ptr<FlowSolver::FlowSolver<dim,nstate>> flow_solver = FlowSolver::FlowSolverFactory<dim,nstate>::select_flow_case(&all_param, parameter_handler);
 
     flow_solver->run(); // Solves steady state
 
@@ -100,6 +95,7 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
     ROL::Ptr<ROL::Vector<double>> simulation_variables_rol_ptr = ROL::makePtr<VectorAdaptor>(simulation_variables_rol);
     ROL::Ptr<ROL::Vector<double>> design_variables_rol_ptr = ROL::makePtr<VectorAdaptor>(design_variables_rol);
     ROL::Ptr<ROL::Vector<double>> adjoint_variables_rol_ptr = ROL::makePtr<VectorAdaptor>(adjoint_variables_rol);
+    const bool use_coarse_residual = false;
     DualWeightedResidualObjFunc<dim, nstate, double> dwr_obj_function(flow_solver->dg, true, false, use_coarse_residual);
 
     auto objective_function = ROL::makePtr<ROLObjectiveSimOpt<dim,nstate>>(dwr_obj_function, design_parameterization); 
@@ -114,23 +110,23 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
     
     // ROL set optimization parameters.
     parlist.sublist("General").set("Print Verbosity", 1);
-    parlist.sublist("Status Test").set("Gradient Tolerance", 1e-9);
-    parlist.sublist("Status Test").set("Iteration Limit", max_design_cycle);
+    parlist.sublist("Status Test").set("Gradient Tolerance", all_param.optimization_param.gradient_tolerance);
+    parlist.sublist("Status Test").set("Iteration Limit", all_param.optimization_param.max_design_cycles);
 
     parlist.sublist("Step").sublist("Line Search").set("User Defined Initial Step Size",true);
-    parlist.sublist("Step").sublist("Line Search").set("Initial Step Size", 1.0);
-    parlist.sublist("Step").sublist("Line Search").set("Function Evaluation Limit", 30); // 0.5^30 ~  1e-10
+    parlist.sublist("Step").sublist("Line Search").set("Initial Step Size", all_param.optimization_param.initial_step_size);
+    parlist.sublist("Step").sublist("Line Search").set("Function Evaluation Limit", all_param.optimization_param.functional_evaluation_limit); // 0.5^30 ~  1e-10
     parlist.sublist("Step").sublist("Line Search").set("Accept Linesearch Minimizer",true);
-    parlist.sublist("Step").sublist("Line Search").sublist("Line-Search Method").set("Type",line_search_method);
-    parlist.sublist("Step").sublist("Line Search").sublist("Curvature Condition").set("Type",line_search_curvature);
+    parlist.sublist("Step").sublist("Line Search").sublist("Line-Search Method").set("Type", all_param.optimization_param.line_search_method);
+    parlist.sublist("Step").sublist("Line Search").sublist("Curvature Condition").set("Type", all_param.optimization_param.line_search_curvature);
 
 
     parlist.sublist("General").sublist("Secant").set("Type","Limited-Memory BFGS");
-    parlist.sublist("General").sublist("Secant").set("Maximum Storage",max_design_cycle);
+    parlist.sublist("General").sublist("Secant").set("Maximum Storage", all_param.optimization_param.max_design_cycles);
 
-    parlist.sublist("Full Space").set("Preconditioner",preconditioner_string);
+    parlist.sublist("Full Space").set("Preconditioner", all_param.optimization_param.full_space_preconditioner);
     
-    if(! use_full_space) //if(use_reduced_space)
+    if(all_param.optimization_param.optimization_type == OptiParam::OptimizationType::reduced_space)
     {
         // Reduced space Newton
         const bool storage = true;
@@ -148,15 +144,15 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
         std::cout << ROL::EProblemToString(problemType) << std::endl;
 
         parlist.sublist("Step").set("Type","Line Search");
-        parlist.sublist("Step").sublist("Line Search").sublist("Descent Method").set("Type", descent_method);
+        parlist.sublist("Step").sublist("Line Search").sublist("Descent Method").set("Type", all_param.optimization_param.reduced_space_descent_method);
 
-        if (descent_method == "Newton-Krylov") {
+        if (all_param.optimization_param.reduced_space_descent_method == "Newton-Krylov") {
             parlist.sublist("General").sublist("Secant").set("Use as Preconditioner", true);
             //parlist.sublist("General").sublist("Krylov").set("Type","Conjugate Gradients");
             parlist.sublist("General").sublist("Krylov").set("Type","GMRES");
             parlist.sublist("General").sublist("Krylov").set("Absolute Tolerance", 1.0e-8);
             parlist.sublist("General").sublist("Krylov").set("Relative Tolerance", 1.0e-4);
-            parlist.sublist("General").sublist("Krylov").set("Iteration Limit", linear_iteration_limit);
+            parlist.sublist("General").sublist("Krylov").set("Iteration Limit", all_param.optimization_param.linear_iteration_limit);
             parlist.sublist("General").set("Inexact Hessian-Times-A-Vector",false);
         }
         
@@ -165,7 +161,7 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
         solver.solve(*rcp_outstream);
         algo_state = solver.getAlgorithmState();
     }
-    else
+    else if(all_param.optimization_param.optimization_type == OptiParam::OptimizationType::full_space)
     {
         // Full space Newton
         *rcp_outstream << "Starting Full Space mesh optimization..."<<std::endl;

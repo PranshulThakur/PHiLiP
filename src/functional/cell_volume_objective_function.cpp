@@ -5,11 +5,11 @@ namespace PHiLiP {
 template<int dim, int nstate, typename real>  
 CellVolumeObjFunc<dim, nstate, real> :: CellVolumeObjFunc( 
     std::shared_ptr<DGBase<dim,real>> dg_input,
-    const real _mesh_weight,
     const bool uses_solution_values,
     const bool uses_solution_gradient)
     : Functional<dim, nstate, real>(dg_input, uses_solution_values, uses_solution_gradient)
-    , weight_of_mesh(_mesh_weight)
+    , mesh_weight_factor(dg_input->all_parameters->optimization_param.mesh_weight_factor)
+    , mesh_volume_power(dg_input->all_parameters->optimization_param.mesh_volume_power)
  {}
 
 template<int dim, int nstate, typename real>
@@ -48,7 +48,7 @@ real2 CellVolumeObjFunc<dim, nstate, real> :: evaluate_volume_cell_functional(
         cell_volume += 1.0 * jacobian_determinant * quad_weight;
     } // quad loop ends
 
-    real2 cell_volume_obj_func = weight_of_mesh/pow(cell_volume, 2);
+    real2 cell_volume_obj_func = mesh_weight_factor*pow(cell_volume, mesh_volume_power);
     
     return cell_volume_obj_func;
 }

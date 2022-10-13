@@ -19,6 +19,7 @@ AllParameters::AllParameters ()
     , artificial_dissipation_param(ArtificialDissipationParam())
     , flow_solver_param(FlowSolverParam())
     , mesh_adaptation_param(MeshAdaptationParam())
+    , optimization_param(OptimizationParam())
     , functional_param(FunctionalParam())
     , time_refinement_study_param(TimeRefinementStudyParam())
     , pcout(std::cout, dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD)==0)
@@ -225,6 +226,7 @@ void AllParameters::declare_parameters (dealii::ParameterHandler &prm)
     Parameters::GridRefinementStudyParam::declare_parameters (prm);
     Parameters::ArtificialDissipationParam::declare_parameters (prm);
     Parameters::MeshAdaptationParam::declare_parameters (prm);
+    Parameters::OptimizationParam::declare_parameters (prm);
     Parameters::FlowSolverParam::declare_parameters (prm);
     Parameters::FunctionalParam::declare_parameters (prm);
     Parameters::TimeRefinementStudyParam::declare_parameters (prm);
@@ -408,6 +410,9 @@ void AllParameters::parse_parameters (dealii::ParameterHandler &prm)
 
     pcout << "Parsing mesh adaptation subsection..." << std::endl;
     mesh_adaptation_param.parse_parameters (prm);
+    
+    pcout << "Parsing optimization subsection..." << std::endl;
+    optimization_param.parse_parameters (prm);
     
     pcout << "Parsing functional subsection..." << std::endl;
     functional_param.parse_parameters (prm);

@@ -20,7 +20,6 @@ public:
     /// Constructor
     CellVolumeObjFunc( 
         std::shared_ptr<DGBase<dim,real>> dg_input,
-        const real _mesh_weight,
         const bool uses_solution_values = false,
         const bool uses_solution_gradient = false);
 
@@ -65,7 +64,12 @@ private:
     /// Stores the weight of mesh to be used to evaluate this function. 
     /** It is parameter \f[\mu \f] in \f[\mathcal{J}(\mathbf{u},\mathbf{x}) = \mu \sum_k \frac{1}{\Omega_k^2} \f] 
      */
-    const real weight_of_mesh;
+    const real mesh_weight_factor;
+
+    /// Stores power of mesh cell volume
+    /** It is parameter \f[\gamma \f] in \f[\mathcal{J}(\mathbf{u},\mathbf{x}) = \mu \sum_k \Omega_k^\gamma \f] 
+     */
+    const int mesh_volume_power;
 }; // class ends
 
 } // namespace PHiLiP
