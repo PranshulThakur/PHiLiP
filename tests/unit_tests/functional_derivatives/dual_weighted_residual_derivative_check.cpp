@@ -36,7 +36,7 @@ int main (int argc, char * argv[])
     Parameters::AllParameters all_parameters;
     all_parameters.parse_parameters (parameter_handler);
     all_parameters.linear_solver_param.linear_residual = 1.0e-14;
-    all_parameters.optimization_param.mesh_weight_factor = 1.0;
+    all_parameters.optimization_param.mesh_weight_factor = 1.0e-2;
     all_parameters.optimization_param.mesh_volume_power = -2;
     const unsigned int poly_degree = 1;
     const unsigned int grid_degree = 1;
@@ -177,7 +177,6 @@ int main (int argc, char * argv[])
 
     
     pcout<<"Dimensions of Gauss-Newton vector products seem to be fine."<<std::endl;
-    return 0;
     
 // ====== Check dIdX finite difference ==========================================================================================
     pcout<<"Checking dIdX analytical vs finite difference."<<std::endl; 
@@ -203,7 +202,7 @@ int main (int argc, char * argv[])
     AssertDimension(n_vol_nodes, dIdX_fd.size()); 
     pcout<<"All dimensions are good."<<std::endl; 
 
-    double step_size_delx = 1.0e-6;
+    double step_size_delx = 1.0e-8;
     pcout<<"Evaluating dIdX using finite difference."<<std::endl;
 
     for(unsigned int i_node = 0; i_node < n_vol_nodes; ++i_node)
@@ -234,7 +233,6 @@ int main (int argc, char * argv[])
     
     pcout<<"dIdX finite difference = "<<std::endl;
     dIdX_fd.print(std::cout, 3, true, false);
-    
 // ====== Check dIdw finite difference ==========================================================================================
     pcout<<"Now checking dIdw analytical vs finite difference."<<std::endl; 
     // Should just return without re-evaluate derivatives again. If there is a difference in solution/nodes, it is caught by the if statement below comparing values of objective function.
