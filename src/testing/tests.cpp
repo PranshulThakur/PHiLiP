@@ -31,7 +31,7 @@
 #include "dual_weighted_residual_mesh_adaptation.h"
 #include "goal_oriented_mesh_optimization.h"
 #include "pod_adaptive_sampling.h"
-#include "adaptive_sampling_testing.h"
+#include "pod_adaptive_sampling_testing.h"
 #include "taylor_green_vortex_energy_check.h"
 #include "taylor_green_vortex_restart_check.h"
 #include "time_refinement_study.h"
