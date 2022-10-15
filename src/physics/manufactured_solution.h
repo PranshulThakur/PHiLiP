@@ -362,6 +362,8 @@ public:
             */
 
             n_shocks[i] = 3;
+            S_j[i].resize(n_shocks[i]);
+            x_j[i].resize(n_shocks[i]);
 
             S_j[i][0] = 100;
             S_j[i][1] = -200;

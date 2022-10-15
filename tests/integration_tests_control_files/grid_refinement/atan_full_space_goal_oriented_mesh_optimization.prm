@@ -54,15 +54,11 @@ subsection optimization
 end
 
 subsection functional
-  # functional choice
-  set functional_type = normLp_boundary
-
-   # exponent
-   set normLp = 2.0
-
-   # boundaries to be used
-   set boundary_vector = [1]
-   set use_all_boundaries = false
+    # functional choice
+    set functional_type = normLp_volume
+    
+    # exponent
+    set normLp = 2.0
 end
 
 subsection manufactured solution convergence study
