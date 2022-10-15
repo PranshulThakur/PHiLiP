@@ -144,17 +144,17 @@ int main (int argc, char * argv[])
     }
     if(diff_sol.l2_norm() != 0.0) 
     {
-        pcout<<"Solution has changed. It wasn't expected to change."<<std::endl;
+        pcout<<"Solution has changed. It wasn't expected to change after evaluating objective function."<<std::endl;
         return 1;
     }
     
-//================ Check if Gauss-Newton hessians work. Gives error if stored d2IdWdW is called (it has no dimensions and remains unintialized). ====================================================
-    pcout<<"Checking dimensionalities of Gauss-Newton hessian vector products.\n"
+//================ Check if Hessian-vector products work ====================================================
+    pcout<<"Checking if Hessian vector products work without segfaults.\n"
           <<"If it gives an error, consider re-running the test in debug mode to check which assert statement has been triggered."<<std::endl; 
-    VectorType vector_u_size1; 
-    VectorType vector_x_size1; 
-    VectorType vector_u_size2; 
-    VectorType vector_x_size2; 
+    VectorType vector_u_size1 (dg->solution); 
+    VectorType vector_x_size1 (dg->high_order_grid->volume_nodes); 
+    VectorType vector_u_size2 (dg->solution); 
+    VectorType vector_x_size2 (dg->high_order_grid->volume_nodes); 
     
     dwr_objfunc->d2IdWdW_vmult(vector_u_size1, dg->solution);
     if(vector_u_size1.size() != dg->solution.size()) {return 1;}
@@ -176,11 +176,11 @@ int main (int argc, char * argv[])
     pcout<<"d2IdWdX^T*dg->solution = "<<vector_x_size2.l2_norm()<<std::endl;
 
     
-    pcout<<"Dimensions of Gauss-Newton vector products seem to be fine."<<std::endl;
+    pcout<<"Hessian vector products seem to work."<<std::endl;
     
 // ====== Check dIdX finite difference ==========================================================================================
     pcout<<"Checking dIdX analytical vs finite difference."<<std::endl; 
-    dwr_objfunc->evaluate_functional(true, true, false); // Shouldn't evaluate derivatives as it's already computed above.
+    dwr_objfunc->evaluate_functional(true, true, false); // Shouldn't re-evaluate derivatives as it's already computed above.
     if(value_original != dwr_objfunc->current_functional_value) 
     {
         pcout<<"Value of the objective function has changed. Something's wrong.."<<std::endl;
@@ -235,7 +235,6 @@ int main (int argc, char * argv[])
     dIdX_fd.print(std::cout, 3, true, false);
 // ====== Check dIdw finite difference ==========================================================================================
     pcout<<"Now checking dIdw analytical vs finite difference."<<std::endl; 
-    // Should just return without re-evaluate derivatives again. If there is a difference in solution/nodes, it is caught by the if statement below comparing values of objective function.
     dwr_objfunc->evaluate_functional(true, true, false); 
     pcout<<"Evaluated analytical dIdw."<<std::endl; 
 
