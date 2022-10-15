@@ -180,17 +180,17 @@ real DualWeightedResidualObjFunc<dim, nstate, real> :: evaluate_functional(
     {
         actually_compute_dIdW = true;
         actually_compute_dIdX = true;
-        actually_compute_d2I  = false; // Gauss-Newton is used for second derivatives. 
+        actually_compute_d2I  = false; // Hessian-vector products are evaluated directly without storing d2Is. 
     }
 
     this->need_compute(actually_compute_value, actually_compute_dIdW, actually_compute_dIdX, actually_compute_d2I);
     
     bool compute_derivatives = false;
-    if(actually_compute_dIdW || actually_compute_dIdX || actually_compute_d2I) {compute_derivatives = true;}
+    if(actually_compute_dIdW || actually_compute_dIdX) {compute_derivatives = true;}
 
     if(actually_compute_value)
     {
-        this->current_functional_value = evaluate_objective_function(); // also stores adjoint, residual_used and J_u.
+        this->current_functional_value = evaluate_objective_function(); // also stores adjoint and residual_used.
         this->pcout<<"Evaluated objective function."<<std::endl;
         AssertDimension(this->dg->solution.size(), vector_coarse.size());
     }
