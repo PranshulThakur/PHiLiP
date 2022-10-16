@@ -40,8 +40,8 @@ end
 
 subsection optimization
     set optimization_type = reduced_space
-    set gradient_tolerance = 1.0e-10
-    set max_design_cycles = 20
+    set gradient_tolerance = 1.0e-15
+    set max_design_cycles = 10
     set linear_iteration_limit = 2000
     set initial_step_size = 1.0
     set functional_evaluation_limit = 30
