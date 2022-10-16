@@ -127,7 +127,7 @@ void FlowConstraints<dim>
 {
     auto &constraint = ROL_vector_to_dealii_vector_reference(constraint_values);
     
-    double big_number = 1.0e200;
+    double big_number = 1.0e5;
     // If design variable distors the mesh, return a high value to tell optimizer to reduce step size. 
     const int mesh_will_be_invalid = design_parameterization->is_design_variable_valid(dXvdXp, ROL_vector_to_dealii_vector_reference(des_var_ctl));
     if(mesh_will_be_invalid)
