@@ -348,7 +348,8 @@ dealii::Vector<real> DualWeightedResidualError<dim, nstate, real, MeshType>::dua
     }
     
     net_functional_error = this->dg->right_hand_side * adjoint_fine;
-    output_results_vtk(icompute++);
+    output_results_vtk(icompute);
+    ++icompute;
 
     return dual_weighted_residual_fine;
 }
