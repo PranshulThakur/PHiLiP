@@ -2,6 +2,7 @@
 #include <iostream>
 #include "goal_oriented_mesh_optimization.h"
 #include "flow_solver/flow_solver_factory.h"
+#include "mesh/mesh_error_estimate.h"
 
 #include "optimization/design_parameterization/inner_vol_parameterization.hpp"
 #include "optimization/rol_to_dealii_vector.hpp"
@@ -69,6 +70,9 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
     std::unique_ptr<FlowSolver::FlowSolver<dim,nstate>> flow_solver = FlowSolver::FlowSolverFactory<dim,nstate>::select_flow_case(&all_param, parameter_handler);
 
     flow_solver->run(); // Solves steady state
+    std::unique_ptr<DualWeightedResidualError<dim, nstate , double>> dwr_error_val = std::make_unique<DualWeightedResidualError<dim, nstate , double>>(flow_solver->dg);
+    const double abs_error_initial = dwr_error_val->total_dual_weighted_residual_error();
+    const double actual_error_initial = dwr_error_val->net_functional_error;
 
     flow_solver->dg->output_results_vtk(99999); // Outputs initial solution and grid.
     flow_solver->dg->set_dual(flow_solver->dg->solution);
@@ -186,6 +190,14 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
 
     
     filebuffer.close();
+    
+    const double abs_error_final = dwr_error_val->total_dual_weighted_residual_error();
+    const double actual_error_final = dwr_error_val->net_functional_error;
+
+    pcout<<"Initial absolute error = "<<abs_error_initial<<std::endl;
+    pcout<<"Final absolute error = "<<abs_error_final<<std::endl;
+    pcout<<"Initial actual error = "<<actual_error_initial<<std::endl;
+    pcout<<"Final actual error = "<<actual_error_final<<std::endl;
     return 0;
 }
 

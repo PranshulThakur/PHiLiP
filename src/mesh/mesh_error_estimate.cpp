@@ -346,6 +346,9 @@ dealii::Vector<real> DualWeightedResidualError<dim, nstate, real, MeshType>::dua
 
         dual_weighted_residual_fine[cell->active_cell_index()] = std::abs(dwr_cell);
     }
+    
+    net_functional_error = this->dg->right_hand_side * adjoint_fine;
+    output_results_vtk(icompute++);
 
     return dual_weighted_residual_fine;
 }

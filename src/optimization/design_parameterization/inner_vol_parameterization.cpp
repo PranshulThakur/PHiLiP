@@ -157,7 +157,7 @@ int InnerVolParameterization<dim> :: is_design_variable_valid(
     const MatrixType &dXv_dXp, 
     const VectorType &design_var) const
 {
-    //return 0;
+    return 0;
     // NOTE: This function is only coded for grid degree of 1. Needs to be changed if higher order grids are used.
     this->pcout<<"Checking if mesh is valid before updating variables..."<<std::endl;
     int mesh_error_this_processor = 0;
