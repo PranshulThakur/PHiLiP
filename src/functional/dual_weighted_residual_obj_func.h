@@ -5,7 +5,7 @@
 
 namespace PHiLiP {
 
-/// Class to compute the objective function of dual weighted residual used for optimization based mesh adaptation. \f[ \mathcal{F} = \frac{1}{2}\eta^2 \f].
+/// Class to compute the objective function of dual weighted residual used for optimization based mesh adaptation. \f[ \mathcal{F} = \frac{1}{2}\eta^T\eta \f].
 template <int dim, int nstate, typename real>
 class DualWeightedResidualObjFunc : public Functional<dim, nstate, real>
 {
@@ -23,7 +23,6 @@ public:
     /// Destructor
     ~DualWeightedResidualObjFunc(){}
 
-
     /// Computes \f[ out_vector = d2IdWdW*in_vector \f]. 
     void d2IdWdW_vmult(VectorType &out_vector, const VectorType &in_vector) const override;
     /// Computes \f[ out_vector = d2IdWdX*in_vector \f]. 
@@ -33,7 +32,7 @@ public:
     /// Computes \f[ out_vector = d2IdXdX*in_vector \f]. 
     void d2IdXdX_vmult(VectorType &out_vector, const VectorType &in_vector) const override;
 
-    /// Evaluates \f[ \mathcal{F} = \frac{1}{2} \eta^2 \f] and derivatives, if needed.
+    /// Evaluates \f[ \mathcal{F} = \frac{1}{2} \eta^T\eta \f] and derivatives, if needed.
     real evaluate_functional(
         const bool compute_dIdW = false,
         const bool compute_dIdX = false,
@@ -61,38 +60,48 @@ private:
      */
     void compute_interpolation_matrix();
 
-    /// Computes  \f[ out_vector = \psi_x*in_vector \f].
+    /// Computes  \f[ out_vector = \psi_x in_vector \f].
     void adjoint_x_vmult(VectorType &out_vector, const VectorType &in_vector) const;
 
-    /// Computes  \f[ out_vector = \eta_u*in_vector \f].
+    /// Computes  \f[ out_vector = \eta_u in_vector \f].
     void adjoint_u_vmult(VectorType &out_vector, const VectorType &in_vector) const;
     
-    /// Computes  \f[ out_vector = \eta_x^T*in_vector \f].
+    /// Computes  \f[ out_vector = \eta_x^T in_vector \f].
     void adjoint_x_Tvmult(VectorType &out_vector, const VectorType &in_vector) const;
 
-    /// Computes  \f[ out_vector = \eta_u^T*in_vector \f].
+    /// Computes  \f[ out_vector = \eta_u^T in_vector \f].
     void adjoint_u_Tvmult(VectorType &out_vector, const VectorType &in_vector) const;
     
-    /// Computes  \f[ out_vector = (\psi^TR)_{uu}*in_vector \f].
-    void dwr_uu_vmult(VectorType &out_vector, const VectorType &in_vector) const;
-
-    /// Computes  \f[ out_vector = (\psi^TR)_{xx}*in_vector \f].
-    void dwr_xx_vmult(VectorType &out_vector, const VectorType &in_vector) const;
-
-    /// Computes  \f[ out_vector = (\psi^TR)_{ux}*in_vector \f].
-    void dwr_ux_vmult(VectorType &out_vector, const VectorType &in_vector) const;
-
-    /// Computes  \f[ out_vector = (\psi^TR)_{ux}^T*in_vector \f].
-    void dwr_ux_Tvmult(VectorType &out_vector, const VectorType &in_vector) const;
+    /// Computes \f[out_vector = \eta_{\psi} in_vector \f]. 
+    /** @note: \f[ \eta_{\psi}\f] is a diagonal matrix, so Tvmult is the same as vmult.
+     */
+    void d_goalresidual_d_adjoint_vmult(VectorType &out_vector, const VectorType &in_vector) const;
     
+    /// Computes \f[out_vector = \eta_R in_vector \f]. 
+    /** @note: \f[ \eta_R \f] is a diagonal matrix, so Tvmult is the same as vmult.
+     */
+    void d_goalresidual_d_residual_vmult(VectorType &out_vector, const VectorType &in_vector) const;
+    
+    ///Computes \f[out_vector = \eta_x in_vector \f]
+    void goalresidual_x_vmult(VectorType &out_vector, const VectorType &in_vector) const;
+    
+    ///Computes \f[out_vector = \eta_u in_vector \f]
+    void goalresidual_u_vmult(VectorType &out_vector, const VectorType &in_vector) const;
+    
+    ///Computes \f[out_vector = \eta_x^T in_vector \f]
+    void goalresidual_x_Tvmult(VectorType &out_vector, const VectorType &in_vector) const;
+    
+    ///Computes \f[out_vector = \eta_u^T in_vector \f]
+    void goalresidual_u_Tvmult(VectorType &out_vector, const VectorType &in_vector) const; 
+
     /// Stores dIdW
     void store_dIdW();
 
     /// Stores dIdX
     void store_dIdX();
     
-    /// Stores global adjoint weighted residual.
-    real dwr_error;
+    /// Stores goal residual i.e. a vector of \f[ \eta = [\psi_1 R_1, \psi_2 R_2, ..., \psi_i R_i,... \psi_n R_n] \f] of size n_dofs fine.
+    VectorType goalresidual;
 
     /// Stores \f[R_u \f] on fine space. 
     MatrixType R_u;
@@ -103,15 +112,6 @@ private:
     /// Stores \f[R_x \f] on fine space. 
     MatrixType R_x;
 
-    /// Stores \f[\psi^TR_{xx} \f] evaluated on fine space.
-    MatrixType adjoint_times_R_xx;
-
-    /// Stores \f[\psi^TR_{ux} \f] evaluated on fine space.
-    MatrixType adjoint_times_R_ux;
-
-    /// Stores \f[\psi^TR_{uu} \f] evaluated on fine space.
-    MatrixType adjoint_times_R_uu;
-    
     /// Stores adjoint.
     VectorType adjoint;
 
@@ -124,9 +124,6 @@ private:
     /// Stores vector on fine space (p+1) to copy parallel partitioning later.
     VectorType vector_fine;
 
-    /// Stores vector of volume nodes to copy parallel partitioning later.
-    VectorType vector_vol_nodes;
-
     /// Stores \f[ J_{ux} + \psi^TR_{ux} \f]
     MatrixType matrix_ux;
 
@@ -138,15 +135,6 @@ private:
     
     /// Stores \f[r_x \f] on coarse space. 
     MatrixType r_x;
-
-    /// Stores \f[ R^TR_u^{-T}\f]
-    VectorType common_vector;
-
-    /// Stores \f[ \frac{d}{dx}\left(\psi^TR\right)\f]
-    VectorType dwr_error_x;
-    
-    /// Stores \f[ \frac{d}{du}\left(\psi^TR\right)\f] wrt coarse solution.
-    VectorType dwr_error_u;
 
     /// Functional used to create the objective function.
     std::shared_ptr< Functional<dim, nstate, real> > functional;
