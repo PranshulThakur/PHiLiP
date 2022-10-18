@@ -73,6 +73,15 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
     std::unique_ptr<DualWeightedResidualError<dim, nstate , double>> dwr_error_val = std::make_unique<DualWeightedResidualError<dim, nstate , double>>(flow_solver->dg);
     const double abs_error_initial = dwr_error_val->total_dual_weighted_residual_error();
     const double actual_error_initial = dwr_error_val->net_functional_error;
+    //================== Evaluate exact functional error=============================================
+    std::shared_ptr< Functional<dim, nstate, double> > functional = FunctionalFactory<dim,nstate,double>::create_Functional(flow_solver->dg->all_parameters->functional_param, flow_solver->dg);
+    flow_solver->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(1);
+    double functional_val_coarse = functional->evaluate_functional();
+    flow_solver->run();
+    double functional_val_fine = functional->evaluate_functional();
+    flow_solver->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(-1);
+    const double exact_functional_error_initial = functional_val_fine - functional_val_coarse;
+    //============================================================================
 
     flow_solver->dg->output_results_vtk(99999); // Outputs initial solution and grid.
     flow_solver->dg->set_dual(flow_solver->dg->solution);
@@ -193,11 +202,47 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
     
     const double abs_error_final = dwr_error_val->total_dual_weighted_residual_error();
     const double actual_error_final = dwr_error_val->net_functional_error;
+    //================== Evaluate exact functional error=============================================
+    flow_solver->run();
+    flow_solver->dg->assemble_residual();
+    const double coarse_resiudual_norm = flow_solver->dg->right_hand_side.l2_norm();
+    flow_solver->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(1);
+    flow_solver->dg->assemble_residual(true);
+    functional_val_coarse = functional->evaluate_functional(true, true, true);
+    dealii::LinearAlgebra::distributed::Vector<double> delU (flow_solver->dg->solution);
+    solve_linear(flow_solver->dg->system_matrix, flow_solver->dg->right_hand_side, delU, flow_solver->dg->all_parameters->linear_solver_param);
+    delU *= -1.0;
+    delU.update_ghost_values();
+    flow_solver->dg->assemble_residual();
+    const double residual_fine_norm = sqrt(flow_solver->dg->right_hand_side*flow_solver->dg->right_hand_side);
+    const double first_order_term = functional->dIdw * delU;
+    dealii::LinearAlgebra::distributed::Vector<double> intermediate_vector (flow_solver->dg->solution);
+    functional->d2IdWdW->vmult(intermediate_vector, delU);
+    intermediate_vector.update_ghost_values();
+    const double second_order_error = intermediate_vector * delU;
+    flow_solver->dg->solution += delU;
+    flow_solver->dg->solution.update_ghost_values();
+    functional_val_fine = functional->evaluate_functional();
+    flow_solver->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(-1);
+    const double exact_functional_error_final = functional_val_fine - functional_val_coarse;
+    //============================================================================
 
-    pcout<<"Initial absolute error = "<<abs_error_initial<<std::endl;
-    pcout<<"Final absolute error = "<<abs_error_final<<std::endl;
-    pcout<<"Initial actual error = "<<actual_error_initial<<std::endl;
-    pcout<<"Final actual error = "<<actual_error_final<<std::endl;
+
+    pcout<<"Initial absolute dwr error = "<<abs_error_initial<<std::endl;
+    pcout<<"Final absolute dwr error = "<<abs_error_final<<std::endl;
+
+    pcout<<"\nInitial dwr error = "<<actual_error_initial<<std::endl;
+    pcout<<"Final dwr error = "<<actual_error_final<<std::endl;
+
+    pcout<<"\nResidual coarse sqrt(r^T * r) = "<<coarse_resiudual_norm<<std::endl;
+    pcout<<"Residual fine sqrt(R^T * R) = "<<residual_fine_norm<<std::endl;
+    pcout<<"sqrt(delU^T * delU) = "<<delU.l2_norm()<<std::endl;
+    pcout<<"First order term (J_u^T * delU) = "<<first_order_term<<std::endl; 
+    pcout<<"Second order term (delU^T * J_uu * delU) = "<<second_order_error<<std::endl;
+
+    pcout<<"\nExact functional error initial = "<<exact_functional_error_initial<<std::endl;
+    pcout<<"Exact functional error final = "<<exact_functional_error_final<<std::endl<<std::endl;
+
     return 0;
 }
 
