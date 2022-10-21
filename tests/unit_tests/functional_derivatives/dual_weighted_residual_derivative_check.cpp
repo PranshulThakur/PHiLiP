@@ -61,7 +61,13 @@ int main (int argc, char * argv[])
     dg->solution.update_ghost_values();
     
     VectorType solution_coarse = dg->solution;
-    std::unique_ptr<DualWeightedResidualObjFunc<dim, nstate, double>> dwr_func = std::make_unique<DualWeightedResidualObjFunc<dim, nstate, double>> (dg);
+    const bool use_solution_values = true;
+    const bool use_solution_gradient = false;
+    const bool use_coarse_residual = true;
+    std::unique_ptr<DualWeightedResidualObjFunc<dim, nstate, double>> dwr_func = std::make_unique<DualWeightedResidualObjFunc<dim, nstate, double>> (dg, 
+                                                                                                                                                    use_solution_values, 
+                                                                                                                                                    use_solution_gradient, 
+                                                                                                                                                    use_coarse_residual);
     MatrixType interpolation_matrix;
     interpolation_matrix.copy_from(dwr_func->interpolation_matrix);
     
@@ -126,7 +132,10 @@ int main (int argc, char * argv[])
 
 // ======= Check if volume nodes and the solution remain the same after evaluating the functional ============================================================================
     // This check ensures that volume_node/solution configuration stays the same. If this same configuration is used again, already computed values aren't re-evaluated. 
-    std::unique_ptr<Functional<dim, nstate, double>> dwr_objfunc = std::make_unique<DualWeightedResidualObjFunc<dim, nstate, double>> (dg);
+    std::unique_ptr<Functional<dim, nstate, double>> dwr_objfunc = std::make_unique<DualWeightedResidualObjFunc<dim, nstate, double>> (dg, 
+                                                                                                                                       use_solution_values, 
+                                                                                                                                       use_solution_gradient, 
+                                                                                                                                       use_coarse_residual);
     VectorType diff_vol_nodes = dg->high_order_grid->volume_nodes;
     VectorType diff_sol = dg->solution;
  

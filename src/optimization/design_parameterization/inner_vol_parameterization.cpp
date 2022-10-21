@@ -157,7 +157,7 @@ int InnerVolParameterization<dim> :: is_design_variable_valid(
     const MatrixType &dXv_dXp, 
     const VectorType &design_var) const
 {
-    return 0;
+    //return 0;
     // NOTE: This function is only coded for grid degree of 1. Needs to be changed if higher order grids are used.
     this->pcout<<"Checking if mesh is valid before updating variables..."<<std::endl;
     int mesh_error_this_processor = 0;
@@ -205,13 +205,13 @@ int InnerVolParameterization<dim> :: is_design_variable_valid(
             }
             const double jacobian_determinant = dealii::determinant(metric_jacobian);
             cell_volume += jacobian_determinant * quad_weight;
-            /*
+            
             if(jacobian_determinant <  1.0e-12 * dealii::Utilities::fixed_power<dim>(metric_cell->diameter() / std::sqrt(double(dim))))
             {
                 mesh_error_this_processor++;
                 std::cout<<"Cell is distorted."<<std::endl; // Output by the processor containing invalid cell.
                 break;
-            }*/
+            }
 
         } // quadrature loop ends
         
