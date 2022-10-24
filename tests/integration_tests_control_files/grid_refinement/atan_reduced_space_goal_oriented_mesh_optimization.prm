@@ -40,7 +40,7 @@ end
 
 subsection optimization
     set optimization_type = reduced_space
-    set gradient_tolerance = 1.0e-15
+    set gradient_tolerance = 1.0e-10
     set max_design_cycles = 10
     set linear_iteration_limit = 2000
     set initial_step_size = 1.0
@@ -58,7 +58,7 @@ subsection functional
     set functional_type = normLp_volume
     
     # exponent
-    set normLp = 2.0
+    set normLp = 1.0
 end
 
 subsection manufactured solution convergence study

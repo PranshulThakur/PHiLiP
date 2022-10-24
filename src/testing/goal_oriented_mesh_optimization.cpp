@@ -234,14 +234,14 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
     pcout<<"\nInitial dwr error = "<<actual_error_initial<<std::endl;
     pcout<<"Final dwr error = "<<actual_error_final<<std::endl;
 
+    pcout<<"\nExact functional error initial = "<<exact_functional_error_initial<<std::endl;
+    pcout<<"Exact functional error final = "<<exact_functional_error_final<<std::endl<<std::endl;
+
     pcout<<"\nResidual coarse sqrt(r^T * r) = "<<coarse_resiudual_norm<<std::endl;
     pcout<<"Residual fine sqrt(R^T * R) = "<<residual_fine_norm<<std::endl;
     pcout<<"sqrt(delU^T * delU) = "<<delU.l2_norm()<<std::endl;
     pcout<<"First order term (J_u^T * delU) = "<<first_order_term<<std::endl; 
     pcout<<"Second order term (delU^T * J_uu * delU) = "<<second_order_error<<std::endl;
-
-    pcout<<"\nExact functional error initial = "<<exact_functional_error_initial<<std::endl;
-    pcout<<"Exact functional error final = "<<exact_functional_error_final<<std::endl<<std::endl;
 
     return 0;
 }
