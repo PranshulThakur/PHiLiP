@@ -58,7 +58,7 @@ subsection functional
     set functional_type = normLp_volume
     
     # exponent
-    set normLp = 2.0
+    set normLp = 1.0
 end
 
 subsection manufactured solution convergence study
