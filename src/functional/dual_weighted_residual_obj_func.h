@@ -112,8 +112,20 @@ private:
     /// Stores \f[\psi^TR_{uu} \f] evaluated on fine space.
     MatrixType adjoint_times_R_uu;
     
-    /// Stores adjoint.
+    /// Stores \f[\psi^T I_h r_{xx} \f].
+    MatrixType adjoint_coarse_times_r_xx;
+
+    /// Stores \f[\psi^T I_h r_{ux} \f].
+    MatrixType adjoint_coarse_times_r_ux;
+
+    /// Stores \f[\psi^T I_h r_{uu} \f].
+    MatrixType adjoint_coarse_times_r_uu;
+    
+    /// Stores adjoint evaluated on fine space.
     VectorType adjoint;
+
+    /// Stores \f[ \psi^T I_h \f].
+    VectorType adjoint_coarse;
 
     /// Residual used to evaluate objective function. Can be residual_fine or residual_fine - residual_coarse_interpolated.
     VectorType residual_used;
