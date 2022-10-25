@@ -360,7 +360,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: store_dIdX()
 
     if(use_coarse_residual)
     {
-        VectorType extra_term(vector_coarse);
+        VectorType extra_term(this->dg->high_order_grid->volume_nodes);
         r_x.Tvmult(extra_term, adjoint_coarse);
         extra_term.update_ghost_values();
         dwr_error_x -= extra_term;
