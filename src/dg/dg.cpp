@@ -546,7 +546,15 @@ void DGBase<dim,real,MeshType>::refine_or_coarsen_global(const std::string to_do
     if(to_do_string == "refine")
     {
         pcout<<"h-refining mesh..."<<std::endl;
-        triangulation->refine_global();
+        //triangulation->refine_global();
+        for(const auto &cell : triangulation->active_cell_iterators())
+        {
+            if(cell->is_locally_owned())
+            {
+                cell->clear_refine_flag();
+                cell->set_refine_flag();
+            }
+        }
     }
     else if(to_do_string == "coarsen")
     {
@@ -565,6 +573,7 @@ void DGBase<dim,real,MeshType>::refine_or_coarsen_global(const std::string to_do
         pcout<<"Invalid string input. Aborting.."<<std::endl;
         std::abort();
     }
+    pcout<<"Executing coarsening and refinement."<<std::endl;
 
     triangulation->execute_coarsening_and_refinement();
     high_order_grid->execute_coarsening_and_refinement();
@@ -582,6 +591,7 @@ void DGBase<dim,real,MeshType>::refine_or_coarsen_global(const std::string to_do
     }
 
     solution.update_ghost_values();
+    pcout<<"Done refnement or coarsening with solution transfer."<<std::endl;
 }
 
 
