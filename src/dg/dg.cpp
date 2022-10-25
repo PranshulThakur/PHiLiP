@@ -526,6 +526,66 @@ void DGBase<dim,real,MeshType>::change_cells_fe_degree_by_deltadegree_and_interp
 }
 
 template <int dim, typename real, typename MeshType>
+void DGBase<dim,real,MeshType>::refine_or_coarsen_global(const std::string to_do_string)
+{
+    using VectorType       = typename dealii::LinearAlgebra::distributed::Vector<double>;
+    using DoFHandlerType   = typename dealii::DoFHandler<dim>;
+    using SolutionTransferType = typename MeshTypeHelper<MeshType>::template SolutionTransfer<dim,VectorType,DoFHandlerType>;
+    VectorType solution_old = solution;
+
+
+    solution_old.update_ghost_values();
+    
+    SolutionTransferType solution_transfer(dof_handler);
+    solution_transfer.prepare_for_coarsening_and_refinement(solution_old);
+
+
+    high_order_grid->prepare_for_coarsening_and_refinement();
+    triangulation->prepare_coarsening_and_refinement();
+
+    if(to_do_string == "refine")
+    {
+        pcout<<"h-refining mesh..."<<std::endl;
+        triangulation->refine_global();
+    }
+    else if(to_do_string == "coarsen")
+    {
+        pcout<<"h-coarsening mesh..."<<std::endl;
+        for(const auto &cell : triangulation->active_cell_iterators())
+        {
+            if(cell->is_locally_owned())
+            {
+                cell->clear_refine_flag();
+                cell->set_coarsen_flag();
+            }
+        }
+    }
+    else
+    {
+        pcout<<"Invalid string input. Aborting.."<<std::endl;
+        std::abort();
+    }
+
+    triangulation->execute_coarsening_and_refinement();
+    high_order_grid->execute_coarsening_and_refinement();
+
+
+    allocate_system();
+    solution.zero_out_ghosts();
+
+
+    if constexpr (std::is_same_v<typename dealii::SolutionTransfer<dim,VectorType,DoFHandlerType>,
+                              decltype(solution_transfer)>) {
+     solution_transfer.interpolate(solution_old, solution);
+    } else {
+     solution_transfer.interpolate(solution);
+    }
+
+    solution.update_ghost_values();
+}
+
+
+template <int dim, typename real, typename MeshType>
 unsigned int DGBase<dim,real,MeshType>::get_max_fe_degree()
 {
     unsigned int max_fe_degree = 0;

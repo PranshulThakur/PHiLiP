@@ -64,7 +64,7 @@ int main (int argc, char * argv[])
     
     const bool uses_solution_values = true;
     const bool uses_solution_gradient = false;
-    const bool use_coarse_residual = true;
+    const bool use_coarse_residual = false;
     std::unique_ptr<DualWeightedResidualObjFunc<dim, nstate, double>> dwr_func = std::make_unique<DualWeightedResidualObjFunc<dim, nstate, double>> (dg,
                                                                                                                                                      uses_solution_values, 
                                                                                                                                                      uses_solution_gradient, 
