@@ -882,7 +882,7 @@ real Functional<dim, nstate, real, MeshType>::evaluate_functional(
         }
         AssertDimension(i_derivative, n_total_indep);
         if (actually_compute_d2I) {
-            unsigned int i_derivative = 0;
+            i_derivative = 0;
             for(unsigned int idof = 0; idof < n_soln_dofs_cell; ++idof) {
                 const real val = dg->solution[cell_soln_dofs_indices[idof]];
                 soln_coeff[idof].val() = val;
