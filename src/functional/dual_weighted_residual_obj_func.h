@@ -91,7 +91,7 @@ private:
     /// Stores dIdX
     void store_dIdX();
     
-    /// Stores global adjoint weighted residual.
+    /// Stores \f[ J(U_h) - J(U_h^H) \f].
     real dwr_error;
 
     /// Stores \f[R_u \f] on fine space. 
@@ -112,6 +112,12 @@ private:
     /// Stores \f[\psi^TR_{uu} \f] evaluated on fine space.
     MatrixType adjoint_times_R_uu;
     
+    /// Stores \f[\left(\Delta U \right)^T R_{ux} \f] evaluated on fine space.
+    MatrixType delU_times_R_ux;
+
+    /// Stores \f[\left(\Delta U \right)^T R_{uu} \f] evaluated on fine space.
+    MatrixType delU_times_R_uu;
+    
     /// Stores \f[\psi^T I_h r_{xx} \f].
     MatrixType adjoint_coarse_times_r_xx;
 
@@ -123,6 +129,15 @@ private:
     
     /// Stores adjoint evaluated on fine space.
     VectorType adjoint;
+
+    /// Stores second adjoint i.e. with functional derivative evaluated at \f[ U_h \f].
+    VectorType adjoint2;
+
+    /// Stores \f[J_x(U_h) - J_x(U_h^H) \f].
+    VectorType functional_x_difference;
+
+    /// Stores \f[ J(U_h^H) \f].
+    VectorType functional_u;
 
     /// Stores \f[ \psi^T I_h \f].
     VectorType adjoint_coarse;
@@ -139,10 +154,10 @@ private:
     /// Stores vector of volume nodes to copy parallel partitioning later.
     VectorType vector_vol_nodes;
 
-    /// Stores \f[ J_{ux} + \psi^TR_{ux} \f]
+    /// Stores \f[ - \left(J_{ux} + \psi^TR_{ux} \right) \f]
     MatrixType matrix_ux;
 
-    /// Stores \f[ J_{uu} + \psi^TR_{uu} \f]
+    /// Stores \f[ - \left(J_{uu} + \psi^TR_{uu} \right) \f]
     MatrixType matrix_uu;
     
     /// Stores \f[r_u \f] on coarse space. 
@@ -151,13 +166,13 @@ private:
     /// Stores \f[r_x \f] on coarse space. 
     MatrixType r_x;
 
-    /// Stores \f[ R^TR_u^{-T}\f]
-    VectorType common_vector;
+    /// Stores \f[ \Delta U = - R_u^{-1} R\f]
+    VectorType delU;
 
-    /// Stores \f[ \frac{d}{dx}\left(\psi^TR\right)\f]
+    /// Stores \f[ \frac{d}{dx}\left( J(U_h) - J(U_h^H) \right)\f]
     VectorType dwr_error_x;
     
-    /// Stores \f[ \frac{d}{du}\left(\psi^TR\right)\f] wrt coarse solution.
+    /// Stores \f[ \frac{d}{du}\left( J(U_h) - J(U_h^H) \right)\f] wrt coarse solution.
     VectorType dwr_error_u;
 
     /// Functional used to create the objective function.

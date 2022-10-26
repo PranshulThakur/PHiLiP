@@ -222,13 +222,24 @@ real DualWeightedResidualObjFunc<dim, nstate, real> :: evaluate_objective_functi
     
     VectorType residual_fine = this->dg->right_hand_side;
     residual_fine.update_ghost_values();
-    adjoint.reinit(residual_fine);
+    adjoint.reinit(vector_fine);
     const bool compute_dIdW = true;
-    functional->evaluate_functional(compute_dIdW);
-    
+    dwr_error = functional->evaluate_functional(compute_dIdW);
+    dwr_error *= -1.0;
+
     solve_linear(this->dg->system_matrix_transpose, functional->dIdw, adjoint, this->dg->all_parameters->linear_solver_param);
     adjoint *= -1.0;
     adjoint.update_ghost_values();
+
+    delU.reinit(vector_fine);
+    solve_linear(this->dg->system_matrix, this->dg->right_hand_side, delU, this->dg->all_parameters->linear_solver_param);
+    delU *= -1.0;
+    delU.update_ghost_values();
+
+    this->dg->solution += delU; //get U_h
+
+    dwr_error += functional->evaluate_functional(); // get J(U_h) - J(U_h^H).
+
     this->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(-1);
     /* Interpolating one poly order up and then down changes solution by ~1.0e-12, which causes functional to be re-evaluated when the solution-node configuration is the same. 
     Resetting of solution to stored coarse solution prevents this issue.     */
@@ -245,8 +256,6 @@ real DualWeightedResidualObjFunc<dim, nstate, real> :: evaluate_objective_functi
         residual_used -= coarse_residual_interpolated;
     }
     residual_used.update_ghost_values();
-    
-    dwr_error = adjoint*residual_used; // dealii takes care of summing over all processors.
 
     real obj_func_global = 1.0/2.0 * dwr_error * dwr_error;
    // obj_func_global += cell_weight_functional->evaluate_functional();
@@ -288,14 +297,42 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_common_vectors_an
     matrix_uu.reinit(this->dg->d2RdWdW);
     matrix_uu.copy_from(this->dg->d2RdWdW);
 
+    this->dg->set_dual(delU);
+    compute_dRdW = false, compute_dRdX = false, compute_d2R = true;
+    this->dg->assemble_residual(compute_dRdW, compute_dRdX, compute_d2R);
+    delU_times_R_ux.reinit(this->dg->d2RdWdX);
+    delU_times_R_ux.copy_from(this->dg->d2RdWdX);
+    delU_times_R_uu.reinit(this->dg->d2RdWdW);
+    delU_times_R_uu.copy_from(this->dg->d2RdWdW);
+    
+
     // Store derivatives relate to functional J.
-    const bool compute_dIdW = false,  compute_dIdX = false, compute_d2I = true;
-    functional->evaluate_functional(compute_dIdW, compute_dIdX, compute_d2I);
+    functional->evaluate_functional(true, false, false);
+    functional->evaluate_functional(false, true, false);
+    functional->evaluate_functional(false, false, true);
     matrix_ux.add(1.0, *functional->d2IdWdX);
     matrix_uu.add(1.0, *functional->d2IdWdW);
 
     matrix_ux *= -1.0;
     matrix_uu *= -1.0;
+
+    functional_x_difference = functional->dIdX;
+    functional_x_difference *= -1.0;
+    functional_x_difference.update_ghost_values();
+
+    functional_u = functional->dIdw;
+    functional_u.update_ghost_values();
+
+    // Change solution to U_h
+    this->dg->solution += delU;
+    functional->evaluate_functional(true, true);
+    functional_x_difference += functional->dIdX; // Stores J_x(U_h) - J_x(U_h^H).
+    functional_x_difference.update_ghost_values();
+
+    adjoint2.reinit(vector_fine);
+    solve_linear(R_u_transpose, functional->dIdw, adjoint2, this->dg->all_parameters->linear_solver_param);
+    adjoint2 *= -1.0;
+    adjoint2.update_ghost_values();
 
     this->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(-1);
     
@@ -334,6 +371,8 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_common_vectors_an
     adjoint_times_R_uu.compress(dealii::VectorOperation::add);
     adjoint_times_R_ux.compress(dealii::VectorOperation::add);
     adjoint_times_R_xx.compress(dealii::VectorOperation::add);
+    delU_times_R_ux.compress(dealii::VectorOperation::add);
+    delU_times_R_uu.compress(dealii::VectorOperation::add);
     if(use_coarse_residual)
     {
         r_u.compress(dealii::VectorOperation::add);
@@ -342,20 +381,15 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_common_vectors_an
         adjoint_coarse_times_r_ux.compress(dealii::VectorOperation::add);
         adjoint_coarse_times_r_xx.compress(dealii::VectorOperation::add);
     }
-
-    common_vector.reinit(vector_fine);
-    solve_linear(R_u, residual_used, common_vector, this->dg->all_parameters->linear_solver_param);
-    common_vector.update_ghost_values();
 }
 
 template<int dim, int nstate, typename real>
 void DualWeightedResidualObjFunc<dim, nstate, real> :: store_dIdX()
 { 
-    dwr_error_x.reinit(this->dg->high_order_grid->volume_nodes); 
-    matrix_ux.Tvmult(dwr_error_x, common_vector);
+    dwr_error_x = functional_x_difference; 
+    R_x.Tvmult_add(dwr_error_x, adjoint2);
     dwr_error_x.update_ghost_values();
-
-    R_x.Tvmult_add(dwr_error_x, adjoint);
+    delU_times_R_ux.Tvmult_add(dwr_error_x, adjoint2);
     dwr_error_x.update_ghost_values();
 
     if(use_coarse_residual)
@@ -382,11 +416,9 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: store_dIdX()
 template<int dim, int nstate, typename real>
 void DualWeightedResidualObjFunc<dim, nstate, real> :: store_dIdW()
 {
-    VectorType dwr_error_u_fine(vector_fine);
-    matrix_uu.Tvmult(dwr_error_u_fine, common_vector);
-    dwr_error_u_fine.update_ghost_values();
-
-    R_u.Tvmult_add(dwr_error_u_fine, adjoint);
+    VectorType dwr_error_u_fine = functional_u;
+    dwr_error_u_fine *= -1.0;
+    delU_times_R_uu.Tvmult_add(dwr_error_u_fine, adjoint2);
     dwr_error_u_fine.update_ghost_values();
 
     dwr_error_u.reinit(vector_coarse);
