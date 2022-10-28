@@ -3,9 +3,40 @@
 #include "physics/physics_factory.h"
 #include <deal.II/numerics/vector_tools.h>
 #include "functional/functional.h"
+#include "linear_solver/linear_solver.h"
+    
+const int nstate = 1;
+const int dim = PHILIP_DIM;
 
 using namespace PHiLiP;   
-const int nstate = 1;
+using VectorType = typename dealii::LinearAlgebra::distributed::Vector<double>;
+#if PHILIP_DIM == 1
+    using MeshType = typename dealii::Triangulation<dim>;
+#else
+    using MeshType = typename dealii::parallel::distributed::Triangulation<dim>;
+#endif
+
+
+double get_functional_val(std::shared_ptr<Functional<dim,nstate,double,MeshType>> functional)
+{
+    const VectorType coarse_solution = functional->dg->solution;
+    functional->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(1);
+    functional->dg->assemble_residual(true);
+    VectorType delU(functional->dg->solution);
+    solve_linear(functional->dg->system_matrix, functional->dg->right_hand_side, delU, functional->dg->all_parameters->linear_solver_param);
+    delU *= -1.0;
+    delU.update_ghost_values();
+
+    functional->dg->solution += delU;
+
+    const double functional_val = functional->evaluate_functional();
+
+    functional->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(-1);
+    functional->dg->solution = coarse_solution;
+    functional->dg->solution.update_ghost_values();
+
+    return functional_val;
+}
 
 int main (int argc, char * argv[])
 {
@@ -13,17 +44,8 @@ int main (int argc, char * argv[])
     int mpi_rank = dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD);
     dealii::ConditionalOStream pcout(std::cout, mpi_rank==0);
 
-    const int dim = PHILIP_DIM;
-
-    using VectorType = typename dealii::LinearAlgebra::distributed::Vector<double>;
     using MatrixType = dealii::TrilinosWrappers::SparseMatrix;
 
-#if PHILIP_DIM == 1
-    using MeshType = typename dealii::Triangulation<dim>;
-#else
-    using MeshType = typename dealii::parallel::distributed::Triangulation<dim>;
-#endif
-    
     // Create grid and dg. 
     std::shared_ptr<MeshType> grid = std::make_shared<MeshType>(
             #if PHILIP_DIM != 1
@@ -65,5 +87,25 @@ int main (int argc, char * argv[])
         (*it) += 1.0;
     }
     dg->solution.update_ghost_values();
+
+    std::shared_ptr<Functional<dim,nstate,double,MeshType>> functional = FunctionalFactory<dim,nstate,double,MeshType>::create_Functional(dg->all_parameters->functional_param, dg);
+
+    VectorType dIdX_fd(dg->high_order_grid->volume_nodes);
+
+    double step_length = 1.0e-6;
+
+    double original_val = get_functional_val(functional);
+
+    for(unsigned int i = 0; i<dg->high_order_grid->volume_nodes.size(); ++i)
+    {
+        dg->high_order_grid->volume_nodes(i) += step_length;
+        double perturbed_val = get_functional_val(functional);
+        dIdX_fd(i) = (perturbed_val - original_val)/step_length;
+        dg->high_order_grid->volume_nodes(i) -= step_length;//reset
+    }
+
+    pcout<<" dIdX_fd = "<<std::endl;
+    dIdX_fd.print(std::cout, 3, true, false);
+
     return 0;
 }
