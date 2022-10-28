@@ -126,14 +126,6 @@ int main (int argc, char * argv[])
     dealii::VectorTools::interpolate(dg->dof_handler, *(physics_double->manufactured_solution_function), solution_no_ghost);
     pcout<<"Interpolated solution."<<std::endl;
     dg->solution = solution_no_ghost;
-    for (auto it = dg->solution.begin(); it != dg->solution.end(); ++it) {
-        // Interpolating the exact manufactured solution caused some problems at the boundary conditions.
-        // The manufactured solution is exactly equal to the manufactured_solution_function at the boundary,
-        // therefore, the finite difference will change whether the flow is incoming or outgoing.
-        // As a result, we would be differentiating at a non-differentiable point.
-        // Hence, we fix this issue by taking the second derivative at a non-exact solution.
-        (*it) += 0.0;
-    }
     dg->solution.update_ghost_values();
 
     std::shared_ptr<Functional<dim,nstate,double,MeshType>> functional = FunctionalFactory<dim,nstate,double,MeshType>::create_Functional(dg->all_parameters->functional_param, dg);
@@ -144,12 +136,11 @@ int main (int argc, char * argv[])
 
     double original_val = get_functional_val(functional);
     
-    //const dealii::IndexSet &vol_range = dg->high_order_grid->volume_nodes.get_partitioner()->locally_owned_range();
-
+    const dealii::IndexSet vol_range = dg->high_order_grid->volume_nodes.get_partitioner()->locally_owned_range();
+    
     for(unsigned int i = 0; i<dg->high_order_grid->volume_nodes.size(); ++i)
     {
-        std::cout<<"i = "<<i<<std::endl;
-        //if(vol_range.is_element(i))
+        if(vol_range.is_element(i))
         {
             dg->high_order_grid->volume_nodes(i) += step_length;
             std::cout<<"Perturbed node."<<std::endl;
@@ -157,8 +148,8 @@ int main (int argc, char * argv[])
         dg->high_order_grid->volume_nodes.update_ghost_values();
 
         double perturbed_val = get_functional_val(functional);
-        
-       // if(vol_range.is_element(i))
+
+        if(vol_range.is_element(i))
         {
             dIdX_fd(i) = (perturbed_val - original_val)/step_length;
             dg->high_order_grid->volume_nodes(i) -= step_length; //reset

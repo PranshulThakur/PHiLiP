@@ -35,8 +35,10 @@ int main (int argc, char * argv[])
     Parameters::AllParameters all_parameters;
     all_parameters.parse_parameters (parameter_handler);
     all_parameters.linear_solver_param.linear_residual = 1.0e-14;
-    all_parameters.optimization_param.mesh_weight_factor = 1.0e-2;
-    all_parameters.optimization_param.mesh_volume_power = -2;
+    //all_parameters.optimization_param.mesh_weight_factor = 1.0e-2;
+    //all_parameters.optimization_param.mesh_volume_power = -2;
+    all_parameters.manufactured_convergence_study_param.manufactured_solution_param.use_manufactured_source_term = true;
+    all_parameters.manufactured_convergence_study_param.manufactured_solution_param.manufactured_solution_type = Parameters::ManufacturedSolutionParam::ManufacturedSolutionType::exp_solution;
     const unsigned int poly_degree = 1;
     const unsigned int grid_degree = 1;
 
@@ -204,7 +206,7 @@ int main (int argc, char * argv[])
     
     double value_perturbed = value_original;
 
-    const dealii::IndexSet &vol_range = dg->high_order_grid->volume_nodes.get_partitioner()->locally_owned_range();
+    const dealii::IndexSet vol_range = dg->high_order_grid->volume_nodes.get_partitioner()->locally_owned_range();
 
     unsigned int n_vol_nodes = dg->high_order_grid->volume_nodes.size();
     AssertDimension(n_vol_nodes, dwr_objfunc->dIdX.size());
@@ -250,7 +252,7 @@ int main (int argc, char * argv[])
     VectorType dIdw_fd;
     dIdw_fd.reinit(dg->solution); 
 
-    const dealii::IndexSet &dof_range = dg->solution.get_partitioner()->locally_owned_range();  
+    const dealii::IndexSet dof_range = dg->solution.get_partitioner()->locally_owned_range();  
 
     unsigned int n_dofs = dg->solution.size(); 
     AssertDimension(n_dofs, n_dofs_coarse);
