@@ -30,6 +30,7 @@ double get_functional_val(std::shared_ptr<Functional<dim,nstate,double,MeshType>
     delU.update_ghost_values();
 
     functional->dg->solution += delU;
+    functional->dg->solution.update_ghost_values();
 
     const double functional_val = functional->evaluate_functional();
 
@@ -48,6 +49,7 @@ void get_dIdX_analytical(std::shared_ptr<Functional<dim,nstate,double,MeshType>>
     functional->dg->assemble_residual(true);
     MatrixType R_u_transpose;
     R_u_transpose.copy_from(functional->dg->system_matrix_transpose);
+    R_u_transpose.compress(dealii::VectorOperation::add);
     VectorType delU(functional->dg->solution);
     solve_linear(functional->dg->system_matrix, functional->dg->right_hand_side, delU, functional->dg->all_parameters->linear_solver_param);
     delU *= -1.0;
@@ -57,23 +59,29 @@ void get_dIdX_analytical(std::shared_ptr<Functional<dim,nstate,double,MeshType>>
     functional->dg->assemble_residual(false, false, true);
     MatrixType delU_times_R_ux;
     delU_times_R_ux.copy_from(functional->dg->d2RdWdX);
+    delU_times_R_ux.compress(dealii::VectorOperation::add);
 
     functional->dg->assemble_residual(false, true);
     MatrixType R_x;
     R_x.copy_from(functional->dg->dRdXv);
+    R_x.compress(dealii::VectorOperation::add);
 
     functional->dg->solution += delU;
+    functional->dg->solution.update_ghost_values();
 
     functional->evaluate_functional(true, true);
 
     VectorType adjoint2(delU);
     solve_linear(R_u_transpose, functional->dIdw, adjoint2, functional->dg->all_parameters->linear_solver_param);
     adjoint2 *= -1.0;
+    adjoint2.update_ghost_values();
 
     dIdX = functional->dIdX;
 
     R_x.Tvmult_add(dIdX, adjoint2);
+    dIdX.update_ghost_values();
     delU_times_R_ux.Tvmult_add(dIdX, adjoint2);
+    dIdX.update_ghost_values();
     
     functional->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(-1);
     functional->dg->solution = coarse_solution;
@@ -135,14 +143,27 @@ int main (int argc, char * argv[])
     double step_length = 1.0e-6;
 
     double original_val = get_functional_val(functional);
+    
+    //const dealii::IndexSet &vol_range = dg->high_order_grid->volume_nodes.get_partitioner()->locally_owned_range();
 
     for(unsigned int i = 0; i<dg->high_order_grid->volume_nodes.size(); ++i)
     {
-        dg->high_order_grid->volume_nodes(i) += step_length;
+       // if(vol_range.is_element(i))
+        {
+            dg->high_order_grid->volume_nodes(i) += step_length;
+        }
+        dg->high_order_grid->volume_nodes.update_ghost_values();
+
         double perturbed_val = get_functional_val(functional);
-        dIdX_fd(i) = (perturbed_val - original_val)/step_length;
-        dg->high_order_grid->volume_nodes(i) -= step_length;//reset
+        
+        //if(vol_range.is_element(i))
+        {
+            dIdX_fd(i) = (perturbed_val - original_val)/step_length;
+            dg->high_order_grid->volume_nodes(i) -= step_length; //reset
+        }
+        dg->high_order_grid->volume_nodes.update_ghost_values();
     }
+    dIdX_fd.update_ghost_values();
     
     VectorType dIdX_analytical;
     get_dIdX_analytical(functional, dIdX_analytical);
@@ -152,6 +173,7 @@ int main (int argc, char * argv[])
 
     VectorType diff = dIdX_analytical;
     diff -= dIdX_fd;
+    diff.update_ghost_values();
 
     pcout<<"Analytical - FD dIdX = "<<diff.l2_norm()<<std::endl;
 
