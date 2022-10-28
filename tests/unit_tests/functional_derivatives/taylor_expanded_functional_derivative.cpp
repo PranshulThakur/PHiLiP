@@ -10,6 +10,7 @@ const int dim = PHILIP_DIM;
 
 using namespace PHiLiP;   
 using VectorType = typename dealii::LinearAlgebra::distributed::Vector<double>;
+using MatrixType = dealii::TrilinosWrappers::SparseMatrix;
 #if PHILIP_DIM == 1
     using MeshType = typename dealii::Triangulation<dim>;
 #else
@@ -21,6 +22,7 @@ double get_functional_val(std::shared_ptr<Functional<dim,nstate,double,MeshType>
 {
     const VectorType coarse_solution = functional->dg->solution;
     functional->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(1);
+    
     functional->dg->assemble_residual(true);
     VectorType delU(functional->dg->solution);
     solve_linear(functional->dg->system_matrix, functional->dg->right_hand_side, delU, functional->dg->all_parameters->linear_solver_param);
@@ -38,13 +40,51 @@ double get_functional_val(std::shared_ptr<Functional<dim,nstate,double,MeshType>
     return functional_val;
 }
 
+void get_dIdX_analytical(std::shared_ptr<Functional<dim,nstate,double,MeshType>> functional, VectorType &dIdX)
+{
+    const VectorType coarse_solution = functional->dg->solution;
+    functional->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(1);
+    
+    functional->dg->assemble_residual(true);
+    MatrixType R_u_transpose;
+    R_u_transpose.copy_from(functional->dg->system_matrix_transpose);
+    VectorType delU(functional->dg->solution);
+    solve_linear(functional->dg->system_matrix, functional->dg->right_hand_side, delU, functional->dg->all_parameters->linear_solver_param);
+    delU *= -1.0;
+    delU.update_ghost_values();
+
+    functional->dg->set_dual(delU);
+    functional->dg->assemble_residual(false, false, true);
+    MatrixType delU_times_R_ux;
+    delU_times_R_ux.copy_from(functional->dg->d2RdWdX);
+
+    functional->dg->assemble_residual(false, true);
+    MatrixType R_x;
+    R_x.copy_from(functional->dg->dRdXv);
+
+    functional->dg->solution += delU;
+
+    functional->evaluate_functional(true, true);
+
+    VectorType adjoint2(delU);
+    solve_linear(R_u_transpose, functional->dIdw, adjoint2, functional->dg->all_parameters->linear_solver_param);
+    adjoint2 *= -1.0;
+
+    dIdX = functional->dIdX;
+
+    R_x.Tvmult_add(dIdX, adjoint2);
+    delU_times_R_ux.Tvmult_add(dIdX, adjoint2);
+    
+    functional->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(-1);
+    functional->dg->solution = coarse_solution;
+    functional->dg->solution.update_ghost_values();
+}
+
 int main (int argc, char * argv[])
 {
     dealii::Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);    
     int mpi_rank = dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD);
     dealii::ConditionalOStream pcout(std::cout, mpi_rank==0);
-
-    using MatrixType = dealii::TrilinosWrappers::SparseMatrix;
 
     // Create grid and dg. 
     std::shared_ptr<MeshType> grid = std::make_shared<MeshType>(
@@ -103,9 +143,17 @@ int main (int argc, char * argv[])
         dIdX_fd(i) = (perturbed_val - original_val)/step_length;
         dg->high_order_grid->volume_nodes(i) -= step_length;//reset
     }
-
+    
+    VectorType dIdX_analytical;
+    get_dIdX_analytical(functional, dIdX_analytical);
     pcout<<" dIdX_fd = "<<std::endl;
     dIdX_fd.print(std::cout, 3, true, false);
+    dIdX_analytical.print(std::cout, 3, true, false);
+
+    VectorType diff = dIdX_analytical;
+    diff -= dIdX_fd;
+
+    pcout<<"Analytical - FD dIdX = "<<diff.l2_norm()<<std::endl;
 
     return 0;
 }
