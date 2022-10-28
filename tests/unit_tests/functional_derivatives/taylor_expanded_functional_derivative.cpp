@@ -110,7 +110,7 @@ int main (int argc, char * argv[])
     all_parameters.parse_parameters(parameter_handler);
     all_parameters.linear_solver_param.linear_residual = 1.0e-14;
     all_parameters.manufactured_convergence_study_param.manufactured_solution_param.use_manufactured_source_term = true;
-    all_parameters.manufactured_convergence_study_param.manufactured_solution_param.manufactured_solution_type = Parameters::ManufacturedSolutionParam::ManufacturedSolutionType::exp_solution;
+    all_parameters.manufactured_convergence_study_param.manufactured_solution_param.manufactured_solution_type = Parameters::ManufacturedSolutionParam::ManufacturedSolutionType::atan_solution;
 
     const unsigned int poly_degree = 1;
     const unsigned int grid_degree = 1;
@@ -132,7 +132,7 @@ int main (int argc, char * argv[])
         // therefore, the finite difference will change whether the flow is incoming or outgoing.
         // As a result, we would be differentiating at a non-differentiable point.
         // Hence, we fix this issue by taking the second derivative at a non-exact solution.
-        (*it) += 1.0;
+        (*it) += 0.0;
     }
     dg->solution.update_ghost_values();
 
@@ -140,7 +140,7 @@ int main (int argc, char * argv[])
 
     VectorType dIdX_fd(dg->high_order_grid->volume_nodes);
 
-    double step_length = 1.0e-6;
+    double step_length = 1.0e-8;
 
     double original_val = get_functional_val(functional);
     
@@ -148,18 +148,21 @@ int main (int argc, char * argv[])
 
     for(unsigned int i = 0; i<dg->high_order_grid->volume_nodes.size(); ++i)
     {
-       // if(vol_range.is_element(i))
+        std::cout<<"i = "<<i<<std::endl;
+        //if(vol_range.is_element(i))
         {
             dg->high_order_grid->volume_nodes(i) += step_length;
+            std::cout<<"Perturbed node."<<std::endl;
         }
         dg->high_order_grid->volume_nodes.update_ghost_values();
 
         double perturbed_val = get_functional_val(functional);
         
-        //if(vol_range.is_element(i))
+       // if(vol_range.is_element(i))
         {
             dIdX_fd(i) = (perturbed_val - original_val)/step_length;
             dg->high_order_grid->volume_nodes(i) -= step_length; //reset
+            std::cout<<"Reset node."<<std::endl;
         }
         dg->high_order_grid->volume_nodes.update_ghost_values();
     }
@@ -169,6 +172,7 @@ int main (int argc, char * argv[])
     get_dIdX_analytical(functional, dIdX_analytical);
     pcout<<" dIdX_fd = "<<std::endl;
     dIdX_fd.print(std::cout, 3, true, false);
+    pcout<<" dIdX_analytical = "<<std::endl;
     dIdX_analytical.print(std::cout, 3, true, false);
 
     VectorType diff = dIdX_analytical;
