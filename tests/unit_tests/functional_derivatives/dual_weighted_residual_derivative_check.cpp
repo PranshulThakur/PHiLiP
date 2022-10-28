@@ -1,6 +1,5 @@
 #include <deal.II/grid/grid_generator.h>
 #include "dg/dg_factory.hpp"
-#include "optimization/design_parameterization/inner_vol_parameterization.hpp"
 #include "physics/physics_factory.h"
 #include <deal.II/numerics/vector_tools.h>
 #include "functional/dual_weighted_residual_obj_func.h"
