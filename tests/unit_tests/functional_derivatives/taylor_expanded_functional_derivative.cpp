@@ -23,7 +23,7 @@ using MatrixType = dealii::TrilinosWrappers::SparseMatrix;
 double get_functional_val(std::shared_ptr<Functional<dim,nstate,double,MeshType>> functional)
 {
     const VectorType coarse_solution = functional->dg->solution;
-//    functional->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(1);
+    functional->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(1);
     
     functional->dg->assemble_residual(true);
     VectorType delU(functional->dg->solution);
@@ -36,7 +36,7 @@ double get_functional_val(std::shared_ptr<Functional<dim,nstate,double,MeshType>
 
     const double functional_val = functional->evaluate_functional();
 
-//    functional->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(-1);
+    functional->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(-1);
     functional->dg->solution = coarse_solution;
     functional->dg->solution.update_ghost_values();
 
@@ -46,9 +46,10 @@ double get_functional_val(std::shared_ptr<Functional<dim,nstate,double,MeshType>
 void get_dIdX_analytical(std::shared_ptr<Functional<dim,nstate,double,MeshType>> functional, VectorType &dIdX)
 {
     const VectorType coarse_solution = functional->dg->solution;
-//    functional->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(1);
+    functional->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(1);
     
     functional->dg->assemble_residual(true);
+    const double residual_val_before = functional->dg->right_hand_side.l2_norm(); 
     MatrixType R_u_transpose;
     R_u_transpose.copy_from(functional->dg->system_matrix_transpose);
     R_u_transpose.compress(dealii::VectorOperation::add);
@@ -84,10 +85,14 @@ void get_dIdX_analytical(std::shared_ptr<Functional<dim,nstate,double,MeshType>>
     dIdX.update_ghost_values();
     delU_times_R_ux.Tvmult_add(dIdX, adjoint2);
     dIdX.update_ghost_values();
+    functional->dg->assemble_residual();
+    const double residual_val_after = functional->dg->right_hand_side.l2_norm(); 
     
-//    functional->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(-1);
+    functional->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(-1);
     functional->dg->solution = coarse_solution;
     functional->dg->solution.update_ghost_values();
+    std::cout<<"Residual val before = "<<residual_val_before<<std::endl;
+    std::cout<<"Residual val after = "<<residual_val_after<<std::endl;
 }
 
 int main (int argc, char * argv[])
@@ -112,8 +117,8 @@ int main (int argc, char * argv[])
     all_parameters.parse_parameters(parameter_handler);
     all_parameters.linear_solver_param.linear_residual = 1.0e-14;
     all_parameters.manufactured_convergence_study_param.manufactured_solution_param.use_manufactured_source_term = true;
-    all_parameters.manufactured_convergence_study_param.manufactured_solution_param.manufactured_solution_type = Parameters::ManufacturedSolutionParam::ManufacturedSolutionType::poly_solution;
-    all_parameters.pde_type = Parameters::AllParameters::PartialDifferentialEquation::burgers_viscous;
+    all_parameters.manufactured_convergence_study_param.manufactured_solution_param.manufactured_solution_type = Parameters::ManufacturedSolutionParam::ManufacturedSolutionType::exp_solution;
+    all_parameters.pde_type = Parameters::AllParameters::PartialDifferentialEquation::diffusion;
 
     const unsigned int poly_degree = 1;
     const unsigned int grid_degree = 1;
