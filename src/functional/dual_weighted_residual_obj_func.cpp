@@ -215,7 +215,7 @@ template<int dim, int nstate, typename real>
 real DualWeightedResidualObjFunc<dim, nstate, real> :: evaluate_objective_function()
 {
     // Evaluate adjoint and residual fine
-    VectorType solution_coarse_stored = this->dg->solution;
+    const VectorType solution_coarse_stored = this->dg->solution;
     this->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(1);
     const bool compute_dRdW = true;
     this->dg->assemble_residual(compute_dRdW);
@@ -237,6 +237,7 @@ real DualWeightedResidualObjFunc<dim, nstate, real> :: evaluate_objective_functi
     delU.update_ghost_values();
 
     this->dg->solution += delU; //get U_h
+    this->dg->solution.update_ghost_values();
 
     dwr_error += functional->evaluate_functional(); // get J(U_h) - J(U_h^H).
 
@@ -265,7 +266,7 @@ real DualWeightedResidualObjFunc<dim, nstate, real> :: evaluate_objective_functi
 template<int dim, int nstate, typename real>
 void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_common_vectors_and_matrices()
 {
-    VectorType solution_coarse_stored = this->dg->solution;
+    const VectorType solution_coarse_stored = this->dg->solution;
     this->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(1);
     
     // Store derivatives related to the residual
@@ -325,6 +326,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_common_vectors_an
 
     // Change solution to U_h
     this->dg->solution += delU;
+    this->dg->solution.update_ghost_values();
     functional->evaluate_functional(true, true);
     functional_x_difference += functional->dIdX; // Stores J_x(U_h) - J_x(U_h^H).
     functional_x_difference.update_ghost_values();

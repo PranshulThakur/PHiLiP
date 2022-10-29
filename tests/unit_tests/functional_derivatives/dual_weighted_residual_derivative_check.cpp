@@ -25,7 +25,11 @@ int main (int argc, char * argv[])
 #endif
     
     // Create grid and dg. 
-    std::shared_ptr<MeshType> grid = std::make_shared<MeshType>(MPI_COMM_WORLD);
+    std::shared_ptr<MeshType> grid = std::make_shared<MeshType>(
+            #if PHILIP_DIM != 1
+            MPI_COMM_WORLD
+            #endif
+            );
     unsigned int grid_refinement_val = 3;
     dealii::GridGenerator::hyper_cube(*grid);
     grid->refine_global(grid_refinement_val);

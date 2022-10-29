@@ -103,7 +103,7 @@ set(TEST_SRC
     dual_weighted_residual_derivative_check.cpp
     )
 
-set (dim 2)
+foreach(dim RANGE 1 2)
     # Output executable
     string(CONCAT TEST_TARGET ${dim}D_dual_weighted_residual_derivative_check)
     message("Adding executable " ${TEST_TARGET} " with files " ${TEST_SRC} "\n")
@@ -132,11 +132,16 @@ set (dim 2)
     if (NOT DOC_ONLY)
         DEAL_II_SETUP_TARGET(${TEST_TARGET})
     endif()
+    
+    if(dim EQUAL 1)
+        set(NPROCS 1)
+    else()
+        set(NPROCS ${MPIMAX})
+    endif()
 
     add_test(
       NAME ${TEST_TARGET}
-      COMMAND mpirun -n ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/${TEST_TARGET}
-      #COMMAND mpirun -n 1 ${EXECUTABLE_OUTPUT_PATH}/${TEST_TARGET}
+      COMMAND mpirun -n ${NPROCS} ${EXECUTABLE_OUTPUT_PATH}/${TEST_TARGET}
       WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
     )
 
@@ -147,6 +152,7 @@ set (dim 2)
     unset(DiscontinuousGalerkinLib)
     unset(FunctionalLib)
     unset(ODESolverLib)
+endforeach()
 ###########################################################################################################################################3
 
 set(TEST_SRC
