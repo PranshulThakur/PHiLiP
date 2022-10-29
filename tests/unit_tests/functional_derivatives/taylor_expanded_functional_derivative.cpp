@@ -3,6 +3,7 @@
 #include "physics/physics_factory.h"
 #include <deal.II/numerics/vector_tools.h>
 #include "functional/functional.h"
+#include "parameters/all_parameters.h"
 #include "linear_solver/linear_solver.h"
 #include "optimization/design_parameterization/inner_vol_parameterization.hpp"
     
@@ -22,7 +23,7 @@ using MatrixType = dealii::TrilinosWrappers::SparseMatrix;
 double get_functional_val(std::shared_ptr<Functional<dim,nstate,double,MeshType>> functional)
 {
     const VectorType coarse_solution = functional->dg->solution;
-    functional->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(1);
+//    functional->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(1);
     
     functional->dg->assemble_residual(true);
     VectorType delU(functional->dg->solution);
@@ -35,7 +36,7 @@ double get_functional_val(std::shared_ptr<Functional<dim,nstate,double,MeshType>
 
     const double functional_val = functional->evaluate_functional();
 
-    functional->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(-1);
+//    functional->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(-1);
     functional->dg->solution = coarse_solution;
     functional->dg->solution.update_ghost_values();
 
@@ -45,7 +46,7 @@ double get_functional_val(std::shared_ptr<Functional<dim,nstate,double,MeshType>
 void get_dIdX_analytical(std::shared_ptr<Functional<dim,nstate,double,MeshType>> functional, VectorType &dIdX)
 {
     const VectorType coarse_solution = functional->dg->solution;
-    functional->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(1);
+//    functional->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(1);
     
     functional->dg->assemble_residual(true);
     MatrixType R_u_transpose;
@@ -84,7 +85,7 @@ void get_dIdX_analytical(std::shared_ptr<Functional<dim,nstate,double,MeshType>>
     delU_times_R_ux.Tvmult_add(dIdX, adjoint2);
     dIdX.update_ghost_values();
     
-    functional->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(-1);
+//    functional->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(-1);
     functional->dg->solution = coarse_solution;
     functional->dg->solution.update_ghost_values();
 }
@@ -112,6 +113,7 @@ int main (int argc, char * argv[])
     all_parameters.linear_solver_param.linear_residual = 1.0e-14;
     all_parameters.manufactured_convergence_study_param.manufactured_solution_param.use_manufactured_source_term = true;
     all_parameters.manufactured_convergence_study_param.manufactured_solution_param.manufactured_solution_type = Parameters::ManufacturedSolutionParam::ManufacturedSolutionType::poly_solution;
+    all_parameters.pde_type = Parameters::AllParameters::PartialDifferentialEquation::burgers_viscous;
 
     const unsigned int poly_degree = 1;
     const unsigned int grid_degree = 1;
@@ -127,6 +129,7 @@ int main (int argc, char * argv[])
     dealii::VectorTools::interpolate(dg->dof_handler, *(physics_double->manufactured_solution_function), solution_no_ghost);
     pcout<<"Interpolated solution."<<std::endl;
     dg->solution = solution_no_ghost;
+    dg->solution.add(1.0);
     dg->solution.update_ghost_values();
 
     std::shared_ptr<Functional<dim,nstate,double,MeshType>> functional = FunctionalFactory<dim,nstate,double,MeshType>::create_Functional(dg->all_parameters->functional_param, dg);
