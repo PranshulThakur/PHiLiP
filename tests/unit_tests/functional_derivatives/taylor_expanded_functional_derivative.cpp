@@ -4,6 +4,7 @@
 #include <deal.II/numerics/vector_tools.h>
 #include "functional/functional.h"
 #include "linear_solver/linear_solver.h"
+#include "optimization/design_parameterization/inner_vol_parameterization.hpp"
     
 const int nstate = 1;
 const int dim = PHILIP_DIM;
@@ -110,7 +111,7 @@ int main (int argc, char * argv[])
     all_parameters.parse_parameters(parameter_handler);
     all_parameters.linear_solver_param.linear_residual = 1.0e-14;
     all_parameters.manufactured_convergence_study_param.manufactured_solution_param.use_manufactured_source_term = true;
-    all_parameters.manufactured_convergence_study_param.manufactured_solution_param.manufactured_solution_type = Parameters::ManufacturedSolutionParam::ManufacturedSolutionType::atan_solution;
+    all_parameters.manufactured_convergence_study_param.manufactured_solution_param.manufactured_solution_type = Parameters::ManufacturedSolutionParam::ManufacturedSolutionType::poly_solution;
 
     const unsigned int poly_degree = 1;
     const unsigned int grid_degree = 1;
@@ -132,7 +133,7 @@ int main (int argc, char * argv[])
 
     VectorType dIdX_fd(dg->high_order_grid->volume_nodes);
 
-    double step_length = 1.0e-8;
+    double step_length = 1.0e-6;
 
     double original_val = get_functional_val(functional);
     
@@ -169,8 +170,21 @@ int main (int argc, char * argv[])
     VectorType diff = dIdX_analytical;
     diff -= dIdX_fd;
     diff.update_ghost_values();
+    
+    std::unique_ptr<BaseParameterization<dim>> design_parameterization = 
+                        std::make_unique<InnerVolParameterization<dim>>(dg->high_order_grid);
 
-    pcout<<"Analytical - FD dIdX = "<<diff.l2_norm()<<std::endl;
+    VectorType diff_inner_nodes;
+    design_parameterization->initialize_design_variables(diff_inner_nodes); // get inner volume nodes
+    pcout<<"Initialized design variables."<<std::endl;
+    MatrixType dXv_dXp;
+    design_parameterization->compute_dXv_dXp(dXv_dXp);
+    pcout<<"Computed dXv_dXp."<<std::endl;
+
+    dXv_dXp.Tvmult(diff_inner_nodes, diff);
+    diff_inner_nodes.update_ghost_values();
+
+    pcout<<"Analytical - FD dIdX = "<<diff_inner_nodes.l2_norm()<<std::endl;
 
     return 0;
 }
