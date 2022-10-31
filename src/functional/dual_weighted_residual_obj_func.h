@@ -110,6 +110,45 @@ private:
     /// Computes  \f[ out_vector = \eta^T\eta_{uu} in_vector \f].
     void dwr_times_dwr_uu_vmult(VectorType &out_vector, const VectorType &in_vector) const;
 
+    /// Computes \f[ out_vector = diag{\eta_1, \eta_1, \eta_1, ...n_dofs_cell times, \eta_2, \eta_2, .. n_dofs_cell times ,...} in_vector\f]
+    void dwr_diagonal_vmult(VectorType &out_vector, const VectorType &in_vector) const;
+
+    /// Computes \f[out_vector = \left(\tilde{\eta}^T \eta_{\psi} \right)_x  in_vector \f], treating \f[ \tilde{\eta} \f] as a constant.
+    void dwr_times_dwr_adjoint_x_vmult(VectorType &out_vector, const VectorType &in_vector) const;
+    
+    /// Computes \f[out_vector = \left(\tilde{\eta}^T \eta_{\psi} \right)_u in_vector \f], treating \f[ \tilde{\eta} \f] as a constant. 
+    /**
+     * @note: The derivative is taken wrt the fine solution.
+     */
+    void dwr_times_dwr_adjoint_u_vmult(VectorType &out_vector, const VectorType &in_vector) const;
+    
+    /// Computes \f[out_vector = in_vector^T \left(\tilde{\eta}^T \eta_{\psi} \right)_x  \f], treating \f[ \tilde{\eta} \f] as a constant.
+    void dwr_times_dwr_adjoint_x_Tvmult(VectorType &out_vector, const VectorType &in_vector) const;
+    
+    /// Computes \f[out_vector = in_vector^T \left(\tilde{\eta}^T \eta_{\psi} \right)_u \f], treating \f[ \tilde{\eta} \f] as a constant. 
+    /**
+     * @note: The derivative is taken wrt the fine solution.
+     */
+    void dwr_times_dwr_adjoint_u_Tvmult(VectorType &out_vector, const VectorType &in_vector) const;
+
+    /// Computes \f[out_vector = \left(\tilde{\eta}^T \eta_{R} \right)_x  in_vector \f], treating \f[ \tilde{\eta} \f] as a constant.
+    void dwr_times_dwr_residual_x_vmult(VectorType &out_vector, const VectorType &in_vector) const;
+    
+    /// Computes \f[out_vector = \left(\tilde{\eta}^T \eta_{R} \right)_u in_vector \f], treating \f[ \tilde{\eta} \f] as a constant. 
+    /**
+     * @note: The derivative is taken wrt the fine solution.
+     */
+    void dwr_times_dwr_residual_u_vmult(VectorType &out_vector, const VectorType &in_vector) const;
+    
+    /// Computes \f[out_vector = in_vector^T \left(\tilde{\eta}^T \eta_{R} \right)_x  \f], treating \f[ \tilde{\eta} \f] as a constant.
+    void dwr_times_dwr_residual_x_Tvmult(VectorType &out_vector, const VectorType &in_vector) const;
+    
+    /// Computes \f[out_vector = in_vector^T \left(\tilde{\eta}^T \eta_{R} \right)_u \f], treating \f[ \tilde{\eta} \f] as a constant. 
+    /**
+     * @note: The derivative is taken wrt the fine solution.
+     */
+    void dwr_times_dwr_residual_u_Tvmult(VectorType &out_vector, const VectorType &in_vector) const;
+
     /// Stores dIdW
     void store_dIdW();
 

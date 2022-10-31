@@ -626,6 +626,151 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_u_Tvmult(
     interpolation_matrix.Tvmult(out_vector, out_vector_fine);
     out_vector.update_ghost_values();
 }
+
+//===================================================================================================================================================
+//                          vmults and Tvmults required to compute second derivatives
+//===================================================================================================================================================
+template<int dim, int nstate, typename real>
+void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_diagonal_vmult(
+    VectorType &out_vector, 
+    const VectorType &in_vector) const
+{
+    AssertDimension(in_vector.size(), vector_fine.size());
+    AssertDimension(out_vector.size(), vector_fine.size());
+
+    for(const auto &cell : this->dg->dof_handler.active_cell_iterators())
+    {
+        if(! cell->is_locally_owned()) {continue;}
+
+        const dealii::types::global_dof_index cell_index = cell->active_cell_index();
+        const std::vector<dealii::types::global_dof_index> &dof_indices_fine = cellwise_dofs_fine[cell_index];
+
+        for(unsigned int i_dof=0; i_dof < dof_indices_fine.size(); ++i_dof)
+        {
+            out_vector(dof_indices_fine[i_dof]) = dwr_error[cell_index] * in_vector(dof_indices_fine[i_dof]);
+        }
+    } // cell loop ends
+
+    out_vector.update_ghost_values();
+}
+
+template<int dim, int nstate, typename real>
+void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_times_dwr_adjoint_x_vmult(
+    VectorType &out_vector, 
+    const VectorType &in_vector) const
+{
+    AssertDimension(in_vector.size(), vector_vol_nodes.size());
+    AssertDimension(out_vector.size(), vector_fine.size());
+
+    VectorType v1(vector_fine);
+    R_x.vmult(v1, in_vector);
+    v1.update_ghost_values();
+
+    dwr_diagonal_vmult(out_vector, v1);
+}
+
+template<int dim, int nstate, typename real>
+void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_times_dwr_residual_x_vmult(
+    VectorType &out_vector, 
+    const VectorType &in_vector) const
+{
+    AssertDimension(in_vector.size(), vector_vol_nodes.size());
+    AssertDimension(out_vector.size(), vector_fine.size());
+
+    VectorType v1(vector_fine);
+    adjoint_x_vmult(v1, in_vector);
+
+    dwr_diagonal_vmult(out_vector, v1);
+}
+
+template<int dim, int nstate, typename real>
+void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_times_dwr_adjoint_u_vmult(
+    VectorType &out_vector, 
+    const VectorType &in_vector) const
+{
+    AssertDimension(in_vector.size(), vector_fine.size());
+    AssertDimension(out_vector.size(), vector_fine.size());
+
+    VectorType v1(vector_fine);
+    R_u.vmult(v1, in_vector);
+    v1.update_ghost_values();
+
+    dwr_diagonal_vmult(out_vector, v1);
+}
+
+template<int dim, int nstate, typename real>
+void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_times_dwr_residual_u_vmult(
+    VectorType &out_vector, 
+    const VectorType &in_vector) const
+{
+    AssertDimension(in_vector.size(), vector_fine.size());
+    AssertDimension(out_vector.size(), vector_fine.size());
+
+    VectorType v1(vector_fine);
+    adjoint_u_vmult(v1, in_vector);
+
+    dwr_diagonal_vmult(out_vector, v1);
+}
+
+template<int dim, int nstate, typename real>
+void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_times_dwr_adjoint_x_Tvmult(
+    VectorType &out_vector, 
+    const VectorType &in_vector) const
+{
+    AssertDimension(in_vector.size(), vector_fine.size());
+    AssertDimension(out_vector.size(), vector_vol_nodes.size());
+
+    VectorType v1(vector_fine);
+    dwr_diagonal_vmult(v1, in_vector);
+
+    R_x.Tvmult(out_vector, v1);
+    out_vector.update_ghost_values();
+}
+
+template<int dim, int nstate, typename real>
+void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_times_dwr_residual_x_Tvmult(
+    VectorType &out_vector, 
+    const VectorType &in_vector) const
+{
+    AssertDimension(in_vector.size(), vector_fine.size());
+    AssertDimension(out_vector.size(), vector_vol_nodes.size());
+
+    VectorType v1(vector_fine);
+    dwr_diagonal_vmult(v1, in_vector);
+
+    adjoint_x_Tvmult(out_vector, v1);
+    out_vector.update_ghost_values();
+}
+
+template<int dim, int nstate, typename real>
+void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_times_dwr_adjoint_u_Tvmult(
+    VectorType &out_vector, 
+    const VectorType &in_vector) const
+{
+    AssertDimension(in_vector.size(), vector_fine.size());
+    AssertDimension(out_vector.size(), vector_fine.size());
+
+    VectorType v1(vector_fine);
+    dwr_diagonal_vmult(v1, in_vector);
+
+    R_u.Tvmult(out_vector, v1);
+    out_vector.update_ghost_values();
+}
+
+template<int dim, int nstate, typename real>
+void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_times_dwr_residual_u_Tvmult(
+    VectorType &out_vector, 
+    const VectorType &in_vector) const
+{
+    AssertDimension(in_vector.size(), vector_fine.size());
+    AssertDimension(out_vector.size(), vector_fine.size());
+
+    VectorType v1(vector_fine);
+    dwr_diagonal_vmult(v1, in_vector);
+
+    adjoint_u_Tvmult(out_vector, v1);
+    out_vector.update_ghost_values();
+}
 //===================================================================================================================================================
 //                          vmults and Tvmults of \eta^T \eta_{xx, ux, uu}
 //===================================================================================================================================================
