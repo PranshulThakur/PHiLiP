@@ -85,19 +85,31 @@ private:
     
     /// Computes  \f[ out_vector = \eta_{R}^T in_vector \f].
     void dwr_residual_Tvmult(VectorType &out_vector, const NormalVector &in_vector) const;
-    
-    /// Computes  \f[ out_vector = \eta^T\eta_{uu} in_vector \f].
-    void dwr_uu_vmult(VectorType &out_vector, const VectorType &in_vector) const;
 
+    /// Computes \f[ out_vector = \eta_x in_vector \f].
+    void dwr_x_vmult(NormalVector &out_vector, const VectorType &in_vector) const;
+    
+    /// Computes \f[ out_vector = \eta_u in_vector \f], with \f[ \eta_u \f] computed wrt the coarse solution
+    void dwr_u_vmult(NormalVector &out_vector, const VectorType &in_vector) const;
+    
+    /// Computes \f[ out_vector = \eta_x^T in_vector \f].
+    void dwr_x_Tvmult(VectorType &out_vector, const NormalVector &in_vector) const;
+    
+    /// Computes \f[ out_vector = \eta_u^T in_vector \f]. with \f[ \eta_u \f] computed wrt coarse solution.
+    void dwr_u_Tvmult(VectorType &out_vector, const NormalVector &in_vector) const;
+    
     /// Computes  \f[ out_vector = \eta^T\eta_{xx} in_vector \f].
-    void dwr_xx_vmult(VectorType &out_vector, const VectorType &in_vector) const;
+    void dwr_times_dwr_xx_vmult(VectorType &out_vector, const VectorType &in_vector) const;
 
     /// Computes  \f[ out_vector = \eta^T \eta_{ux}  in_vector \f].
-    void dwr_ux_vmult(VectorType &out_vector, const VectorType &in_vector) const;
+    void dwr_times_dwr_ux_vmult(VectorType &out_vector, const VectorType &in_vector) const;
 
     /// Computes  \f[ out_vector = \left(\eta^T \eta_{ux}\right)^T in_vector \f].
-    void dwr_ux_Tvmult(VectorType &out_vector, const VectorType &in_vector) const;
+    void dwr_times_dwr_ux_Tvmult(VectorType &out_vector, const VectorType &in_vector) const;
     
+    /// Computes  \f[ out_vector = \eta^T\eta_{uu} in_vector \f].
+    void dwr_times_dwr_uu_vmult(VectorType &out_vector, const VectorType &in_vector) const;
+
     /// Stores dIdW
     void store_dIdW();
 
@@ -127,6 +139,9 @@ private:
     
     /// Stores vector on fine space (p+1) to copy parallel partitioning later.
     VectorType vector_fine;
+    
+    /// Stores vector of volume nodes to copy parallel partitioning later.
+    VectorType vector_vol_nodes;
     
     /// Stores \f[ - \left(J_{ux} + \psi^TR_{ux} \right) \f]
     MatrixType matrix_ux;
