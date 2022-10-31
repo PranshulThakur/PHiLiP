@@ -43,7 +43,7 @@ int main (int argc, char * argv[])
     //all_parameters.optimization_param.mesh_volume_power = -2;
     all_parameters.manufactured_convergence_study_param.manufactured_solution_param.use_manufactured_source_term = true;
     all_parameters.manufactured_convergence_study_param.manufactured_solution_param.manufactured_solution_type = Parameters::ManufacturedSolutionParam::ManufacturedSolutionType::exp_solution;
-    all_parameters.pde_type = Parameters::AllParameters::PartialDifferentialEquation::diffusion;
+//    all_parameters.pde_type = Parameters::AllParameters::PartialDifferentialEquation::diffusion;
     const unsigned int poly_degree = 1;
     const unsigned int grid_degree = 1;
 

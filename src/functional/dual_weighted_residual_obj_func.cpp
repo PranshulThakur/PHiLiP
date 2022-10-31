@@ -682,13 +682,13 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_u_Tvmult(
     //======= Get the first term =====================================
     VectorType v1(vector_fine);
     dwr_adjoint_Tvmult(v1, in_vector);
-    VectorType term1(vector_vol_nodes);
+    VectorType term1(vector_fine);
     adjoint_u_Tvmult(term1, v1);
 
     //====== Get the second term =====================================
     VectorType v2(vector_fine);
     dwr_residual_Tvmult(v2, in_vector);
-    VectorType term2(vector_vol_nodes);
+    VectorType term2(vector_fine);
     R_u.Tvmult(term2, v2);
     term2.update_ghost_values();
     //===============================================================
