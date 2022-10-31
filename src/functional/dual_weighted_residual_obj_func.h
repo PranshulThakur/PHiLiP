@@ -5,12 +5,13 @@
 
 namespace PHiLiP {
 
-/// Class to compute the objective function of dual weighted residual used for optimization based mesh adaptation. \f[ \mathcal{F} = \frac{1}{2}\eta^2 \f].
+/// Class to compute the objective function of dual weighted residual used for optimization based mesh adaptation. \f[ \mathcal{F} = \frac{1}{2} \sum_k \eta_k^2 \f].
 template <int dim, int nstate, typename real>
 class DualWeightedResidualObjFunc : public Functional<dim, nstate, real>
 {
     using VectorType = dealii::LinearAlgebra::distributed::Vector<real>; ///< Alias for dealii's parallel distributed vector.
     using MatrixType = dealii::TrilinosWrappers::SparseMatrix; ///< Alias for dealii::TrilinosWrappers::SparseMatrix.
+    using NormalVector = dealii::Vector<real>; ///< Alias for serial vector.
 
 public:
     /// Constructor
@@ -33,26 +34,26 @@ public:
     /// Computes \f[ out_vector = d2IdXdX*in_vector \f]. 
     void d2IdXdX_vmult(VectorType &out_vector, const VectorType &in_vector) const override;
 
-    /// Evaluates \f[ \mathcal{F} = \frac{1}{2} \eta^2 \f] and derivatives, if needed.
+    /// Evaluates \f[ \mathcal{F} = \frac{1}{2} \sum_k \eta_k^2 \f] and derivatives, if needed.
     real evaluate_functional(
         const bool compute_dIdW = false,
         const bool compute_dIdX = false,
         const bool compute_d2I = false) override;
 
 private:
-    /// Stores true if coarse residual is used to compute objective function.
+    /// Stores true if coarse residual is used in the objective function.
     const bool use_coarse_residual;
 
     /// Extracts all matrices possible for various combinations of polynomial degrees.
     void extract_interpolation_matrices(dealii::Table<2, dealii::FullMatrix<real>> &interpolation_hp);
     
-    /// Returns cellwise dof indices. Used to store cellwise dof indices of higher poly order grid to form interpolation matrix.
+    /// Returns cellwise dof indices. Used to store cellwise dof indices of higher poly order grid to form interpolation matrix and cto compute matrix-vector products.
     std::vector<std::vector<dealii::types::global_dof_index>> get_cellwise_dof_indices();
 
     /// Evaluates objective function and stores adjoint and residual.
     real evaluate_objective_function();
 
-    /// Computes common vectors (adjoint, residual_fine) and matrices (R_u, R_u_transpose, adjoint*d2R) required for dIdW, dIdX and d2I.
+    /// Computes common vectors and matrices (R_u, R_u_transpose, adjoint*d2R) required for dIdW, dIdX and d2I.
     void compute_common_vectors_and_matrices();
 
     /// Computes interpolation matrix.
@@ -61,28 +62,40 @@ private:
      */
     void compute_interpolation_matrix();
 
-    /// Computes  \f[ out_vector = \psi_x*in_vector \f].
+    /// Computes  \f[ out_vector = \psi_x in_vector \f].
     void adjoint_x_vmult(VectorType &out_vector, const VectorType &in_vector) const;
 
-    /// Computes  \f[ out_vector = \eta_u*in_vector \f].
+    /// Computes  \f[ out_vector = \psi_u in_vector \f].
     void adjoint_u_vmult(VectorType &out_vector, const VectorType &in_vector) const;
     
-    /// Computes  \f[ out_vector = \eta_x^T*in_vector \f].
+    /// Computes  \f[ out_vector = \psi_x^T in_vector \f].
     void adjoint_x_Tvmult(VectorType &out_vector, const VectorType &in_vector) const;
 
-    /// Computes  \f[ out_vector = \eta_u^T*in_vector \f].
+    /// Computes  \f[ out_vector = \psi_u^T in_vector \f].
     void adjoint_u_Tvmult(VectorType &out_vector, const VectorType &in_vector) const;
+
+    /// Computes  \f[ out_vector = \eta_{\psi} in_vector \f].
+    void dwr_adjoint_vmult(NormalVector &out_vector, const VectorType &in_vector) const;
     
-    /// Computes  \f[ out_vector = (\psi^TR)_{uu}*in_vector \f].
+    /// Computes  \f[ out_vector = \eta_{R} in_vector \f].
+    void dwr_residual_vmult(NormalVector &out_vector, const VectorType &in_vector) const;
+    
+    /// Computes  \f[ out_vector = \eta_{\psi}^T in_vector \f].
+    void dwr_adjoint_Tvmult(VectorType &out_vector, const NormalVector &in_vector) const;
+    
+    /// Computes  \f[ out_vector = \eta_{R}^T in_vector \f].
+    void dwr_residual_Tvmult(VectorType &out_vector, const NormalVector &in_vector) const;
+    
+    /// Computes  \f[ out_vector = \eta^T\eta_{uu} in_vector \f].
     void dwr_uu_vmult(VectorType &out_vector, const VectorType &in_vector) const;
 
-    /// Computes  \f[ out_vector = (\psi^TR)_{xx}*in_vector \f].
+    /// Computes  \f[ out_vector = \eta^T\eta_{xx} in_vector \f].
     void dwr_xx_vmult(VectorType &out_vector, const VectorType &in_vector) const;
 
-    /// Computes  \f[ out_vector = (\psi^TR)_{ux}*in_vector \f].
+    /// Computes  \f[ out_vector = \eta^T \eta_{ux}  in_vector \f].
     void dwr_ux_vmult(VectorType &out_vector, const VectorType &in_vector) const;
 
-    /// Computes  \f[ out_vector = (\psi^TR)_{ux}^T*in_vector \f].
+    /// Computes  \f[ out_vector = \left(\eta^T \eta_{ux}\right)^T in_vector \f].
     void dwr_ux_Tvmult(VectorType &out_vector, const VectorType &in_vector) const;
     
     /// Stores dIdW
@@ -91,8 +104,8 @@ private:
     /// Stores dIdX
     void store_dIdX();
     
-    /// Stores \f[ J(U_h) - J(U_h^H) \f].
-    real dwr_error;
+    /// Stores \f[ \eta = [\eta_k, k=1,2,..N_k], \eta_k = \left(\psi^T R \right)_k \f].
+    NormalVector dwr_error;
 
     /// Stores \f[R_u \f] on fine space. 
     MatrixType R_u;
@@ -102,45 +115,9 @@ private:
     
     /// Stores \f[R_x \f] on fine space. 
     MatrixType R_x;
-
-    /// Stores \f[\psi^TR_{xx} \f] evaluated on fine space.
-    MatrixType adjoint_times_R_xx;
-
-    /// Stores \f[\psi^TR_{ux} \f] evaluated on fine space.
-    MatrixType adjoint_times_R_ux;
-
-    /// Stores \f[\psi^TR_{uu} \f] evaluated on fine space.
-    MatrixType adjoint_times_R_uu;
-    
-    /// Stores \f[\left(\Delta U \right)^T R_{ux} \f] evaluated on fine space.
-    MatrixType delU_times_R_ux;
-
-    /// Stores \f[\left(\Delta U \right)^T R_{uu} \f] evaluated on fine space.
-    MatrixType delU_times_R_uu;
-    
-    /// Stores \f[\psi^T I_h r_{xx} \f].
-    MatrixType adjoint_coarse_times_r_xx;
-
-    /// Stores \f[\psi^T I_h r_{ux} \f].
-    MatrixType adjoint_coarse_times_r_ux;
-
-    /// Stores \f[\psi^T I_h r_{uu} \f].
-    MatrixType adjoint_coarse_times_r_uu;
-    
+ 
     /// Stores adjoint evaluated on fine space.
     VectorType adjoint;
-
-    /// Stores second adjoint i.e. with functional derivative evaluated at \f[ U_h \f].
-    VectorType adjoint2;
-
-    /// Stores \f[J_x(U_h) - J_x(U_h^H) \f].
-    VectorType functional_x_difference;
-
-    /// Stores \f[ J(U_h^H) \f].
-    VectorType functional_u;
-
-    /// Stores \f[ \psi^T I_h \f].
-    VectorType adjoint_coarse;
 
     /// Residual used to evaluate objective function. Can be residual_fine or residual_fine - residual_coarse_interpolated.
     VectorType residual_used;
@@ -150,10 +127,7 @@ private:
     
     /// Stores vector on fine space (p+1) to copy parallel partitioning later.
     VectorType vector_fine;
-
-    /// Stores vector of volume nodes to copy parallel partitioning later.
-    VectorType vector_vol_nodes;
-
+    
     /// Stores \f[ - \left(J_{ux} + \psi^TR_{ux} \right) \f]
     MatrixType matrix_ux;
 
@@ -165,15 +139,6 @@ private:
     
     /// Stores \f[r_x \f] on coarse space. 
     MatrixType r_x;
-
-    /// Stores \f[ \Delta U = - R_u^{-1} R\f]
-    VectorType delU;
-
-    /// Stores \f[ \frac{d}{dx}\left( J(U_h) - J(U_h^H) \right)\f]
-    VectorType dwr_error_x;
-    
-    /// Stores \f[ \frac{d}{du}\left( J(U_h) - J(U_h^H) \right)\f] wrt coarse solution.
-    VectorType dwr_error_u;
 
     /// Functional used to create the objective function.
     std::shared_ptr< Functional<dim, nstate, real> > functional;
