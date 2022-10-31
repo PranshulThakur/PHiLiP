@@ -359,7 +359,8 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_common_vectors_an
 template<int dim, int nstate, typename real>
 void DualWeightedResidualObjFunc<dim, nstate, real> :: store_dIdX()
 { 
-
+    this->dIdX.reinit(vector_vol_nodes);
+    dwr_x_Tvmult(this->dIdX, dwr_error);
 /*
     //Add derivative of mesh weight.
     const bool compute_dIdW = false, compute_dIdX = true, compute_d2I = false;
@@ -372,7 +373,8 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: store_dIdX()
 template<int dim, int nstate, typename real>
 void DualWeightedResidualObjFunc<dim, nstate, real> :: store_dIdW()
 {
-
+    this->dIdw.reinit(vector_coarse);
+    dwr_u_Tvmult(this->dIdw, dwr_error);
 }
 
 template<int dim, int nstate, typename real>
