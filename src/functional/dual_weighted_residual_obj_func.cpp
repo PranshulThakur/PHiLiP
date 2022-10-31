@@ -795,9 +795,31 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_times_dwr_xx_vmult(
     VectorType &out_vector, 
     const VectorType &in_vector) const
 {
-    const VectorType vol_nodes_vector = this->dg->high_order_grid->volume_nodes;
-    AssertDimension(in_vector.size(), vol_nodes_vector.size());
-    AssertDimension(out_vector.size(), vol_nodes_vector.size());
+    AssertDimension(in_vector.size(), vector_vol_nodes.size());
+    AssertDimension(out_vector.size(), vector_vol_nodes.size());
+
+    //=== Compute term 1 =======================
+    VectorType term1(vector_vol_nodes);
+    dwr_dwr_R_times_Rxx.vmult(term1, in_vector);
+    term1.update_ghost_values();
+
+    //=== Compute term 2 =======================
+    VectorType v1(vector_fine);
+    dwr_times_dwr_residual_x_vmult(v1, in_vector);
+    VectorType term2(vector_vol_nodes);
+    R_x.Tvmult(term2, v1);
+    term2.update_ghost_values();
+
+    //=== Compute term 3 =======================
+    VectorType v2(vector_fine);
+    dwr_times_dwr_adjoint_x_vmult(v2, in_vector);
+    VectorType term3(vector_vol_nodes);
+    adjoint_x_Tvmult(term3, v2);
+    //=============================================================
+    out_vector = term1;
+    out_vector += term2;
+    out_vector += term3;
+    out_vector.update_ghost_values();
 }
 
 template<int dim, int nstate, typename real>
@@ -805,9 +827,34 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_times_dwr_ux_vmult(
     VectorType &out_vector, 
     const VectorType &in_vector) const
 {
-    const VectorType vol_nodes_vector = this->dg->high_order_grid->volume_nodes;
-    AssertDimension(in_vector.size(), vol_nodes_vector.size());
+    AssertDimension(in_vector.size(), vector_vol_nodes.size());
     AssertDimension(out_vector.size(), vector_coarse.size());
+    
+    //=== Compute term 1 =======================
+    VectorType term1(vector_fine);
+    dwr_dwr_R_times_Rux.vmult(term1, in_vector);
+    term1.update_ghost_values();
+
+    //=== Compute term 2 =======================
+    VectorType v1(vector_fine);
+    dwr_times_dwr_residual_x_vmult(v1, in_vector);
+    VectorType term2(vector_fine);
+    R_u.Tvmult(term2, v1);
+    term2.update_ghost_values();
+
+    //=== Compute term 3 =======================
+    VectorType v2(vector_fine);
+    dwr_times_dwr_adjoint_x_vmult(v2, in_vector);
+    VectorType term3(vector_fine);
+    adjoint_u_Tvmult(term3, v2);
+    //=============================================================
+    VectorType out_vector_fine = term1;
+    out_vector_fine += term2;
+    out_vector_fine += term3;
+    out_vector_fine.update_ghost_values();
+
+    interpolation_matrix.Tvmult(out_vector, out_vector_fine);
+    out_vector.update_ghost_values();
 }
 
 template<int dim, int nstate, typename real>
@@ -815,9 +862,36 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_times_dwr_ux_Tvmult(
     VectorType &out_vector, 
     const VectorType &in_vector) const
 {
-    const VectorType vol_nodes_vector = this->dg->high_order_grid->volume_nodes;
     AssertDimension(in_vector.size(), vector_coarse.size());
-    AssertDimension(out_vector.size(), vol_nodes_vector.size());
+    AssertDimension(out_vector.size(), vector_vol_nodes.size());
+
+    VectorType in_vector_fine(vector_fine);
+    interpolation_matrix.vmult(in_vector_fine, in_vector);
+    in_vector_fine.update_ghost_values();
+    
+    //===== Compute term 1 =======================================
+    VectorType v1(vector_fine);
+    adjoint_u_vmult(v1, in_vector_fine);
+    VectorType term1(vector_vol_nodes);
+    dwr_times_dwr_adjoint_x_Tvmult(term1, v1);
+
+    //===== Compute term 2 =======================================
+    VectorType v2(vector_fine);
+    R_u.vmult(v2, in_vector_fine);
+    v2.update_ghost_values();
+    VectorType term2(vector_vol_nodes);
+    dwr_times_dwr_residual_x_Tvmult(term2, v2);
+
+    //===== Compute term 3 =======================================
+    VectorType term3(vector_vol_nodes);
+    dwr_dwr_R_times_Rux.Tvmult(term3, in_vector_fine);
+    term3.update_ghost_values();
+    //============================================================
+
+    out_vector = term1;
+    out_vector += term2;
+    out_vector += term3;
+    out_vector.update_ghost_values();
 }
 
 template<int dim, int nstate, typename real>
@@ -828,6 +902,35 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_times_dwr_uu_vmult(
     AssertDimension(in_vector.size(), vector_coarse.size());
     AssertDimension(out_vector.size(), vector_coarse.size());
 
+    VectorType in_vector_fine(vector_fine);
+    interpolation_matrix.vmult(in_vector_fine, in_vector);
+    in_vector_fine.update_ghost_values();
+    
+    //=== Compute term 1 =======================
+    VectorType term1(vector_fine);
+    dwr_dwr_R_times_Ruu.vmult(term1, in_vector_fine);
+    term1.update_ghost_values();
+
+    //=== Compute term 2 =======================
+    VectorType v1(vector_fine);
+    dwr_times_dwr_residual_u_vmult(v1, in_vector_fine);
+    VectorType term2(vector_fine);
+    R_u.Tvmult(term2, v1);
+    term2.update_ghost_values();
+
+    //=== Compute term 3 =======================
+    VectorType v2(vector_fine);
+    dwr_times_dwr_adjoint_u_vmult(v2, in_vector_fine);
+    VectorType term3(vector_fine);
+    adjoint_u_Tvmult(term3, v2);
+    //=============================================================
+    VectorType out_vector_fine = term1;
+    out_vector_fine += term2;
+    out_vector_fine += term3;
+    out_vector_fine.update_ghost_values();
+
+    interpolation_matrix.Tvmult(out_vector, out_vector_fine);
+    out_vector.update_ghost_values();
 }
 
 
