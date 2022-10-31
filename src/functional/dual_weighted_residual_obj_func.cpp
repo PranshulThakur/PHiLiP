@@ -311,6 +311,17 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_common_vectors_an
     matrix_ux *= -1.0;
     matrix_uu *= -1.0;
 
+    // Store dual_dwr_R times d2R
+    VectorType dwr_dwr_R(vector_fine);
+    dwr_residual_Tvmult(dwr_dwr_R, dwr_error);
+    this->dg->set_dual(dwr_dwr_R);
+    compute_dRdW = false, compute_dRdX = false, compute_d2R = true;
+    this->dg->assemble_residual(compute_dRdW, compute_dRdX, compute_d2R);
+    dwr_dwr_R_times_Rxx.copy_from(this->dg->d2RdXdX);
+    dwr_dwr_R_times_Rux.copy_from(this->dg->d2RdWdX);
+    dwr_dwr_R_times_Ruu.copy_from(this->dg->d2RdWdW);
+
+
     this->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(-1);
     
     /* Interpolating one poly order up and then down changes solution by ~1.0e-12, which causes functional to be re-evaluated when the solution-node configuration is the same. 
@@ -335,6 +346,9 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_common_vectors_an
     R_x.compress(dealii::VectorOperation::add);
     matrix_ux.compress(dealii::VectorOperation::add);
     matrix_uu.compress(dealii::VectorOperation::add);
+    dwr_dwr_R_times_Rxx.compress(dealii::VectorOperation::add);
+    dwr_dwr_R_times_Rux.compress(dealii::VectorOperation::add);
+    dwr_dwr_R_times_Ruu.compress(dealii::VectorOperation::add);
     if(use_coarse_residual)
     {
         r_u.compress(dealii::VectorOperation::add);

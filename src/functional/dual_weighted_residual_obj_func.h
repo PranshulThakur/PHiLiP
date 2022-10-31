@@ -187,6 +187,15 @@ private:
 
     /// Stores \f[ - \left(J_{uu} + \psi^TR_{uu} \right) \f]
     MatrixType matrix_uu;
+
+    /// Stores \f[ \left(\eta^T \eta_R \right) R_xx  \f]
+    MatrixType dwr_dwr_R_times_Rxx;
+
+    /// Stores \f[ \left(\eta^T \eta_R \right) R_ux  \f]
+    MatrixType dwr_dwr_R_times_Rux;
+    
+    /// Stores \f[ \left(\eta^T \eta_R \right) R_uu  \f]
+    MatrixType dwr_dwr_R_times_Ruu;
     
     /// Stores \f[r_u \f] on coarse space. 
     MatrixType r_u;
