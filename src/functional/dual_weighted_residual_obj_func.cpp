@@ -422,6 +422,21 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_adjoint_vmult(
 {
     AssertDimension(out_vector.size(), this->dg->triangulation->n_active_cells());
     AssertDimension(in_vector.size(), vector_fine.size());
+
+    for(const auto &cell : this->dg->dof_handler.active_cell_iterators())
+    {
+        if(! cell->is_locally_owned()) {continue;}
+
+        const dealii::types::global_dof_index cell_index = cell->active_cell_index();
+        const std::vector<dealii::types::global_dof_index> &dof_indices_fine = cellwise_dofs_fine[cell_index];
+
+        out_vector[cell_index] = 0.0;
+
+        for(unsigned int i_dof=0; i_dof < dof_indices_fine.size(); ++i_dof)
+        {
+            out_vector[cell_index] += residual_used(dof_indices_fine[i_dof])*in_vector(dof_indices_fine[i_dof]);
+        }
+    } // cell loop ends
 }
 
 template<int dim, int nstate, typename real>
@@ -431,6 +446,21 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_residual_vmult(
 {
     AssertDimension(out_vector.size(), this->dg->triangulation->n_active_cells());
     AssertDimension(in_vector.size(), vector_fine.size());
+    
+    for(const auto &cell : this->dg->dof_handler.active_cell_iterators())
+    {
+        if(! cell->is_locally_owned()) {continue;}
+
+        const dealii::types::global_dof_index cell_index = cell->active_cell_index();
+        const std::vector<dealii::types::global_dof_index> &dof_indices_fine = cellwise_dofs_fine[cell_index];
+
+        out_vector[cell_index] = 0.0;
+
+        for(unsigned int i_dof=0; i_dof < dof_indices_fine.size(); ++i_dof)
+        {
+            out_vector[cell_index] += adjoint(dof_indices_fine[i_dof])*in_vector(dof_indices_fine[i_dof]);
+        }
+    } // cell loop ends
 }
 
 template<int dim, int nstate, typename real>
@@ -440,6 +470,21 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_adjoint_Tvmult(
 {
     AssertDimension(out_vector.size(), vector_fine.size());
     AssertDimension(in_vector.size(), this->dg->triangulation->n_active_cells());
+    
+    for(const auto &cell : this->dg->dof_handler.active_cell_iterators())
+    {
+        if(! cell->is_locally_owned()) {continue;}
+
+        const dealii::types::global_dof_index cell_index = cell->active_cell_index();
+        const std::vector<dealii::types::global_dof_index> &dof_indices_fine = cellwise_dofs_fine[cell_index];
+
+        for(unsigned int i_dof=0; i_dof < dof_indices_fine.size(); ++i_dof)
+        {
+            out_vector(dof_indices_fine[i_dof]) = in_vector[cell_index] * residual_used(dof_indices_fine[i_dof]);
+        }
+    } // cell loop ends
+
+    out_vector.update_ghost_values();
 }
 
 template<int dim, int nstate, typename real>
@@ -449,6 +494,21 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_residual_Tvmult(
 {
     AssertDimension(out_vector.size(), vector_fine.size());
     AssertDimension(in_vector.size(), this->dg->triangulation->n_active_cells());
+    
+    for(const auto &cell : this->dg->dof_handler.active_cell_iterators())
+    {
+        if(! cell->is_locally_owned()) {continue;}
+
+        const dealii::types::global_dof_index cell_index = cell->active_cell_index();
+        const std::vector<dealii::types::global_dof_index> &dof_indices_fine = cellwise_dofs_fine[cell_index];
+
+        for(unsigned int i_dof=0; i_dof < dof_indices_fine.size(); ++i_dof)
+        {
+            out_vector(dof_indices_fine[i_dof]) = in_vector[cell_index] * adjoint(dof_indices_fine[i_dof]);
+        }
+    } // cell loop ends
+
+    out_vector.update_ghost_values();
 }
 
 //===================================================================================================================================================
