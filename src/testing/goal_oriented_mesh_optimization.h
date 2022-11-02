@@ -23,6 +23,9 @@ public:
 
     /// Runs the test of mesh optimization.
     int run_test() const;
+    
+    /// Evaluate taylor expanded functional on fine space.
+    double evaluate_functional_exact(std::shared_ptr<DGBase<dim, double>> dg) const;
 }; 
 
 } // Tests namespace

@@ -3,17 +3,34 @@
 #include "physics/physics_factory.h"
 #include <deal.II/numerics/vector_tools.h>
 #include "functional/dual_weighted_residual_obj_func.h"
+#include "linear_solver/linear_solver.h"
 
 const int nstate = 1;
+const int dim = PHILIP_DIM;
+using namespace PHiLiP;   
+
+double evaluate_functional_exact(std::shared_ptr<DGBase<dim, double>> dg)
+{
+    std::shared_ptr< Functional<dim, nstate, double> > functional = FunctionalFactory<dim,nstate,double>::create_Functional(dg->all_parameters->functional_param, dg);
+    dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(1);
+    dg->assemble_residual(true);
+    dealii::LinearAlgebra::distributed::Vector<double> delU (dg->solution);
+    solve_linear(dg->system_matrix, dg->right_hand_side, delU, dg->all_parameters->linear_solver_param);
+    delU *= -1.0;
+    delU.update_ghost_values();
+    dg->solution += delU;
+    dg->solution.update_ghost_values();
+    const double functional_exact = functional->evaluate_functional();
+    dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(-1);
+    return functional_exact;
+}
+
 int main (int argc, char * argv[])
 {
     dealii::Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);    
     int mpi_rank = dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD);
     dealii::ConditionalOStream pcout(std::cout, mpi_rank==0);
 
-    const int dim = PHILIP_DIM;
-
-    using namespace PHiLiP;   
     
     using VectorType = typename dealii::LinearAlgebra::distributed::Vector<double>;
     using MatrixType = dealii::TrilinosWrappers::SparseMatrix;
@@ -67,11 +84,16 @@ int main (int argc, char * argv[])
     dg->solution.update_ghost_values();
     
     VectorType solution_coarse = dg->solution;
+
+//=================== Evaluate exact functional ========================================================== 
+    const double functional_exact = evaluate_functional_exact(dg);
+//========================================================================================================
     
     const bool uses_solution_values = true;
     const bool uses_solution_gradient = false;
     const bool use_coarse_residual = false;
     std::unique_ptr<DualWeightedResidualObjFunc<dim, nstate, double>> dwr_func = std::make_unique<DualWeightedResidualObjFunc<dim, nstate, double>> (dg,
+                                                                                                                                                     functional_exact,
                                                                                                                                                      uses_solution_values, 
                                                                                                                                                      uses_solution_gradient, 
                                                                                                                                                      use_coarse_residual);
@@ -140,6 +162,7 @@ int main (int argc, char * argv[])
 // ======= Check if volume nodes and the solution remain the same after evaluating the functional ============================================================================
     // This check ensures that volume_node/solution configuration stays the same. If this same configuration is used again, already computed values aren't re-evaluated.
     std::unique_ptr<Functional<dim, nstate, double>> dwr_objfunc = std::make_unique<DualWeightedResidualObjFunc<dim, nstate, double>> ( dg, 
+                                                                                                                                        functional_exact,
                                                                                                                                         uses_solution_values, 
                                                                                                                                         uses_solution_gradient, 
                                                                                                                                         use_coarse_residual);
