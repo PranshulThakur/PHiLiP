@@ -8,9 +8,12 @@
 const int nstate = 1;
 const int dim = PHILIP_DIM;
 using namespace PHiLiP;   
+using VectorType = typename dealii::LinearAlgebra::distributed::Vector<double>;
+using MatrixType = dealii::TrilinosWrappers::SparseMatrix;
 
 double evaluate_functional_exact(std::shared_ptr<DGBase<dim, double>> dg)
 {
+    const VectorType solution_coarse = dg->solution;
     std::shared_ptr< Functional<dim, nstate, double> > functional = FunctionalFactory<dim,nstate,double>::create_Functional(dg->all_parameters->functional_param, dg);
     dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(1);
     dg->assemble_residual(true);
@@ -22,6 +25,8 @@ double evaluate_functional_exact(std::shared_ptr<DGBase<dim, double>> dg)
     dg->solution.update_ghost_values();
     const double functional_exact = functional->evaluate_functional();
     dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(-1);
+    dg->solution = solution_coarse;
+    dg->solution.update_ghost_values();
     return functional_exact;
 }
 
@@ -32,9 +37,6 @@ int main (int argc, char * argv[])
     dealii::ConditionalOStream pcout(std::cout, mpi_rank==0);
 
     
-    using VectorType = typename dealii::LinearAlgebra::distributed::Vector<double>;
-    using MatrixType = dealii::TrilinosWrappers::SparseMatrix;
-
 #if PHILIP_DIM == 1
     using MeshType = typename dealii::Triangulation<dim>;
 #else
@@ -241,7 +243,7 @@ int main (int argc, char * argv[])
     AssertDimension(n_vol_nodes, dIdX_fd.size()); 
     pcout<<"All dimensions are good."<<std::endl; 
 
-    double step_size_delx = 1.0e-6;
+    double step_size_delx = 1.0e-8;
     pcout<<"Evaluating dIdX using finite difference."<<std::endl;
 
     for(unsigned int i_node = 0; i_node < n_vol_nodes; ++i_node)

@@ -35,6 +35,7 @@ template<int dim ,int nstate>
 double GoalOrientedMeshOptimization<dim, nstate> :: evaluate_functional_exact(
     std::shared_ptr<DGBase<dim, double>> dg) const
 {
+    const dealii::LinearAlgebra::distributed::Vector<double> solution_coarse =  dg->solution;
     std::shared_ptr< Functional<dim, nstate, double> > functional = FunctionalFactory<dim,nstate,double>::create_Functional(dg->all_parameters->functional_param, dg);
     dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(1);
     dg->assemble_residual(true);
@@ -46,6 +47,8 @@ double GoalOrientedMeshOptimization<dim, nstate> :: evaluate_functional_exact(
     dg->solution.update_ghost_values();
     const double functional_exact = functional->evaluate_functional();
     dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(-1);
+    dg->solution = solution_coarse;
+    dg->solution.update_ghost_values();
     return functional_exact;
 }
 
