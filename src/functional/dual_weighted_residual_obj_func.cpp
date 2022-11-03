@@ -18,6 +18,11 @@ DualWeightedResidualObjFunc<dim, nstate, real> :: DualWeightedResidualObjFunc(
     AssertDimension(this->dg->high_order_grid->max_degree, 1);
     compute_interpolation_matrix(); // also stores cellwise_dofs_fine, vector coarse and vector fine.
     functional = FunctionalFactory<dim,nstate,real>::create_Functional(this->dg->all_parameters->functional_param, this->dg);
+    initial_vol_nodes = this->dg->high_order_grid->volume_nodes;
+    homotopy_weight = this->dg->all_parameters->optimization_param.mesh_weight_factor;
+    compute_reduced_gradient_norm_of_objfunc();
+
+    std::cout<<"Reduced gradient norm = "<<reduced_gradient_norm<<std::endl;
 }
 
 //===================================================================================================================================================
@@ -159,6 +164,29 @@ std::vector<std::vector<dealii::types::global_dof_index>> DualWeightedResidualOb
     return cellwise_dof_indices;
 }
 
+template<int dim, int nstate, typename real>
+void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_reduced_gradient_norm_of_objfunc()
+{
+    const real homotopy_weight_initial = homotopy_weight;
+    homotopy_weight = 0.0;
+    reduced_gradient_norm = 0.0;
+        this->current_functional_value = evaluate_objective_function(); // also stores adjoint and residual_used.
+        compute_common_vectors_and_matrices();
+        store_dIdX();
+        store_dIdW();
+    this->dg->assemble_residual(true);
+    VectorType adjoint_coarse(vector_coarse);
+    solve_linear(this->dg->system_matrix_transpose, this->dIdw, adjoint_coarse, this->dg->all_parameters->linear_solver_param);
+    adjoint_coarse *= -1.0;
+    adjoint_coarse.update_ghost_values();
+    
+    this->dg->assemble_residual(false, true);
+    VectorType reduced_gradient = this->dIdX;
+    this->dg->dRdXv.Tvmult_add(reduced_gradient, adjoint_coarse);
+    reduced_gradient.update_ghost_values();
+    reduced_gradient_norm = reduced_gradient.l2_norm();
+    homotopy_weight = homotopy_weight_initial;
+}
 //===================================================================================================================================================
 //                          Functions used in evaluate_functional
 //===================================================================================================================================================
@@ -267,8 +295,15 @@ real DualWeightedResidualObjFunc<dim, nstate, real> :: evaluate_objective_functi
     real obj_func_local = dwr_error * dwr_error;
     obj_func_local *= 1.0/2.0;
 
-    real obj_func_global = dealii::Utilities::MPI::sum(obj_func_local, MPI_COMM_WORLD);
-    return obj_func_global;
+    const real obj_func_global = dealii::Utilities::MPI::sum(obj_func_local, MPI_COMM_WORLD);
+
+    VectorType vol_nodes_diff = this->dg->high_order_grid->volume_nodes;
+    vol_nodes_diff -= initial_vol_nodes;
+    vol_nodes_diff.update_ghost_values();
+    real term2 = vol_nodes_diff*vol_nodes_diff;
+    term2 *= reduced_gradient_norm / 2.0;
+    const real obj_func_net = (1.0 - homotopy_weight)*obj_func_global + homotopy_weight * term2;
+    return obj_func_net;
 }
 
 template<int dim, int nstate, typename real>
@@ -359,6 +394,20 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: store_dIdX()
 { 
     this->dIdX.reinit(vector_vol_nodes);
     dwr_x_Tvmult(this->dIdX, dwr_error);
+    
+    // Add homotopy based objective function
+    this->dIdX *= (1.0 - homotopy_weight);
+    this->dIdX.update_ghost_values();
+
+    VectorType vol_nodes_diff = this->dg->high_order_grid->volume_nodes;
+    vol_nodes_diff -= initial_vol_nodes;
+    vol_nodes_diff.update_ghost_values();
+    VectorType term_mesh = vol_nodes_diff;
+    term_mesh *= (homotopy_weight*reduced_gradient_norm);
+    term_mesh.update_ghost_values();
+
+    this->dIdX += term_mesh;
+    this->dIdX.update_ghost_values();
 }
 
 template<int dim, int nstate, typename real>
@@ -366,6 +415,10 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: store_dIdW()
 {
     this->dIdw.reinit(vector_coarse);
     dwr_u_Tvmult(this->dIdw, dwr_error);
+    
+    // Subject to homotpy based weight
+    this->dIdw *= (1.0 - homotopy_weight);
+    this->dIdw.update_ghost_values();
 }
 
 template<int dim, int nstate, typename real>
@@ -390,6 +443,10 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: d2IdWdW_vmult(
     out_vector = term1;
     out_vector += term2;
     out_vector.update_ghost_values();
+    
+    // Subject to homotpy based weight
+    out_vector *= (1.0 - homotopy_weight);
+    out_vector.update_ghost_values();
 }
 
 template<int dim, int nstate, typename real>
@@ -412,6 +469,10 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: d2IdWdX_vmult(
     //===================================
     out_vector = term1;
     out_vector += term2;
+    out_vector.update_ghost_values();
+    
+    // Subject to homotpy based weight
+    out_vector *= (1.0 - homotopy_weight);
     out_vector.update_ghost_values();
 }
 
@@ -437,6 +498,10 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: d2IdWdX_Tvmult(
     out_vector = term1;
     out_vector += term2;
     out_vector.update_ghost_values();
+    
+    // Subject to homotpy based weight
+    out_vector *= (1.0 - homotopy_weight);
+    out_vector.update_ghost_values();
 }
 
 template<int dim, int nstate, typename real>
@@ -459,6 +524,15 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: d2IdXdX_vmult(
     //===================================
     out_vector = term1;
     out_vector += term2;
+    out_vector.update_ghost_values();
+    
+    // Subject to homotpy based weight
+    out_vector *= (1.0 - homotopy_weight);
+    out_vector.update_ghost_values();
+    VectorType term_mesh = in_vector;
+    term_mesh *= (homotopy_weight * reduced_gradient_norm);
+    term_mesh.update_ghost_values();
+    out_vector += term_mesh;
     out_vector.update_ghost_values();
 }
 

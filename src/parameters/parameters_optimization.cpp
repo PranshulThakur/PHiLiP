@@ -39,9 +39,9 @@ void OptimizationParam::declare_parameters (dealii::ParameterHandler &prm)
                            dealii::Patterns::Double(0.0, 1.0),
                            "Initial step size for backtracking.");
         
-        prm.declare_entry("mesh_weight_factor", "1.0e-5",
+        prm.declare_entry("mesh_weight_factor", "0.5",
                            dealii::Patterns::Double(0.0, 1.0),
-                           "Weight of mesh distortion indicator added to the objective function.");
+                           "Weight of homotopy parameter added to the objective function.");
         
         prm.declare_entry("mesh_volume_power", "-2",
                            dealii::Patterns::Integer(),

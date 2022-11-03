@@ -149,6 +149,8 @@ private:
      */
     void dwr_times_dwr_residual_u_Tvmult(VectorType &out_vector, const VectorType &in_vector) const;
 
+    void compute_reduced_gradient_norm_of_objfunc();
+
     /// Stores dIdW
     void store_dIdW();
 
@@ -205,6 +207,16 @@ private:
 
     /// Functional used to create the objective function.
     std::shared_ptr< Functional<dim, nstate, real> > functional;
+
+    /// Stores the weight of homotopy parameter continuation.
+    real homotopy_weight;
+    
+    /// Stores initial reduced gradient norm to scale the hmotopy based weight.
+    real reduced_gradient_norm;
+
+    /// Stores initial volume nodes for homotopy based parameter continuation objective function.
+    VectorType initial_vol_nodes;
+
     
 public:
     /// Stores global dof indices of the fine mesh.
