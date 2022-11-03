@@ -206,9 +206,6 @@ private:
     /// Functional used to create the objective function.
     std::shared_ptr< Functional<dim, nstate, real> > functional;
     
-    /// Functional used to evaluate cell weight.
-    std::unique_ptr< Functional<dim, nstate, real> > cell_weight_functional;
-    
 public:
     /// Stores global dof indices of the fine mesh.
     std::vector<std::vector<dealii::types::global_dof_index>> cellwise_dofs_fine;

@@ -18,7 +18,6 @@ DualWeightedResidualObjFunc<dim, nstate, real> :: DualWeightedResidualObjFunc(
     AssertDimension(this->dg->high_order_grid->max_degree, 1);
     compute_interpolation_matrix(); // also stores cellwise_dofs_fine, vector coarse and vector fine.
     functional = FunctionalFactory<dim,nstate,real>::create_Functional(this->dg->all_parameters->functional_param, this->dg);
-   // cell_weight_functional = std::make_unique<CellVolumeObjFunc<dim, nstate, real>> (this->dg);
 }
 
 //===================================================================================================================================================
@@ -269,7 +268,6 @@ real DualWeightedResidualObjFunc<dim, nstate, real> :: evaluate_objective_functi
     obj_func_local *= 1.0/2.0;
 
     real obj_func_global = dealii::Utilities::MPI::sum(obj_func_local, MPI_COMM_WORLD);
-   // obj_func_global += cell_weight_functional->evaluate_functional();
     return obj_func_global;
 }
 
@@ -361,13 +359,6 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: store_dIdX()
 { 
     this->dIdX.reinit(vector_vol_nodes);
     dwr_x_Tvmult(this->dIdX, dwr_error);
-/*
-    //Add derivative of mesh weight.
-    const bool compute_dIdW = false, compute_dIdX = true, compute_d2I = false;
-    cell_weight_functional->evaluate_functional(compute_dIdW, compute_dIdX, compute_d2I);
-    this->dIdX += cell_weight_functional->dIdX;
-    this->dIdX.update_ghost_values();
-*/
 }
 
 template<int dim, int nstate, typename real>
@@ -469,17 +460,6 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: d2IdXdX_vmult(
     out_vector = term1;
     out_vector += term2;
     out_vector.update_ghost_values();
-
-  /* 
-   // Add (cell_weight)_xx * in_vector
-    const bool compute_dIdW = false, compute_dIdX = false, compute_d2I = true;
-    cell_weight_functional->evaluate_functional(compute_dIdW, compute_dIdX, compute_d2I);
-    VectorType out_vector2(out_vector);
-    cell_weight_functional->d2IdXdX_vmult(out_vector2, in_vector);
-
-    out_vector += out_vector2;
-    out_vector.update_ghost_values();
-    */
 }
 
 //===================================================================================================================================================
