@@ -18,7 +18,6 @@ DualWeightedResidualObjFunc<dim, nstate, real> :: DualWeightedResidualObjFunc(
     AssertDimension(this->dg->high_order_grid->max_degree, 1);
     compute_interpolation_matrix(); // also stores cellwise_dofs_fine, vector coarse and vector fine.
     functional = FunctionalFactory<dim,nstate,real>::create_Functional(this->dg->all_parameters->functional_param, this->dg);
-   // cell_weight_functional = std::make_unique<CellVolumeObjFunc<dim, nstate, real>> (this->dg);
 }
 
 //===================================================================================================================================================
@@ -370,13 +369,6 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: store_dIdX()
     this->dIdX = dwr_error_x;
     this->dIdX *= dwr_error;
     this->dIdX.update_ghost_values();
-/*
-    //Add derivative of mesh weight.
-    const bool compute_dIdW = false, compute_dIdX = true, compute_d2I = false;
-    cell_weight_functional->evaluate_functional(compute_dIdW, compute_dIdX, compute_d2I);
-    this->dIdX += cell_weight_functional->dIdX;
-    this->dIdX.update_ghost_values();
-*/
 }
 
 template<int dim, int nstate, typename real>
@@ -505,16 +497,6 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: d2IdXdX_vmult(
     out_vector += term2;
     out_vector.update_ghost_values();
 
-  /* 
-   // Add (cell_weight)_xx * in_vector
-    const bool compute_dIdW = false, compute_dIdX = false, compute_d2I = true;
-    cell_weight_functional->evaluate_functional(compute_dIdW, compute_dIdX, compute_d2I);
-    VectorType out_vector2(out_vector);
-    cell_weight_functional->d2IdXdX_vmult(out_vector2, in_vector);
-
-    out_vector += out_vector2;
-    out_vector.update_ghost_values();
-    */
 }
 
 //===================================================================================================================================================
