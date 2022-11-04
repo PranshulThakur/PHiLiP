@@ -18,6 +18,11 @@ DualWeightedResidualObjFunc<dim, nstate, real> :: DualWeightedResidualObjFunc(
     AssertDimension(this->dg->high_order_grid->max_degree, 1);
     compute_interpolation_matrix(); // also stores cellwise_dofs_fine, vector coarse and vector fine.
     functional = FunctionalFactory<dim,nstate,real>::create_Functional(this->dg->all_parameters->functional_param, this->dg);
+    
+    initial_vol_nodes = this->dg->high_order_grid->volume_nodes;
+    homotopy_weight = this->dg->all_parameters->optimization_param.mesh_weight_factor;
+    compute_reduced_gradient_norm_of_objfunc();
+    std::cout<<"Reduced gradient norm = "<<reduced_gradient_norm<<std::endl;
 }
 
 //===================================================================================================================================================
@@ -159,6 +164,35 @@ std::vector<std::vector<dealii::types::global_dof_index>> DualWeightedResidualOb
     return cellwise_dof_indices;
 }
 
+template<int dim, int nstate, typename real>
+void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_reduced_gradient_norm_of_objfunc()
+{
+    const real homotopy_weight_initial = homotopy_weight;
+    homotopy_weight = 0.0;
+    reduced_gradient_norm = 0.0;
+        this->current_functional_value = evaluate_objective_function(); // also stores adjoint and residual_used.
+        compute_common_vectors_and_matrices();
+        store_dIdX();
+        store_dIdW();
+    this->dg->assemble_residual(true);
+    VectorType adjoint_coarse(vector_coarse);
+    solve_linear(this->dg->system_matrix_transpose, this->dIdw, adjoint_coarse, this->dg->all_parameters->linear_solver_param);
+    adjoint_coarse *= -1.0;
+    adjoint_coarse.update_ghost_values();
+    
+    this->dg->assemble_residual(false, true);
+    VectorType reduced_gradient = this->dIdX;
+    this->dg->dRdXv.Tvmult_add(reduced_gradient, adjoint_coarse);
+    reduced_gradient.update_ghost_values();
+    reduced_gradient_norm = reduced_gradient.l2_norm();
+    homotopy_weight = homotopy_weight_initial;
+}
+
+template<int dim, int nstate, typename real>
+void DualWeightedResidualObjFunc<dim, nstate, real> :: set_homotopy_weight(const real _homotopy_weight)
+{
+    homotopy_weight = _homotopy_weight;
+}
 //===================================================================================================================================================
 //                          Functions used in evaluate_functional
 //===================================================================================================================================================
@@ -247,9 +281,16 @@ real DualWeightedResidualObjFunc<dim, nstate, real> :: evaluate_objective_functi
     
     dwr_error = adjoint*residual_used; // dealii takes care of summing over all processors.
 
-    real obj_func_global = 1.0/2.0 * dwr_error * dwr_error;
-   // obj_func_global += cell_weight_functional->evaluate_functional();
-    return obj_func_global;
+    const real obj_func_global = 1.0/2.0 * dwr_error * dwr_error;
+
+    // Add contribution of homotopy term.
+    VectorType vol_nodes_diff = this->dg->high_order_grid->volume_nodes;
+    vol_nodes_diff -= initial_vol_nodes;
+    vol_nodes_diff.update_ghost_values();
+    real term2 = vol_nodes_diff*vol_nodes_diff;
+    term2 *= reduced_gradient_norm / 2.0;
+    const real obj_func_net = (1.0 - homotopy_weight)*obj_func_global + homotopy_weight * term2;
+    return obj_func_net;
 }
 
 template<int dim, int nstate, typename real>
@@ -369,6 +410,20 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: store_dIdX()
     this->dIdX = dwr_error_x;
     this->dIdX *= dwr_error;
     this->dIdX.update_ghost_values();
+    
+    // Add contribution of homotopy based objective function
+    this->dIdX *= (1.0 - homotopy_weight);
+    this->dIdX.update_ghost_values();
+
+    VectorType vol_nodes_diff = this->dg->high_order_grid->volume_nodes;
+    vol_nodes_diff -= initial_vol_nodes;
+    vol_nodes_diff.update_ghost_values();
+    VectorType term_mesh = vol_nodes_diff;
+    term_mesh *= (homotopy_weight*reduced_gradient_norm);
+    term_mesh.update_ghost_values();
+
+    this->dIdX += term_mesh;
+    this->dIdX.update_ghost_values();
 }
 
 template<int dim, int nstate, typename real>
@@ -397,6 +452,10 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: store_dIdW()
     this->dIdw = dwr_error_u;
     this->dIdw *= dwr_error;
     this->dIdw.update_ghost_values();
+
+    // Subject to homotpy based weight
+    this->dIdw *= (1.0 - homotopy_weight);
+    this->dIdw.update_ghost_values();
 }
 
 template<int dim, int nstate, typename real>
@@ -422,6 +481,9 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: d2IdWdW_vmult(
     out_vector += term2;
     out_vector.update_ghost_values();
 
+    // Subject to homotpy based weight
+    out_vector *= (1.0 - homotopy_weight);
+    out_vector.update_ghost_values();
 }
 
 template<int dim, int nstate, typename real>
@@ -446,6 +508,10 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: d2IdWdX_vmult(
 
     out_vector = term1;
     out_vector += term2;
+    out_vector.update_ghost_values();
+
+    // Subject to homotpy based weight
+    out_vector *= (1.0 - homotopy_weight);
     out_vector.update_ghost_values();
 }
 
@@ -472,6 +538,10 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: d2IdWdX_Tvmult(
     out_vector = term1;
     out_vector += term2;
     out_vector.update_ghost_values();
+
+    // Subject to homotpy based weight
+    out_vector *= (1.0 - homotopy_weight);
+    out_vector.update_ghost_values();
 }
 
 template<int dim, int nstate, typename real>
@@ -497,6 +567,14 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: d2IdXdX_vmult(
     out_vector += term2;
     out_vector.update_ghost_values();
 
+    // Subject to homotpy based weight
+    out_vector *= (1.0 - homotopy_weight);
+    out_vector.update_ghost_values();
+    VectorType term_mesh = in_vector;
+    term_mesh *= (homotopy_weight * reduced_gradient_norm);
+    term_mesh.update_ghost_values();
+    out_vector += term_mesh;
+    out_vector.update_ghost_values();
 }
 
 //===================================================================================================================================================

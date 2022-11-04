@@ -90,7 +90,10 @@ private:
 
     /// Stores dIdX
     void store_dIdX();
-    
+
+    /// Computes norm of the reduced space gradient.
+    void compute_reduced_gradient_norm_of_objfunc();    
+
     /// Stores global adjoint weighted residual.
     real dwr_error;
 
@@ -163,10 +166,19 @@ private:
     /// Functional used to create the objective function.
     std::shared_ptr< Functional<dim, nstate, real> > functional;
     
-    /// Functional used to evaluate cell weight.
-    std::unique_ptr< Functional<dim, nstate, real> > cell_weight_functional;
+    /// Stores the weight of homotopy parameter continuation.
+    real homotopy_weight;
     
+    /// Stores initial reduced gradient norm to scale the hmotopy based weight.
+    real reduced_gradient_norm;
+
+    /// Stores initial volume nodes for homotopy based parameter continuation objective function.
+    VectorType initial_vol_nodes;    
+
 public:
+    /// Sets the homotopy weight parameter.
+    void set_homotopy_weight(const real _homotopy_weight);
+
     /// Stores global dof indices of the fine mesh.
     std::vector<std::vector<dealii::types::global_dof_index>> cellwise_dofs_fine;
 
