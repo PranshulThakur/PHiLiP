@@ -49,7 +49,7 @@ subsection optimization
     set line_search_curvature = Strong Wolfe Conditions
     set reduced_space_descent_method = Newton-Krylov
     set full_space_preconditioner = P4
-    set mesh_weight_factor = 0.0
+    set mesh_weight_factor = 0.9
     set mesh_volume_power = -2
 end
 
@@ -58,7 +58,7 @@ subsection functional
     set functional_type = normLp_volume
     
     # exponent
-    set normLp = 1.0
+    set normLp = 2.0
 end
 
 subsection manufactured solution convergence study

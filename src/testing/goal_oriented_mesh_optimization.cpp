@@ -108,7 +108,7 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
     ROL::Ptr<ROL::Vector<double>> simulation_variables_rol_ptr = ROL::makePtr<VectorAdaptor>(simulation_variables_rol);
     ROL::Ptr<ROL::Vector<double>> design_variables_rol_ptr = ROL::makePtr<VectorAdaptor>(design_variables_rol);
     ROL::Ptr<ROL::Vector<double>> adjoint_variables_rol_ptr = ROL::makePtr<VectorAdaptor>(adjoint_variables_rol);
-    const bool use_coarse_residual = false;
+    const bool use_coarse_residual = true;
     DualWeightedResidualObjFunc<dim, nstate, double> dwr_obj_function(flow_solver->dg, true, false, use_coarse_residual);
 
     auto objective_function = ROL::makePtr<ROLObjectiveSimOpt<dim,nstate>>(dwr_obj_function, design_parameterization); 
@@ -198,7 +198,6 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
             algo_state = algorithm.getState();
         }
         
-        break;
         if(homotopy_weight == 0.0)
         {
             break;
