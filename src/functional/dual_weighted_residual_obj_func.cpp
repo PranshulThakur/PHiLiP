@@ -187,6 +187,11 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_reduced_gradient_
     reduced_gradient_norm = reduced_gradient.l2_norm();
     homotopy_weight = homotopy_weight_initial;
 }
+template<int dim, int nstate, typename real>
+void DualWeightedResidualObjFunc<dim, nstate, real> :: set_homotopy_weight(const real _homotopy_weight)
+{
+    homotopy_weight = _homotopy_weight;
+}
 //===================================================================================================================================================
 //                          Functions used in evaluate_functional
 //===================================================================================================================================================

@@ -149,6 +149,7 @@ private:
      */
     void dwr_times_dwr_residual_u_Tvmult(VectorType &out_vector, const VectorType &in_vector) const;
 
+    /// Computes norm of the reduced space gradient.
     void compute_reduced_gradient_norm_of_objfunc();
 
     /// Stores dIdW
@@ -219,6 +220,9 @@ private:
 
     
 public:
+    /// Sets the homotopy weight parameter.
+    void set_homotopy_weight(const real _homotopy_weight);
+
     /// Stores global dof indices of the fine mesh.
     std::vector<std::vector<dealii::types::global_dof_index>> cellwise_dofs_fine;
 
