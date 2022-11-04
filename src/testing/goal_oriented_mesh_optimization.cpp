@@ -197,6 +197,7 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
                           *rcp_outstream);
             algo_state = algorithm.getState();
         }
+        break;
         if(homotopy_weight == 0.0)
         {
             break;
