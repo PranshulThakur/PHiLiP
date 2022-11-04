@@ -26,7 +26,11 @@ int main (int argc, char * argv[])
 #endif
     
     // Create grid and dg. 
-    std::shared_ptr<MeshType> grid = std::make_shared<MeshType>(MPI_COMM_WORLD);
+    std::shared_ptr<MeshType> grid = std::make_shared<MeshType>(
+            #if PHILIP_DIM != 1
+            MPI_COMM_WORLD
+            #endif
+            );
     unsigned int grid_refinement_val = 3;
     dealii::GridGenerator::hyper_cube(*grid);
     grid->refine_global(grid_refinement_val);
@@ -36,8 +40,8 @@ int main (int argc, char * argv[])
     Parameters::AllParameters all_parameters;
     all_parameters.parse_parameters (parameter_handler);
     all_parameters.linear_solver_param.linear_residual = 1.0e-14;
-    all_parameters.optimization_param.mesh_weight_factor = 1.0e-2;
-    all_parameters.optimization_param.mesh_volume_power = -2;
+    all_parameters.optimization_param.mesh_weight_factor = 0.5;
+    //all_parameters.optimization_param.mesh_volume_power = -2;
     const unsigned int poly_degree = 1;
     const unsigned int grid_degree = 1;
 
@@ -64,7 +68,7 @@ int main (int argc, char * argv[])
     
     const bool uses_solution_values = true;
     const bool uses_solution_gradient = false;
-    const bool use_coarse_residual = true;
+    const bool use_coarse_residual = false;
     std::unique_ptr<DualWeightedResidualObjFunc<dim, nstate, double>> dwr_func = std::make_unique<DualWeightedResidualObjFunc<dim, nstate, double>> (dg,
                                                                                                                                                      uses_solution_values, 
                                                                                                                                                      uses_solution_gradient, 
@@ -205,7 +209,7 @@ int main (int argc, char * argv[])
     
     double value_perturbed = value_original;
 
-    const dealii::IndexSet &vol_range = dg->high_order_grid->volume_nodes.get_partitioner()->locally_owned_range();
+    const dealii::IndexSet vol_range = dg->high_order_grid->volume_nodes.get_partitioner()->locally_owned_range();
 
     unsigned int n_vol_nodes = dg->high_order_grid->volume_nodes.size();
     AssertDimension(n_vol_nodes, dwr_objfunc->dIdX.size());
@@ -251,7 +255,7 @@ int main (int argc, char * argv[])
     VectorType dIdw_fd;
     dIdw_fd.reinit(dg->solution); 
 
-    const dealii::IndexSet &dof_range = dg->solution.get_partitioner()->locally_owned_range();  
+    const dealii::IndexSet dof_range = dg->solution.get_partitioner()->locally_owned_range();  
 
     unsigned int n_dofs = dg->solution.size(); 
     AssertDimension(n_dofs, n_dofs_coarse);
