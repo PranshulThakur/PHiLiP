@@ -211,7 +211,7 @@ void FullSpace_BirosGhattas<Real>::initialize(
     //flow_constraint.flow_CFL_ = 1.0/std::pow(lagrangian_gradient->norm(), 1.00);
     //flow_constraint.flow_CFL_ = -std::max(1.0/std::pow(algo_state.cnorm, 2.0), 100.0);
     //flow_constraint.flow_CFL_ = -1e-0;
-    flow_constraint.flow_CFL_ = -100;
+    flow_constraint.flow_CFL_ = 0.0;
 
     // // Not sure why this is done in ROL_Step.hpp
     // if ( bound_constraints.isActivated() ) {
@@ -803,8 +803,9 @@ void FullSpace_BirosGhattas<Real>::update(
     //flow_constraint.flow_CFL_ = 1.0/std::pow(algo_state.cnorm, 0.5);
     //flow_constraint.flow_CFL_ = 10 + 1.0/std::pow(algo_state.cnorm, 2.0);
     //flow_constraint.flow_CFL_ = 1.0/std::pow(algo_state.cnorm, 2.0);
-    flow_constraint.flow_CFL_ = -10000*std::max(1.0, 1.0/std::pow(algo_state.cnorm, 2.00));
+    //flow_constraint.flow_CFL_ = -10000*std::max(1.0, 1.0/std::pow(algo_state.cnorm, 2.00));
     //flow_constraint.flow_CFL_ = 0.0;
+    flow_constraint.flow_CFL_ = 0.0;
     //flow_constraint.flow_CFL_ = 1e-6;
 
     algo_state.iterateVec->set(design_variables);
