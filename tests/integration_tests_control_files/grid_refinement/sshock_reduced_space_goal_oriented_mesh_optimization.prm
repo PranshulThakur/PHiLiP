@@ -5,7 +5,7 @@ set dimension = 2
 
 # The PDE we want to solve. Choices are
 # <advection|diffusion|convection_diffusion>.
-set pde_type  = convection_diffusion      
+set pde_type  = advection  
 set test_type = goal_oriented_mesh_optimization 
 
 set sipg_penalty_factor = 20.0
@@ -58,7 +58,7 @@ subsection functional
   set functional_type = normLp_boundary
 
    # exponent
-   set normLp = 2.0
+   set normLp = 2.0 #4
 
    # boundaries to be used
    set boundary_vector = [1]
@@ -74,10 +74,17 @@ subsection manufactured solution convergence study
   set diffusion_01 = 3
   set diffusion_10 = 3
   set diffusion_11 = 20
+  set diffusion_coefficient = 0.0115573
+#  set diffusion_00 = 1.0e-2
+#  set diffusion_01 = 0
+#  set diffusion_10 = 0
+#  set diffusion_11 = 1.0e-2
 
   # setting the advection vector
   set advection_0 = 1.1
   set advection_1 = -1.155727 # -pi/e
+#  set advection_0 = 1
+#  set advection_1 = 1
 end
 
 subsection flow_solver
@@ -88,5 +95,7 @@ subsection flow_solver
   set max_poly_degree_for_adaptation = 3
   subsection grid
     set number_of_mesh_refinements = 3
+    set grid_left_bound = -1.0 #-0.2
+    set grid_right_bound = 1.0
   end
 end
