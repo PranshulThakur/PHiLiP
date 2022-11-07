@@ -342,36 +342,34 @@ public:
         x_j.resize(dim);
 
         for(unsigned int i = 0; i<dim; ++i){
-            /* Previous values. Use a parameter file later.
-            n_shocks[i] = 2;
+            // Previous values. Use a parameter file later.
+            if(dim == 2)
+            {
+                n_shocks[i] = 2;
 
-            S_j[i].resize(n_shocks[i]);
-            x_j[i].resize(n_shocks[i]);
+                S_j[i].resize(n_shocks[i]);
+                x_j[i].resize(n_shocks[i]);
 
-            // S_j[i][0] =  10;
-            // S_j[i][1] = -10;
+                S_j[i][0] =  50;
+                S_j[i][1] = -50;
 
-            S_j[i][0] =  50;
-            S_j[i][1] = -50;
+                x_j[i][0] = -0.5;
+                x_j[i][1] =  0.5;
+            }
+            else
+            {
+                n_shocks[i] = 3;
+                S_j[i].resize(n_shocks[i]);
+                x_j[i].resize(n_shocks[i]);
 
-            x_j[i][0] = -1/sqrt(2);
-            x_j[i][1] =  1/sqrt(2);
-
-            // x_j[i][0] = 1-1/sqrt(2);
-            // x_j[i][1] = 1/sqrt(2);
-            */
-
-            n_shocks[i] = 3;
-            S_j[i].resize(n_shocks[i]);
-            x_j[i].resize(n_shocks[i]);
-
-            S_j[i][0] = 100;
-            S_j[i][1] = -200;
-            S_j[i][2] = 100;
-            
-            x_j[i][0] = 0.25;
-            x_j[i][1] = 0.5;
-            x_j[i][2] = 0.7;
+                S_j[i][0] = 100;
+                S_j[i][1] = -200;
+                S_j[i][2] = 100;
+                
+                x_j[i][0] = 0.25;
+                x_j[i][1] = 0.5;
+                x_j[i][2] = 0.7;
+            }
         }
     }
     /// Value
@@ -450,12 +448,13 @@ public:
 
         // Ekelschot
         // Note: form given does not have brackets around b*(...)
-        // a =  0.75;
-        // b =  2.0;
-        // c =  5.0;
-        // d =  0.0;
-        // e = -6.0;
-        // f =  0.0;
+/*         a =  0.75;
+         b =  2.0;
+         c =  5.0;
+         d =  0.0;
+         e = -6.0;
+         f =  0.0;
+*/
 
         double scale_atan = 2.0;
 
@@ -466,6 +465,7 @@ public:
         d =  -5.0;
         e = -12.0*scale_atan;
         f =   6.0*scale_atan;
+    
     }
     /// Value
     real value(const dealii::Point<dim,real> &point, const unsigned int istate = 0) const override;
