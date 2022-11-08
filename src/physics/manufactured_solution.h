@@ -407,8 +407,8 @@ public:
     {
         for(int istate = 0; istate < (int)nstate; ++istate){
             for (int d=0; d<dim; d++){
-                 epsilon[istate][d] = 0.1;   // smooth
-                //epsilon[istate][d] = 0.005; // strong
+                 //epsilon[istate][d] = 0.1;   // smooth
+                epsilon[istate][d] = 0.005; // strong
             }
         }
     }
@@ -455,13 +455,6 @@ public:
          e = -6.0;
          f =  0.0;
 */
-         a = 0.75;
-         b =  2.0;
-         c =  4.0;
-         d =  1.0;
-         e = -6.0;
-         f =  0.0;
-/*
         double scale_atan = 2.0;
 
         // shifted from [-1,1]^2 -> [0,1]
@@ -471,7 +464,6 @@ public:
         d =  -5.0;
         e = -12.0*scale_atan;
         f =   6.0*scale_atan;
- */   
     }
     /// Value
     real value(const dealii::Point<dim,real> &point, const unsigned int istate = 0) const override;
