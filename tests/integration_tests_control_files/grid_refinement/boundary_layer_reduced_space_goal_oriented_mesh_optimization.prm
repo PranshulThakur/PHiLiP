@@ -5,7 +5,7 @@ set dimension = 2
 
 # The PDE we want to solve. Choices are
 # <advection|diffusion|convection_diffusion>.
-set pde_type  = advection      
+set pde_type  = advection    
 set test_type = goal_oriented_mesh_optimization 
 
 set sipg_penalty_factor = 20.0
@@ -49,7 +49,7 @@ subsection optimization
     set line_search_curvature = Strong Wolfe Conditions
     set reduced_space_descent_method = Newton-Krylov
     set full_space_preconditioner = identity
-    set mesh_weight_factor = 0.0
+    set mesh_weight_factor = 0.5
     set mesh_volume_power = -2
 end
 
@@ -67,7 +67,7 @@ end
 
 subsection manufactured solution convergence study
   set use_manufactured_source_term = true
-  set manufactured_solution_type   = boundary_layer_solution
+  set manufactured_solution_type   = sine_solution #boundary_layer_solution
 
   # setting the default diffusion tensor
   set diffusion_00 = 1
@@ -86,8 +86,8 @@ subsection flow_solver
   set flow_case_type = sshock
   set steady_state = true
   set steady_state_polynomial_ramping = false
-  set poly_degree = 2
-  set max_poly_degree_for_adaptation = 3
+  set poly_degree = 1
+  set max_poly_degree_for_adaptation = 2
   subsection grid
     set number_of_mesh_refinements = 3
     set grid_left_bound = 0.0
