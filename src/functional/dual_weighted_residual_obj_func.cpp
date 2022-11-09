@@ -79,6 +79,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_interpolation_mat
 
     dealii::SparsityTools::distribute_sparsity_pattern(dsp, dofs_range_fine, MPI_COMM_WORLD, dofs_fine_locally_relevant_range);
     interpolation_matrix.reinit(dofs_range_fine, dofs_range_coarse, dsp, MPI_COMM_WORLD);
+    interpolation_matrix_residual.reinit(dofs_range_fine, dofs_range_coarse, dsp, MPI_COMM_WORLD);
 
     for(const auto &cell : this->dg->dof_handler.active_cell_iterators())
     {
@@ -97,18 +98,25 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_interpolation_mat
         const dealii::FullMatrix<real> &interpolation_matrix_local = interpolation_hp(i_fele + 1, i_fele);
         AssertDimension(interpolation_matrix_local.m(), dof_indices_fine.size());
         AssertDimension(interpolation_matrix_local.n(), n_dofs_cell);
+        const dealii::FullMatrix<real> &interpolation_matrix_low = interpolation_hp(i_fele-1, i_fele);
+        const dealii::FullMatrix<real> &interpolation_matrix_high = interpolation_hp(i_fele+1, i_fele-1);
+        dealii::FullMatrix<real> interpolation_matrix_residual_local = interpolation_matrix_local;
+        interpolation_matrix_high.mmult(interpolation_matrix_residual_local, interpolation_matrix_low);
+        interpolation_matrix_residual_local = interpolation_matrix_local; // CHANGE HERE IF A DIFFERENT MATRIX IS USED.
 
         for(unsigned int i=0; i < dof_indices_fine.size(); ++i)
         {
             for(unsigned int j=0; j < n_dofs_cell; ++j)
             {
                 interpolation_matrix.set(dof_indices_fine[i], dof_indices[j], interpolation_matrix_local(i,j));
+                interpolation_matrix_residual.set(dof_indices_fine[i], dof_indices[j], interpolation_matrix_residual_local(i,j));
             }
         }
 
     } // cell loop ends
 
     interpolation_matrix.compress(dealii::VectorOperation::insert);
+    interpolation_matrix_residual.compress(dealii::VectorOperation::insert);
 }
 
 template<int dim, int nstate, typename real>
@@ -274,7 +282,7 @@ real DualWeightedResidualObjFunc<dim, nstate, real> :: evaluate_objective_functi
         this->dg->assemble_residual();
         VectorType coarse_residual_interpolated;
         coarse_residual_interpolated.reinit(residual_fine);
-        interpolation_matrix.vmult(coarse_residual_interpolated, this->dg->right_hand_side);
+        interpolation_matrix_residual.vmult(coarse_residual_interpolated, this->dg->right_hand_side);
         residual_used -= coarse_residual_interpolated;
     }
     residual_used.update_ghost_values();
@@ -355,7 +363,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_common_vectors_an
         r_x.copy_from(this->dg->dRdXv);
 
         adjoint_coarse.reinit(vector_coarse);
-        interpolation_matrix.Tvmult(adjoint_coarse, adjoint);
+        interpolation_matrix_residual.Tvmult(adjoint_coarse, adjoint);
         adjoint_coarse.update_ghost_values();
 
         this->dg->set_dual(adjoint_coarse);
@@ -628,7 +636,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_uu_vmult(
         adjoint_u_vmult(v1_extra, in_vector_fine);
 
         VectorType v2_extra(vector_coarse);
-        interpolation_matrix.Tvmult(v2_extra, v1_extra);
+        interpolation_matrix_residual.Tvmult(v2_extra, v1_extra);
         v2_extra.update_ghost_values();
         
         VectorType term2_extra(vector_coarse);
@@ -641,7 +649,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_uu_vmult(
         v3_extra.update_ghost_values();
 
         VectorType v4_extra(vector_fine);
-        interpolation_matrix.vmult(v4_extra, v3_extra);
+        interpolation_matrix_residual.vmult(v4_extra, v3_extra);
         v4_extra.update_ghost_values();
 
         VectorType v5_extra(vector_fine);
@@ -696,12 +704,13 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_xx_vmult(
     {
         VectorType term1_extra(vol_nodes_vector);
         adjoint_coarse_times_r_xx.vmult(term1_extra, in_vector);
+        term1_extra.update_ghost_values();
         //==========================================================
         VectorType v1_extra(vector_fine);
         adjoint_x_vmult(v1_extra, in_vector);
 
         VectorType v2_extra(vector_coarse);
-        interpolation_matrix.Tvmult(v2_extra, v1_extra);
+        interpolation_matrix_residual.Tvmult(v2_extra, v1_extra);
         v2_extra.update_ghost_values();
 
         VectorType term2_extra(vol_nodes_vector);
@@ -713,7 +722,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_xx_vmult(
         v3_extra.update_ghost_values();
 
         VectorType v4_extra(vector_fine);
-        interpolation_matrix.vmult(v4_extra, v3_extra);
+        interpolation_matrix_residual.vmult(v4_extra, v3_extra);
         v4_extra.update_ghost_values();
 
         VectorType term3_extra(vol_nodes_vector);
@@ -772,7 +781,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_ux_vmult(
         adjoint_x_vmult(v1_extra, in_vector);
 
         VectorType v2_extra(vector_coarse);
-        interpolation_matrix.Tvmult(v2_extra, v1_extra);
+        interpolation_matrix_residual.Tvmult(v2_extra, v1_extra);
         v2_extra.update_ghost_values();
 
         VectorType term2_extra(vector_coarse);
@@ -784,7 +793,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_ux_vmult(
         v3_extra.update_ghost_values();
 
         VectorType v4_extra(vector_fine);
-        interpolation_matrix.vmult(v4_extra, v3_extra);
+        interpolation_matrix_residual.vmult(v4_extra, v3_extra);
         v4_extra.update_ghost_values();
 
         VectorType v5_extra(vector_fine);
@@ -844,7 +853,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_ux_Tvmult(
         adjoint_u_vmult(v1_extra, in_vector_fine);
 
         VectorType v2_extra(vector_coarse);
-        interpolation_matrix.Tvmult(v2_extra, v1_extra);
+        interpolation_matrix_residual.Tvmult(v2_extra, v1_extra);
         v2_extra.update_ghost_values();
 
         VectorType term1_extra(vol_nodes_vector);
@@ -856,7 +865,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_ux_Tvmult(
         v3_extra.update_ghost_values();
 
         VectorType v4_extra(vector_fine);
-        interpolation_matrix.vmult(v4_extra, v3_extra);
+        interpolation_matrix_residual.vmult(v4_extra, v3_extra);
         v4_extra.update_ghost_values();
 
         VectorType term2_extra(vol_nodes_vector);

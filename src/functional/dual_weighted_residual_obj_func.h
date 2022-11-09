@@ -184,6 +184,9 @@ public:
 
     /// Stores interpolation matrix \f[ I_h \f] to interpolate onto fine space. Used to compute \f[ U_h^H = I_h u_H \f]. 
     MatrixType interpolation_matrix;
+    
+    /// Stores interpolation matrix \f[ I_h \f] for residual. Used to compute \f[ I_h r_H \f]. 
+    MatrixType interpolation_matrix_residual;
 };
 
 } // namespace PHiLiP
