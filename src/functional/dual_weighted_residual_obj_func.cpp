@@ -98,11 +98,13 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_interpolation_mat
         const dealii::FullMatrix<real> &interpolation_matrix_local = interpolation_hp(i_fele + 1, i_fele);
         AssertDimension(interpolation_matrix_local.m(), dof_indices_fine.size());
         AssertDimension(interpolation_matrix_local.n(), n_dofs_cell);
+        /*
         const dealii::FullMatrix<real> &interpolation_matrix_low = interpolation_hp(i_fele-1, i_fele);
         const dealii::FullMatrix<real> &interpolation_matrix_high = interpolation_hp(i_fele+1, i_fele-1);
         dealii::FullMatrix<real> interpolation_matrix_residual_local = interpolation_matrix_local;
         interpolation_matrix_high.mmult(interpolation_matrix_residual_local, interpolation_matrix_low);
-        interpolation_matrix_residual_local = interpolation_matrix_local; // CHANGE HERE IF A DIFFERENT MATRIX IS USED.
+        */
+        const dealii::FullMatrix<real> &interpolation_matrix_residual_local = interpolation_matrix_local; // CHANGE HERE IF A DIFFERENT MATRIX IS USED.
 
         for(unsigned int i=0; i < dof_indices_fine.size(); ++i)
         {
@@ -136,6 +138,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: extract_interpolation_mat
                 try
                 {
                     fe[i].get_interpolation_matrix(fe[j], interpolation_hp(i,j));
+                    //get_projection_matrix(fe[i], fe[j], interpolation_hp(i,j));
                 } 
                 // If interpolation matrix cannot be generated, reset matrix size to 0.
                 catch (const typename dealii::FiniteElement<dim>::ExcInterpolationNotImplemented &)
@@ -146,6 +149,32 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: extract_interpolation_mat
             }
         }
     }
+}
+    
+template<int dim, int nstate, typename real>
+void DualWeightedResidualObjFunc<dim, nstate, real> :: get_projection_matrix(
+    const dealii::FESystem<dim,dim> &fe_i, // fe output
+    const dealii::FESystem<dim,dim> &fe_j, // fe input
+    dealii::FullMatrix<real> &projection_matrix)
+{
+    const unsigned int degree = std::max(fe_i.tensor_degree(), fe_j.tensor_degree());
+    const dealii::QGauss<dim> projection_quadrature(degree+5);
+    const unsigned int in_vector_size = projection_matrix.n();
+    const unsigned int out_vector_size = projection_matrix.m();
+    for(unsigned int i=0; i<in_vector_size; ++i)
+    {
+        std::vector<real> identity_column (in_vector_size);
+        std::fill(identity_column.begin(), identity_column.end(), 0.0);
+        identity_column[i] = 1.0;
+
+        const std::vector<real> out_vector = project_function<dim, real>(identity_column, fe_j, fe_i, projection_quadrature);
+        AssertDimension(out_vector.size(), out_vector_size); 
+
+        for(unsigned int row = 0; row < out_vector_size; ++row)
+        {
+            projection_matrix(row, i) = out_vector[row];
+        }
+    } // for ends
 }
 
 template<int dim, int nstate, typename real>
