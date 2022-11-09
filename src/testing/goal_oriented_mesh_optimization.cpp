@@ -70,6 +70,8 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
     std::unique_ptr<FlowSolver::FlowSolver<dim,nstate>> flow_solver = FlowSolver::FlowSolverFactory<dim,nstate>::select_flow_case(&all_param, parameter_handler);
 
     flow_solver->run(); // Solves steady state
+    flow_solver->dg->output_results_vtk(99999); // Outputs initial solution and grid.
+    
     std::unique_ptr<DualWeightedResidualError<dim, nstate , double>> dwr_error_val = std::make_unique<DualWeightedResidualError<dim, nstate , double>>(flow_solver->dg);
     const double abs_error_initial = dwr_error_val->total_dual_weighted_residual_error();
     const double actual_error_initial = dwr_error_val->net_functional_error;
@@ -83,7 +85,6 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
     const double exact_functional_error_initial = functional_val_fine - functional_val_coarse;
     //============================================================================
 
-    flow_solver->dg->output_results_vtk(99999); // Outputs initial solution and grid.
     flow_solver->dg->set_dual(flow_solver->dg->solution);
 
     DealiiVector initial_design_variables;
