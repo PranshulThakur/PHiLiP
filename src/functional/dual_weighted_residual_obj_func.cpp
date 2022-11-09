@@ -275,6 +275,7 @@ real DualWeightedResidualObjFunc<dim, nstate, real> :: evaluate_functional(
         this->pcout<<"Stored dIdX."<<std::endl;
         store_dIdW();
         this->pcout<<"Stored dIdw."<<std::endl;
+        output_dwr_errors();
     }
 
     return this->current_functional_value;
@@ -285,7 +286,7 @@ template<int dim, int nstate, typename real>
 real DualWeightedResidualObjFunc<dim, nstate, real> :: evaluate_objective_function()
 {
     // Evaluate adjoint and residual fine
-    VectorType solution_coarse_stored = this->dg->solution;
+    const VectorType solution_coarse_stored = this->dg->solution;
     this->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(1);
     const bool compute_dRdW = true;
     this->dg->assemble_residual(compute_dRdW);
@@ -333,7 +334,7 @@ real DualWeightedResidualObjFunc<dim, nstate, real> :: evaluate_objective_functi
 template<int dim, int nstate, typename real>
 void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_common_vectors_and_matrices()
 {
-    VectorType solution_coarse_stored = this->dg->solution;
+    const VectorType solution_coarse_stored = this->dg->solution;
     this->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(1);
     
     // Store derivatives related to the residual
@@ -983,6 +984,61 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: adjoint_u_Tvmult(
 
     matrix_uu.Tvmult(out_vector, v1);
     out_vector.update_ghost_values();
+}
+
+//===========================================================================================================================================================================
+//                                  Output exact, coarse residual based and without coarse residual based DWR errors. 
+//==========================================================================================================================================================================
+template<int dim, int nstate, typename real>
+void DualWeightedResidualObjFunc<dim, nstate, real> :: output_dwr_errors()
+{
+    const VectorType solution_coarse_stored = this->dg->solution;
+    const real dwr_error_with_coarse_residual = adjoint*residual_used;
+
+    // Evaluate DWR on current solution without coarse residual.
+    this->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(1);
+    this->dg->assemble_residual();
+    const real dwr_error_without_coarse_residual = adjoint*this->dg->right_hand_side;
+    this->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(-1);
+    this->dg->solution = solution_coarse_stored; 
+    this->dg->solution.update_ghost_values();
+//==========================================================================================================
+
+    // Evaluate coarse solution which satisfies r = 0 for advection
+    const bool compute_dRdW = true;
+    this->dg->assemble_residual(compute_dRdW);
+    VectorType delU(vector_coarse);
+    solve_linear(this->dg->system_matrix, this->dg->right_hand_side, delU, this->dg->all_parameters->linear_solver_param);
+    delU *= -1.0;
+    delU.update_ghost_values();
+
+    this->dg->solution += delU;
+    this->dg->solution.update_ghost_values();
+    
+    // Compute exact dwr error with r = 0;
+    this->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(1);
+    this->dg->assemble_residual(compute_dRdW);
+    
+    VectorType residual_fine = this->dg->right_hand_side;
+    residual_fine.update_ghost_values();
+    VectorType adjoint_true(residual_fine);
+    const bool compute_dIdW = true;
+    functional->evaluate_functional(compute_dIdW);
+    
+    solve_linear(this->dg->system_matrix_transpose, functional->dIdw, adjoint_true, this->dg->all_parameters->linear_solver_param);
+    adjoint_true *= -1.0;
+    adjoint_true.update_ghost_values();
+    this->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(-1);
+    this->dg->solution = solution_coarse_stored; 
+    this->dg->solution.update_ghost_values();
+
+    const real dwr_with_r_zero = adjoint_true * residual_fine;
+    this->pcout<<"Values of various DWR errors"<<std::endl;
+    this->pcout<<"Current value of objective function = "<<this->current_functional_value<<std::endl;
+    this->pcout<<"DWR error exact (with r = 0) = "<<dwr_with_r_zero<<std::endl;
+    this->pcout<<"DWR with coarse residual (used for optimization) = "<<dwr_error_with_coarse_residual<<std::endl;
+    this->pcout<<"DWR without coarse residual = "<<dwr_error_without_coarse_residual<<std::endl;
+    MPI_Barrier(MPI_COMM_WORLD);
 }
 
 template class DualWeightedResidualObjFunc <PHILIP_DIM, 1, double>;

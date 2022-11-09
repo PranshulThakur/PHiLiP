@@ -97,6 +97,9 @@ private:
     /// Computes norm of the reduced space gradient.
     void compute_reduced_gradient_norm_of_objfunc();    
 
+    /// Outputs exact and coarse residual based DWR errors
+    void output_dwr_errors();
+
     /// Stores global adjoint weighted residual.
     real dwr_error;
 
