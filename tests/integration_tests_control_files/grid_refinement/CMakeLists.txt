@@ -200,6 +200,19 @@ add_test(
   WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
 )
 
+configure_file(boundary_layer_reduced_space_goal_oriented_mesh_optimization.prm boundary_layer_reduced_space_goal_oriented_mesh_optimization.prm  COPYONLY)
+add_test(
+  NAME MPI_BOUNDARY_LAYER_REDUCED_SPACE_GOAL_ORIENTED_MESH_OPTIMIZATION
+  COMMAND mpirun -n ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_2D -i ${CMAKE_CURRENT_BINARY_DIR}/boundary_layer_reduced_space_goal_oriented_mesh_optimization.prm
+  WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
+)
+configure_file(boundary_layer_full_space_goal_oriented_mesh_optimization.prm boundary_layer_full_space_goal_oriented_mesh_optimization.prm  COPYONLY)
+add_test(
+  NAME MPI_BOUNDARY_LAYER_FULL_SPACE_GOAL_ORIENTED_MESH_OPTIMIZATION
+  COMMAND mpirun -n ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_2D -i ${CMAKE_CURRENT_BINARY_DIR}/boundary_layer_full_space_goal_oriented_mesh_optimization.prm
+  WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
+)
+
 configure_file(atan_reduced_space_goal_oriented_mesh_optimization.prm atan_reduced_space_goal_oriented_mesh_optimization.prm  COPYONLY)
 add_test(
   NAME 1D_ATAN_REDUCED_SPACE_GOAL_ORIENTED_MESH_OPTIMIZATION
