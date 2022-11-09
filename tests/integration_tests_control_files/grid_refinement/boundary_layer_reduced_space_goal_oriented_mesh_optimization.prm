@@ -5,7 +5,7 @@ set dimension = 2
 
 # The PDE we want to solve. Choices are
 # <advection|diffusion|convection_diffusion>.
-set pde_type  = advection      
+set pde_type  = convection_diffusion      
 set test_type = goal_oriented_mesh_optimization 
 
 set sipg_penalty_factor = 20.0
