@@ -200,6 +200,15 @@ private:
     /// Stores \f[ \left(\eta^T \eta_R \right) R_uu  \f]
     MatrixType dwr_dwr_R_times_Ruu;
     
+    /// Stores \f[ \left(\eta^T \eta_R \right)I_h r_xx  \f]
+    MatrixType dwr_dwr_RI_times_rxx;
+    
+    /// Stores \f[ \left(\eta^T \eta_R \right)I_h r_ux  \f]
+    MatrixType dwr_dwr_RI_times_rux;
+
+    /// Stores \f[ \left(\eta^T \eta_R \right)I_h r_uu  \f]
+    MatrixType dwr_dwr_RI_times_ruu;
+    
     /// Stores \f[r_u \f] on coarse space. 
     MatrixType r_u;
     
