@@ -171,18 +171,22 @@ int InnerVolParameterization<dim> :: is_design_variable_valid(
     const dealii::FESystem<dim,dim> &fe_metric = this->high_order_grid->fe_system;
     const unsigned int n_dofs_per_cell = fe_metric.n_dofs_per_cell();
     const std::vector< dealii::Point<dim> > &ref_points = fe_metric.get_unit_support_points();
-    for (auto cell = this->high_order_grid->dof_handler_grid.begin_active(); cell!=this->high_order_grid->dof_handler_grid.end(); ++cell) 
+    for (const auto &cell : this->high_order_grid->dof_handler_grid.active_cell_iterators()) 
     {
-        if (!cell->is_locally_owned()) continue;
-        std::vector<double> jac_det = this->high_order_grid->evaluate_jacobian_at_points(vol_nodes_from_design_var, cell, ref_points);
+        if (! cell->is_locally_owned()) {continue;}
+
+        const std::vector<double> jac_det = this->high_order_grid->evaluate_jacobian_at_points(vol_nodes_from_design_var, cell, ref_points);
         for (unsigned int i=0; i<n_dofs_per_cell; ++i) 
         {
             if(jac_det[i] < 1.0e-12)
             {
                 std::cout<<"Cell is distorted"<<std::endl;
                 ++mesh_error_this_processor;
+                break;
             }
         }
+
+        if(mesh_error_this_processor > 0) {break;}
     }
 
     const int mesh_error_mpi = dealii::Utilities::MPI::sum(mesh_error_this_processor, this->mpi_communicator);
