@@ -190,7 +190,6 @@ int InnerVolParameterization<dim> :: is_design_variable_valid(
     }
 
     const int mesh_error_mpi = dealii::Utilities::MPI::sum(mesh_error_this_processor, this->mpi_communicator);
-    std::cout<<"mesh_error_mpi = "<<mesh_error_mpi<<std::endl;
     return mesh_error_mpi;
 }
 
