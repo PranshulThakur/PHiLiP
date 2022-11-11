@@ -53,14 +53,14 @@ double ROLObjectiveSimOpt<dim,nstate>::value(
     // In that scenario, tol is the constraint norm.
     // If the flow has not converged (>1e-5 or is nan), simply return a high functional.
     // This is likely happening in the linesearch while optimizing in the reduced-space.
-    double big_number = 1.0e5;
+    double big_number = 1.0e10;
     if (tol > 1e-5 || std::isnan(tol)) {return big_number;}
 
-    // If design variable distors the mesh, return a high value to tell optimizer to reduce step size. 
+    // If design variable distors the mesh, return a high value to tell the optimizer to reduce step size. 
     const int mesh_will_be_invalid = design_parameterization->is_design_variable_valid(dXvdXp, ROL_vector_to_dealii_vector_reference(des_var_ctl));
     if(mesh_will_be_invalid) 
     {
-        std::cout<<"Returning big_number"<<std::endl;
+        std::cout<<"Returning big_number from ROLObjectiveSimOpt::value()."<<std::endl;
         return big_number;
     }
 
