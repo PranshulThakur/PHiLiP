@@ -100,6 +100,13 @@ void FlowConstraints<dim>
     double& tol
     )
 {
+    // If design variable distors the mesh, return a high value to tell optimizer to reduce step size. 
+    const int mesh_will_be_invalid = design_parameterization->is_design_variable_valid(dXvdXp, ROL_vector_to_dealii_vector_reference(des_var_ctl));
+    if(mesh_will_be_invalid) 
+    {
+        std::cout<<"Mesh is invalid. Returning without solving the flow."<<std::endl;
+        return;
+    }
 
     update_2(des_var_ctl);
 
@@ -127,13 +134,15 @@ void FlowConstraints<dim>
 {
     auto &constraint = ROL_vector_to_dealii_vector_reference(constraint_values);
     
-    double big_number = 1.0e5;
+    double big_number = 1.0e10;
     // If design variable distors the mesh, return a high value to tell optimizer to reduce step size. 
     const int mesh_will_be_invalid = design_parameterization->is_design_variable_valid(dXvdXp, ROL_vector_to_dealii_vector_reference(des_var_ctl));
     if(mesh_will_be_invalid)
     {
-        std::cout<<"Adding big_number"<<std::endl;
+        std::cout<<"Returning big_number from FlowConstraints::value()."<<std::endl;
+        constraint = 0;
         constraint.add(big_number);
+        constraint.update_ghost_values();
     }
     else
     {
