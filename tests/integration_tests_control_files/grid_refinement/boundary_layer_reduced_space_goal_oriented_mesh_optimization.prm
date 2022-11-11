@@ -67,7 +67,7 @@ end
 
 subsection manufactured solution convergence study
   set use_manufactured_source_term = true
-  set manufactured_solution_type   = sine_solution
+  set manufactured_solution_type   = boundary_layer_solution
 
   # setting the default diffusion tensor
   set diffusion_00 = 1
@@ -78,7 +78,7 @@ subsection manufactured solution convergence study
   # setting the advection vector
   set advection_0 = 1
   set advection_1 = 1
-  set diffusion_coefficient = 0.000
+  set diffusion_coefficient = 0.1
 end
 
 subsection flow_solver
