@@ -61,6 +61,12 @@ private:
      *  Also assumes that all cells have the same polynomial degree.
      */
     void compute_interpolation_matrix();
+    
+    /// Computes projection matrix of size i x j (i.e. projects from fe_j to fe_i).
+    void get_projection_matrix(
+        const dealii::FESystem<dim,dim> &fe_i, 
+        const dealii::FESystem<dim,dim> &fe_j, 
+        dealii::FullMatrix<real> &projection_matrix);
 
     /// Computes  \f[ out_vector = \psi_x in_vector \f].
     void adjoint_x_vmult(VectorType &out_vector, const VectorType &in_vector) const;
