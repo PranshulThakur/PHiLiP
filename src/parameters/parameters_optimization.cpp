@@ -95,6 +95,10 @@ void OptimizationParam::declare_parameters (dealii::ParameterHandler &prm)
                            " Newton-Krylov | "
                            " Quasi-Newton Method "
                            );
+
+        prm.declare_entry("use_coarse_residual", "false",
+                            dealii::Patterns::Bool(),
+                            "Flag to use coarse residual (i.e. subtract interpolated coarse residual) while computing DWR).");
     }
 
     prm.leave_subsection();
@@ -119,6 +123,7 @@ void OptimizationParam::parse_parameters (dealii::ParameterHandler &prm)
         line_search_method = prm.get("line_search_method");
         line_search_curvature = prm.get("line_search_curvature");
         reduced_space_descent_method = prm.get("reduced_space_descent_method");
+        use_coarse_residual = prm.get_bool("use_coarse_residual");
     }
 
     prm.leave_subsection();

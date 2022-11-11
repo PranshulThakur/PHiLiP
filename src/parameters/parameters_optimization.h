@@ -51,6 +51,9 @@ public:
     /// Descent method for reduced space. Can be Newton-Krylov or Quasi-Newton.
     std::string reduced_space_descent_method;
 
+    /// Flag to subtract coarse residual from dual weighted residual. Used for full space goal oriented mesh optimization.
+    bool use_coarse_residual;
+
     /// Constructor of mesh adaptation parameters.
     OptimizationParam();
 
