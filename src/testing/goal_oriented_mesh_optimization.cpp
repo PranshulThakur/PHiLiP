@@ -149,7 +149,7 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
         {
             // Reduced space Newton
             const bool storage = true;
-            const bool useFDHessian = true;
+            const bool useFDHessian = false;
             auto reduced_objective = ROL::makePtr<ROL::Reduced_Objective_SimOpt<double>>(
                                                                         objective_function,
                                                                         flow_constraints,
