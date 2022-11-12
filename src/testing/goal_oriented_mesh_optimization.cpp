@@ -71,7 +71,7 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
 
     flow_solver->run(); // Solves steady state
     flow_solver->dg->output_results_vtk(99999); // Outputs initial solution and grid.
- 
+/* 
     std::unique_ptr<DualWeightedResidualError<dim, nstate , double>> dwr_error_val = std::make_unique<DualWeightedResidualError<dim, nstate , double>>(flow_solver->dg);
     const double abs_error_initial = dwr_error_val->total_dual_weighted_residual_error();
     const double actual_error_initial = dwr_error_val->net_functional_error;
@@ -84,7 +84,7 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
     flow_solver->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(-1);
     const double exact_functional_error_initial = functional_val_fine - functional_val_coarse;
     //============================================================================
-
+*/
     flow_solver->dg->set_dual(flow_solver->dg->solution);
 
     DealiiVector initial_design_variables;
@@ -140,7 +140,7 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
     parlist.sublist("Full Space").set("Preconditioner", all_param.optimization_param.full_space_preconditioner);
     
     double homotopy_weight = flow_solver->dg->all_parameters->optimization_param.mesh_weight_factor;
-/*
+
 //============================ Check hessian vector products =========================================================
     std::vector<double> steps;
     for (int i = -2; i > -9; i--) {
@@ -154,7 +154,7 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
             = objective_function->checkHessVec( *all_variables_rol_ptr, *direction_1, steps, true, *rcp_outstream);
     return 0;
 //============================ Check hessian vector products =========================================================
-*/    
+    
     while(1)
     {
         std::cout<<"Homotopy weight = "<<homotopy_weight<<std::endl;
@@ -227,7 +227,7 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
 
     
     filebuffer.close();
-    
+/*    
     const double abs_error_final = dwr_error_val->total_dual_weighted_residual_error();
     const double actual_error_final = dwr_error_val->net_functional_error;
     //================== Evaluate exact functional error=============================================
@@ -270,7 +270,7 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
     pcout<<"sqrt(delU^T * delU) = "<<delU.l2_norm()<<std::endl;
     pcout<<"First order term (J_u^T * delU) = "<<first_order_term<<std::endl; 
     pcout<<"Second order term (delU^T * J_uu * delU) = "<<second_order_error<<std::endl;
-
+*/
     return 0;
 }
 
