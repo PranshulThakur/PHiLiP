@@ -40,7 +40,7 @@ end
 
 subsection optimization
     set optimization_type = full_space
-    set use_coarse_residual = false
+    set use_coarse_residual = true
     set gradient_tolerance = 1.0e-10
     set max_design_cycles = 10
     set linear_iteration_limit = 20
