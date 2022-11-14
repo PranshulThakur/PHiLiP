@@ -704,7 +704,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_u_vmult(
     VectorType &out_vector,
     const VectorType &in_vector) const
 {
-    AssertDimension(out_vector.size(), this->dg->triangulation->n_active_cells());
+    AssertDimension(out_vector.size(), vector_fine.size());
     AssertDimension(in_vector.size(), vector_coarse.size());
 
     VectorType in_vector_fine(vector_fine);
