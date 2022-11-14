@@ -11,7 +11,6 @@ class DualWeightedResidualObjFunc : public Functional<dim, nstate, real>
 {
     using VectorType = dealii::LinearAlgebra::distributed::Vector<real>; ///< Alias for dealii's parallel distributed vector.
     using MatrixType = dealii::TrilinosWrappers::SparseMatrix; ///< Alias for dealii::TrilinosWrappers::SparseMatrix.
-    using NormalVector = dealii::Vector<real>; ///< Alias for serial vector.
 
 public:
     /// Constructor
@@ -81,28 +80,28 @@ private:
     void adjoint_u_Tvmult(VectorType &out_vector, const VectorType &in_vector) const;
 
     /// Computes  \f[ out_vector = \eta_{\psi} in_vector \f].
-    void dwr_adjoint_vmult(NormalVector &out_vector, const VectorType &in_vector) const;
+    void dwr_adjoint_vmult(VectorType &out_vector, const VectorType &in_vector) const;
     
     /// Computes  \f[ out_vector = \eta_{R} in_vector \f].
-    void dwr_residual_vmult(NormalVector &out_vector, const VectorType &in_vector) const;
+    void dwr_residual_vmult(VectorType &out_vector, const VectorType &in_vector) const;
     
     /// Computes  \f[ out_vector = \eta_{\psi}^T in_vector \f].
-    void dwr_adjoint_Tvmult(VectorType &out_vector, const NormalVector &in_vector) const;
+    void dwr_adjoint_Tvmult(VectorType &out_vector, const VectorType &in_vector) const;
     
     /// Computes  \f[ out_vector = \eta_{R}^T in_vector \f].
-    void dwr_residual_Tvmult(VectorType &out_vector, const NormalVector &in_vector) const;
+    void dwr_residual_Tvmult(VectorType &out_vector, const VectorType &in_vector) const;
 
     /// Computes \f[ out_vector = \eta_x in_vector \f].
-    void dwr_x_vmult(NormalVector &out_vector, const VectorType &in_vector) const;
+    void dwr_x_vmult(VectorType &out_vector, const VectorType &in_vector) const;
     
     /// Computes \f[ out_vector = \eta_u in_vector \f], with \f[ \eta_u \f] computed wrt the coarse solution
-    void dwr_u_vmult(NormalVector &out_vector, const VectorType &in_vector) const;
+    void dwr_u_vmult(VectorType &out_vector, const VectorType &in_vector) const;
     
     /// Computes \f[ out_vector = \eta_x^T in_vector \f].
-    void dwr_x_Tvmult(VectorType &out_vector, const NormalVector &in_vector) const;
+    void dwr_x_Tvmult(VectorType &out_vector, const VectorType &in_vector) const;
     
     /// Computes \f[ out_vector = \eta_u^T in_vector \f]. with \f[ \eta_u \f] computed wrt coarse solution.
-    void dwr_u_Tvmult(VectorType &out_vector, const NormalVector &in_vector) const;
+    void dwr_u_Tvmult(VectorType &out_vector, const VectorType &in_vector) const;
     
     /// Computes  \f[ out_vector = \eta^T\eta_{xx} in_vector \f].
     void dwr_times_dwr_xx_vmult(VectorType &out_vector, const VectorType &in_vector) const;
@@ -165,7 +164,7 @@ private:
     void store_dIdX();
     
     /// Stores \f[ \eta = [\eta_k, k=1,2,..N_k], \eta_k = \left(\psi^T R \right)_k \f].
-    NormalVector dwr_error;
+    VectorType dwr_error;
 
     /// Stores \f[R_u \f] on fine space. 
     MatrixType R_u;

@@ -218,6 +218,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_reduced_gradient_
     reduced_gradient_norm = reduced_gradient.l2_norm();
     homotopy_weight = homotopy_weight_initial;
 }
+
 template<int dim, int nstate, typename real>
 void DualWeightedResidualObjFunc<dim, nstate, real> :: set_homotopy_weight(const real _homotopy_weight)
 {
@@ -277,7 +278,7 @@ real DualWeightedResidualObjFunc<dim, nstate, real> :: evaluate_functional(
 template<int dim, int nstate, typename real>
 real DualWeightedResidualObjFunc<dim, nstate, real> :: evaluate_objective_function()
 {
-    dwr_error.reinit(this->dg->triangulation->n_active_cells());
+    dwr_error.reinit(vector_fine);
     dwr_error = 0;
     // Evaluate adjoint and residual fine
     const VectorType solution_coarse_stored = this->dg->solution;
@@ -320,18 +321,15 @@ real DualWeightedResidualObjFunc<dim, nstate, real> :: evaluate_objective_functi
 
         const std::vector<dealii::types::global_dof_index> &dof_indices_fine = cellwise_dofs_fine[cell_index];
 
-        dwr_error[cell_index] = 0.0;
-
         for(unsigned int i_dof = 0; i_dof < dof_indices_fine.size(); ++i_dof)
         {
-            dwr_error[cell_index] += adjoint(dof_indices_fine[i_dof]) * residual_used(dof_indices_fine[i_dof]);
+            dwr_error(dof_indices_fine[i_dof]) = adjoint(dof_indices_fine[i_dof]) * residual_used(dof_indices_fine[i_dof]);
         }
     } // cell loop ends
+    dwr_error.update_ghost_values();
 
-    real obj_func_local = dwr_error * dwr_error;
-    obj_func_local *= 1.0/2.0;
-
-    const real obj_func_global = dealii::Utilities::MPI::sum(obj_func_local, MPI_COMM_WORLD);
+    real obj_func_global = dwr_error * dwr_error;
+    obj_func_global *= 1.0/2.0;
 
     VectorType vol_nodes_diff = this->dg->high_order_grid->volume_nodes;
     vol_nodes_diff -= initial_vol_nodes;
@@ -483,7 +481,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: d2IdWdW_vmult(
     dwr_times_dwr_uu_vmult(term1, in_vector);
 
     //===== Compute term 2 ==================
-    NormalVector v1(this->dg->triangulation->n_active_cells());
+    VectorType v1(vector_fine);
     dwr_u_vmult(v1, in_vector);
     VectorType term2(vector_coarse);
     dwr_u_Tvmult(term2, v1);
@@ -511,7 +509,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: d2IdWdX_vmult(
     dwr_times_dwr_ux_vmult(term1, in_vector);
 
     //===== Compute term 2 ==================
-    NormalVector v1(this->dg->triangulation->n_active_cells());
+    VectorType v1(vector_fine);
     dwr_x_vmult(v1, in_vector);
     VectorType term2(vector_coarse);
     dwr_u_Tvmult(term2, v1);
@@ -534,7 +532,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: d2IdWdX_Tvmult(
     AssertDimension(out_vector.size(), this->dg->high_order_grid->volume_nodes.size());
 
     //======== Compute term 1 =================================================
-    NormalVector v1(this->dg->triangulation->n_active_cells());
+    VectorType v1(vector_fine);
     dwr_u_vmult(v1, in_vector);
     VectorType term1(vector_vol_nodes);
     dwr_x_Tvmult(term1, v1);
@@ -566,7 +564,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: d2IdXdX_vmult(
     dwr_times_dwr_xx_vmult(term1, in_vector);
 
     //===== Compute term 2 ==================
-    NormalVector v1(this->dg->triangulation->n_active_cells());
+    VectorType v1(vector_fine);
     dwr_x_vmult(v1, in_vector);
     VectorType term2(vector_vol_nodes);
     dwr_x_Tvmult(term2, v1);
@@ -595,10 +593,10 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: d2IdXdX_vmult(
 
 template<int dim, int nstate, typename real>
 void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_adjoint_vmult(
-    NormalVector &out_vector, 
+    VectorType &out_vector, 
     const VectorType &in_vector) const
 {
-    AssertDimension(out_vector.size(), this->dg->triangulation->n_active_cells());
+    AssertDimension(out_vector.size(), vector_fine.size());
     AssertDimension(in_vector.size(), vector_fine.size());
 
     for(const auto &cell : this->dg->dof_handler.active_cell_iterators())
@@ -608,21 +606,20 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_adjoint_vmult(
         const dealii::types::global_dof_index cell_index = cell->active_cell_index();
         const std::vector<dealii::types::global_dof_index> &dof_indices_fine = cellwise_dofs_fine[cell_index];
 
-        out_vector[cell_index] = 0.0;
-
         for(unsigned int i_dof=0; i_dof < dof_indices_fine.size(); ++i_dof)
         {
-            out_vector[cell_index] += residual_used(dof_indices_fine[i_dof])*in_vector(dof_indices_fine[i_dof]);
+            out_vector(dof_indices_fine[i_dof]) = residual_used(dof_indices_fine[i_dof])*in_vector(dof_indices_fine[i_dof]);
         }
     } // cell loop ends
+    out_vector.update_ghost_values();
 }
 
 template<int dim, int nstate, typename real>
 void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_residual_vmult(
-    NormalVector &out_vector, 
+    VectorType &out_vector, 
     const VectorType &in_vector) const
 {
-    AssertDimension(out_vector.size(), this->dg->triangulation->n_active_cells());
+    AssertDimension(out_vector.size(), vector_fine.size());
     AssertDimension(in_vector.size(), vector_fine.size());
     
     for(const auto &cell : this->dg->dof_handler.active_cell_iterators())
@@ -632,61 +629,28 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_residual_vmult(
         const dealii::types::global_dof_index cell_index = cell->active_cell_index();
         const std::vector<dealii::types::global_dof_index> &dof_indices_fine = cellwise_dofs_fine[cell_index];
 
-        out_vector[cell_index] = 0.0;
-
         for(unsigned int i_dof=0; i_dof < dof_indices_fine.size(); ++i_dof)
         {
-            out_vector[cell_index] += adjoint(dof_indices_fine[i_dof])*in_vector(dof_indices_fine[i_dof]);
+            out_vector(dof_indices_fine[i_dof]) = adjoint(dof_indices_fine[i_dof])*in_vector(dof_indices_fine[i_dof]);
         }
     } // cell loop ends
+    out_vector.update_ghost_values();
 }
 
 template<int dim, int nstate, typename real>
 void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_adjoint_Tvmult(
     VectorType &out_vector, 
-    const NormalVector &in_vector) const
+    const VectorType &in_vector) const
 {
-    AssertDimension(out_vector.size(), vector_fine.size());
-    AssertDimension(in_vector.size(), this->dg->triangulation->n_active_cells());
-    
-    for(const auto &cell : this->dg->dof_handler.active_cell_iterators())
-    {
-        if(! cell->is_locally_owned()) {continue;}
-
-        const dealii::types::global_dof_index cell_index = cell->active_cell_index();
-        const std::vector<dealii::types::global_dof_index> &dof_indices_fine = cellwise_dofs_fine[cell_index];
-
-        for(unsigned int i_dof=0; i_dof < dof_indices_fine.size(); ++i_dof)
-        {
-            out_vector(dof_indices_fine[i_dof]) = in_vector[cell_index] * residual_used(dof_indices_fine[i_dof]);
-        }
-    } // cell loop ends
-
-    out_vector.update_ghost_values();
+    dwr_adjoint_vmult(out_vector, in_vector);
 }
 
 template<int dim, int nstate, typename real>
 void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_residual_Tvmult(
     VectorType &out_vector, 
-    const NormalVector &in_vector) const
+    const VectorType &in_vector) const
 {
-    AssertDimension(out_vector.size(), vector_fine.size());
-    AssertDimension(in_vector.size(), this->dg->triangulation->n_active_cells());
-    
-    for(const auto &cell : this->dg->dof_handler.active_cell_iterators())
-    {
-        if(! cell->is_locally_owned()) {continue;}
-
-        const dealii::types::global_dof_index cell_index = cell->active_cell_index();
-        const std::vector<dealii::types::global_dof_index> &dof_indices_fine = cellwise_dofs_fine[cell_index];
-
-        for(unsigned int i_dof=0; i_dof < dof_indices_fine.size(); ++i_dof)
-        {
-            out_vector(dof_indices_fine[i_dof]) = in_vector[cell_index] * adjoint(dof_indices_fine[i_dof]);
-        }
-    } // cell loop ends
-
-    out_vector.update_ghost_values();
+    dwr_residual_vmult(out_vector, in_vector);
 }
 
 //===================================================================================================================================================
@@ -694,28 +658,29 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_residual_Tvmult(
 //===================================================================================================================================================
 template<int dim, int nstate, typename real>
 void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_x_vmult(
-    NormalVector &out_vector,
+    VectorType &out_vector,
     const VectorType &in_vector) const
 {
-    AssertDimension(out_vector.size(), this->dg->triangulation->n_active_cells());
+    AssertDimension(out_vector.size(), vector_fine.size());
     AssertDimension(in_vector.size(), this->dg->high_order_grid->volume_nodes.size());
 
     //======= Get the first term ===================================
     VectorType v1(vector_fine);
     R_x.vmult(v1, in_vector);
     v1.update_ghost_values();
-    NormalVector term1 (this->dg->triangulation->n_active_cells());
+    VectorType term1 (vector_fine);
     dwr_residual_vmult(term1, v1);
 
     //======= Get the second term =================================
     VectorType v2(vector_fine);
     adjoint_x_vmult(v2, in_vector);
-    NormalVector term2 (this->dg->triangulation->n_active_cells());
+    VectorType term2 (vector_fine);
     dwr_adjoint_vmult(term2, v2);
     //==================================================================
 
     out_vector = term1;
     out_vector += term2;
+    out_vector.update_ghost_values();
 
     if(use_coarse_residual)
     {
@@ -727,15 +692,16 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_x_vmult(
         interpolation_matrix.vmult(v2_extra, v1_extra);
         v2_extra.update_ghost_values();
 
-        NormalVector out_vector_extra(this->dg->triangulation->n_active_cells());
+        VectorType out_vector_extra(vector_fine);
         dwr_residual_vmult(out_vector_extra, v2_extra);
         out_vector -= out_vector_extra;
+        out_vector.update_ghost_values();
     }
 }
 
 template<int dim, int nstate, typename real>
 void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_u_vmult(
-    NormalVector &out_vector,
+    VectorType &out_vector,
     const VectorType &in_vector) const
 {
     AssertDimension(out_vector.size(), this->dg->triangulation->n_active_cells());
@@ -749,18 +715,19 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_u_vmult(
     VectorType v1(vector_fine);
     R_u.vmult(v1, in_vector_fine);
     v1.update_ghost_values();
-    NormalVector term1 (this->dg->triangulation->n_active_cells());
+    VectorType term1 (vector_fine);
     dwr_residual_vmult(term1, v1);
 
     //======= Get the second term =================================
     VectorType v2(vector_fine);
     adjoint_u_vmult(v2, in_vector_fine);
-    NormalVector term2(this->dg->triangulation->n_active_cells());
+    VectorType term2(vector_fine);
     dwr_adjoint_vmult(term2, v2);
     //==================================================================
 
     out_vector = term1;
     out_vector += term2;
+    out_vector.update_ghost_values();
     
     if(use_coarse_residual)
     {
@@ -772,19 +739,20 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_u_vmult(
         interpolation_matrix.vmult(v2_extra, v1_extra);
         v2_extra.update_ghost_values();
 
-        NormalVector out_vector_extra(this->dg->triangulation->n_active_cells());
+        VectorType out_vector_extra(vector_fine);
         dwr_residual_vmult(out_vector_extra, v2_extra);
         out_vector -= out_vector_extra;
+        out_vector.update_ghost_values();
     }
 }
 
 template<int dim, int nstate, typename real>
 void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_x_Tvmult(
     VectorType &out_vector,
-    const NormalVector &in_vector) const
+    const VectorType &in_vector) const
 {
     AssertDimension(out_vector.size(), this->dg->high_order_grid->volume_nodes.size());
-    AssertDimension(in_vector.size(), this->dg->triangulation->n_active_cells());
+    AssertDimension(in_vector.size(), vector_fine.size());
 
     //======= Get the first term =====================================
     VectorType v1(vector_fine);
@@ -825,10 +793,10 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_x_Tvmult(
 template<int dim, int nstate, typename real>
 void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_u_Tvmult(
     VectorType &out_vector,
-    const NormalVector &in_vector) const
+    const VectorType &in_vector) const
 {
     AssertDimension(out_vector.size(), vector_coarse.size());
-    AssertDimension(in_vector.size(), this->dg->triangulation->n_active_cells());
+    AssertDimension(in_vector.size(), vector_fine.size());
 
     //======= Get the first term =====================================
     VectorType v1(vector_fine);
@@ -889,7 +857,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_diagonal_vmult(
 
         for(unsigned int i_dof=0; i_dof < dof_indices_fine.size(); ++i_dof)
         {
-            out_vector(dof_indices_fine[i_dof]) = dwr_error[cell_index] * in_vector(dof_indices_fine[i_dof]);
+            out_vector(dof_indices_fine[i_dof]) = dwr_error(dof_indices_fine[i_dof]) * in_vector(dof_indices_fine[i_dof]);
         }
     } // cell loop ends
 
