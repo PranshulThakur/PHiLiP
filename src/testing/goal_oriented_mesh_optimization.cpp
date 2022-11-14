@@ -148,10 +148,11 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
     }
 
     const auto direction_1 = all_variables_rol_ptr->clone();
-        direction_1->scale(0.001);
+        direction_1->scale(0.5);
         *rcp_outstream << "obj->checkHessVec..." << std::endl;
         std::vector<std::vector<double>> results
-            = objective_function->checkHessVec( *all_variables_rol_ptr, *direction_1, steps, true, *rcp_outstream);
+          //  = objective_function->checkHessVec( *all_variables_rol_ptr, *direction_1, steps, true, *rcp_outstream);
+            = objective_function->checkGradient( *all_variables_rol_ptr, *direction_1, steps, true, *rcp_outstream);
     return 0;
 //============================ Check hessian vector products =========================================================
 */   
