@@ -140,7 +140,7 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
     parlist.sublist("Full Space").set("Preconditioner", all_param.optimization_param.full_space_preconditioner);
     
     double homotopy_weight = flow_solver->dg->all_parameters->optimization_param.mesh_weight_factor;
-
+/*
 //============================ Check hessian vector products =========================================================
     std::vector<double> steps;
     for (int i = -2; i > -9; i--) {
@@ -154,7 +154,7 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
             = objective_function->checkHessVec( *all_variables_rol_ptr, *direction_1, steps, true, *rcp_outstream);
     return 0;
 //============================ Check hessian vector products =========================================================
-    
+*/    
     while(1)
     {
         std::cout<<"Homotopy weight = "<<homotopy_weight<<std::endl;
