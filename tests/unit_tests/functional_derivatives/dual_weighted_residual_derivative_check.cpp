@@ -39,11 +39,11 @@ int main (int argc, char * argv[])
     Parameters::AllParameters all_parameters;
     all_parameters.parse_parameters (parameter_handler);
     all_parameters.linear_solver_param.linear_residual = 1.0e-14;
-    all_parameters.optimization_param.mesh_weight_factor = 0.0;
+    all_parameters.optimization_param.mesh_weight_factor = 0.5;
     //all_parameters.optimization_param.mesh_volume_power = -2;
     all_parameters.manufactured_convergence_study_param.manufactured_solution_param.use_manufactured_source_term = true;
     all_parameters.manufactured_convergence_study_param.manufactured_solution_param.manufactured_solution_type = Parameters::ManufacturedSolutionParam::ManufacturedSolutionType::exp_solution;
-//    all_parameters.pde_type = Parameters::AllParameters::PartialDifferentialEquation::diffusion;
+    //all_parameters.pde_type = Parameters::AllParameters::PartialDifferentialEquation::diffusion;
     const unsigned int poly_degree = 1;
     const unsigned int grid_degree = 1;
 
@@ -70,7 +70,7 @@ int main (int argc, char * argv[])
     
     const bool uses_solution_values = true;
     const bool uses_solution_gradient = false;
-    const bool use_coarse_residual = true;
+    const bool use_coarse_residual = false;
     std::unique_ptr<DualWeightedResidualObjFunc<dim, nstate, double>> dwr_func = std::make_unique<DualWeightedResidualObjFunc<dim, nstate, double>> (dg,
                                                                                                                                                      uses_solution_values, 
                                                                                                                                                      uses_solution_gradient, 

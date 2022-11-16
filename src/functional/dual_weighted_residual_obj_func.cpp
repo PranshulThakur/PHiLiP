@@ -18,11 +18,14 @@ DualWeightedResidualObjFunc<dim, nstate, real> :: DualWeightedResidualObjFunc(
     AssertDimension(this->dg->high_order_grid->max_degree, 1);
     compute_interpolation_matrix(); // also stores cellwise_dofs_fine, vector coarse and vector fine.
     functional = FunctionalFactory<dim,nstate,real>::create_Functional(this->dg->all_parameters->functional_param, this->dg);
+/*
     initial_vol_nodes = this->dg->high_order_grid->volume_nodes;
     homotopy_weight = this->dg->all_parameters->optimization_param.mesh_weight_factor;
     compute_reduced_gradient_norm_of_objfunc();
 
     this->pcout<<"Reduced gradient norm = "<<reduced_gradient_norm<<std::endl;
+*/
+    weight_of_fine_residual = this->dg->all_parameters->optimization_param.mesh_weight_factor;
 
     if(use_coarse_residual)
     {
@@ -194,7 +197,7 @@ std::vector<std::vector<dealii::types::global_dof_index>> DualWeightedResidualOb
 
     return cellwise_dof_indices;
 }
-
+/*
 template<int dim, int nstate, typename real>
 void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_reduced_gradient_norm_of_objfunc()
 {
@@ -224,6 +227,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: set_homotopy_weight(const
 {
     homotopy_weight = _homotopy_weight;
 }
+*/
 //===================================================================================================================================================
 //                          Functions used in evaluate_functional
 //===================================================================================================================================================
@@ -330,13 +334,17 @@ real DualWeightedResidualObjFunc<dim, nstate, real> :: evaluate_objective_functi
 
     real obj_func_global = dwr_error * dwr_error;
     obj_func_global *= 1.0/2.0;
-
+/*
     VectorType vol_nodes_diff = this->dg->high_order_grid->volume_nodes;
     vol_nodes_diff -= initial_vol_nodes;
     vol_nodes_diff.update_ghost_values();
     real term2 = vol_nodes_diff*vol_nodes_diff;
     term2 *= reduced_gradient_norm / 2.0;
     const real obj_func_net = (1.0 - homotopy_weight)*obj_func_global + homotopy_weight * term2;
+*/
+    real term_residual = residual_fine * residual_fine;
+    term_residual *= 1.0/2.0 * weight_of_fine_residual;
+    const real obj_func_net = obj_func_global + term_residual;
     return obj_func_net;
 }
 
@@ -442,6 +450,18 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: store_dIdX()
     this->dIdX.reinit(vector_vol_nodes);
     dwr_x_Tvmult(this->dIdX, dwr_error);
     
+    // Compute contribution from residual weight.
+    VectorType residual_scaled = residual_used;
+    residual_scaled *= weight_of_fine_residual;
+    residual_scaled.update_ghost_values();
+    VectorType term_residual(vector_vol_nodes);
+    R_x.Tvmult(term_residual, residual_scaled);
+    term_residual.update_ghost_values();
+
+
+    this->dIdX += term_residual;
+    this->dIdX.update_ghost_values();
+/*
     // Add homotopy based objective function
     this->dIdX *= (1.0 - homotopy_weight);
     this->dIdX.update_ghost_values();
@@ -455,6 +475,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: store_dIdX()
 
     this->dIdX += term_mesh;
     this->dIdX.update_ghost_values();
+*/
 }
 
 template<int dim, int nstate, typename real>
@@ -462,10 +483,26 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: store_dIdW()
 {
     this->dIdw.reinit(vector_coarse);
     dwr_u_Tvmult(this->dIdw, dwr_error);
-    
+
+    // Compute contribution from residual weight.
+    VectorType residual_scaled = residual_used;
+    residual_scaled *= weight_of_fine_residual;
+    residual_scaled.update_ghost_values();
+    VectorType v1_residual(vector_fine);
+    R_u.Tvmult(v1_residual, residual_scaled);
+    v1_residual.update_ghost_values();
+
+    VectorType term_residual(vector_coarse);
+    interpolation_matrix.Tvmult(term_residual, v1_residual);
+    term_residual.update_ghost_values();
+
+    this->dIdw += term_residual;
+    this->dIdw.update_ghost_values();
+/*    
     // Subject to homotpy based weight
     this->dIdw *= (1.0 - homotopy_weight);
     this->dIdw.update_ghost_values();
+*/
 }
 
 template<int dim, int nstate, typename real>
@@ -490,10 +527,35 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: d2IdWdW_vmult(
     out_vector = term1;
     out_vector += term2;
     out_vector.update_ghost_values();
-    
+
+    // Add hesian of the residual weight
+    VectorType in_vector_fine(vector_fine);
+    interpolation_matrix.vmult(in_vector_fine, in_vector);
+    in_vector_fine.update_ghost_values();
+
+    VectorType v1_residual(vector_fine);
+    R_u.vmult(v1_residual, in_vector_fine);
+    v1_residual.update_ghost_values();
+
+    VectorType v2_residual(vector_fine);
+    R_u.Tvmult(v2_residual, v1_residual);
+    v2_residual.update_ghost_values();
+
+    VectorType v2_coarse(vector_coarse);
+    interpolation_matrix.Tvmult(v2_coarse, v2_residual);
+    v2_coarse.update_ghost_values();
+
+    VectorType out_vector_residual = v2_coarse;
+    out_vector_residual *= weight_of_fine_residual;
+    out_vector_residual.update_ghost_values();
+
+    out_vector += out_vector_residual;
+    out_vector.update_ghost_values();
+/*    
     // Subject to homotpy based weight
     out_vector *= (1.0 - homotopy_weight);
     out_vector.update_ghost_values();
+*/
 }
 
 template<int dim, int nstate, typename real>
@@ -517,10 +579,31 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: d2IdWdX_vmult(
     out_vector = term1;
     out_vector += term2;
     out_vector.update_ghost_values();
-    
+
+    // Add contrbution from hessian of the residual weight.
+    VectorType v1_residual(vector_fine);
+    R_x.vmult(v1_residual, in_vector);
+    v1_residual.update_ghost_values();
+
+    VectorType v2_residual(vector_fine);
+    R_u.Tvmult(v2_residual, v1_residual);
+    v2_residual.update_ghost_values();
+
+    VectorType v2_coarse(vector_coarse);
+    interpolation_matrix.Tvmult(v2_coarse, v2_residual);
+    v2_coarse.update_ghost_values();
+
+    VectorType out_vector_residual = v2_coarse;
+    out_vector_residual *= weight_of_fine_residual;
+    out_vector_residual.update_ghost_values();
+
+    out_vector += out_vector_residual;
+    out_vector.update_ghost_values();
+/*    
     // Subject to homotpy based weight
     out_vector *= (1.0 - homotopy_weight);
     out_vector.update_ghost_values();
+*/
 }
 
 template<int dim, int nstate, typename real>
@@ -545,10 +628,31 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: d2IdWdX_Tvmult(
     out_vector = term1;
     out_vector += term2;
     out_vector.update_ghost_values();
-    
+
+    // Add hessian contribution from residual weight.
+    VectorType in_vector_scaled = in_vector;
+    in_vector_scaled *= weight_of_fine_residual;
+    in_vector_scaled.update_ghost_values();
+
+    VectorType in_vector_scaled_fine(vector_fine);
+    interpolation_matrix.vmult(in_vector_scaled_fine, in_vector_scaled);
+    in_vector_scaled_fine.update_ghost_values();
+
+    VectorType v1_residual(vector_fine);
+    R_u.vmult(v1_residual, in_vector_scaled_fine);
+    v1_residual.update_ghost_values();
+
+    VectorType out_vector_residual(vector_vol_nodes);
+    R_x.Tvmult(out_vector_residual, v1_residual);
+    out_vector_residual.update_ghost_values();
+
+    out_vector += out_vector_residual;
+    out_vector.update_ghost_values();
+/* 
     // Subject to homotpy based weight
     out_vector *= (1.0 - homotopy_weight);
     out_vector.update_ghost_values();
+*/
 }
 
 template<int dim, int nstate, typename real>
@@ -572,7 +676,23 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: d2IdXdX_vmult(
     out_vector = term1;
     out_vector += term2;
     out_vector.update_ghost_values();
-    
+
+    // Add hessian vec mult of residual weight.
+    VectorType v1_residual(vector_fine);
+    R_x.vmult(v1_residual, in_vector);
+    v1_residual.update_ghost_values();
+
+    VectorType v2_residual(vector_vol_nodes);
+    R_x.Tvmult(v2_residual, v1_residual);
+    v2_residual.update_ghost_values();
+
+    VectorType out_vector_residual = v2_residual;
+    out_vector_residual *= weight_of_fine_residual;
+    out_vector_residual.update_ghost_values();
+
+    out_vector += out_vector_residual;
+    out_vector.update_ghost_values();
+/*    
     // Subject to homotpy based weight
     out_vector *= (1.0 - homotopy_weight);
     out_vector.update_ghost_values();
@@ -581,6 +701,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: d2IdXdX_vmult(
     term_mesh.update_ghost_values();
     out_vector += term_mesh;
     out_vector.update_ghost_values();
+*/
 }
 
 //===================================================================================================================================================
