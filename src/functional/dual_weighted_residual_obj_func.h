@@ -224,8 +224,11 @@ private:
     /// Functional used to create the objective function.
     std::shared_ptr< Functional<dim, nstate, real> > functional;
 
-    /// Stores the weight of homotopy parameter continuation.
-    real homotopy_weight;
+//    /// Stores the weight of homotopy parameter continuation.
+//    real homotopy_weight;
+
+    /// Stores the weight of fine residual.
+    real weight_of_fine_residual;
     
     /// Stores initial reduced gradient norm to scale the hmotopy based weight.
     real reduced_gradient_norm;
