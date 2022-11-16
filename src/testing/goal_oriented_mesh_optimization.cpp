@@ -142,7 +142,7 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
 
     parlist.sublist("Full Space").set("Preconditioner", all_param.optimization_param.full_space_preconditioner);
     
-    double homotopy_weight = flow_solver->dg->all_parameters->optimization_param.mesh_weight_factor;
+    //double homotopy_weight = flow_solver->dg->all_parameters->optimization_param.mesh_weight_factor;
 /*
 //============================ Check hessian vector products =========================================================
     std::vector<double> steps;
@@ -160,8 +160,8 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
 */   
     while(1)
     {
-        std::cout<<"Homotopy weight = "<<homotopy_weight<<std::endl;
-        dwr_obj_function.set_homotopy_weight(homotopy_weight);
+      //  std::cout<<"Homotopy weight = "<<homotopy_weight<<std::endl;
+      //  dwr_obj_function.set_homotopy_weight(homotopy_weight);
         
         if(all_param.optimization_param.optimization_type == OptiParam::OptimizationType::reduced_space)
         {
@@ -215,12 +215,14 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
                           *rcp_outstream);
             algo_state = algorithm.getState();
         }
+        /*
         break;
         if(homotopy_weight == 0.0)
         {
             break;
         }
         homotopy_weight = std::max(0.0, homotopy_weight - 0.1);
+        */
     }// while ends
 
     const double timing_end = MPI_Wtime();
