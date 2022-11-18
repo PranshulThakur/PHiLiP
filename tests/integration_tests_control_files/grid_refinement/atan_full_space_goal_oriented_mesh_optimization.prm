@@ -50,8 +50,7 @@ subsection optimization
     set line_search_curvature = Strong Wolfe Conditions
     set reduced_space_descent_method = Newton-Krylov
     set full_space_preconditioner = P4
-    set mesh_weight_factor = 0.0
-    set mesh_volume_power = -2
+    set mesh_weight_factor = 1.0e-3
 end
 
 subsection functional
