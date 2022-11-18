@@ -142,7 +142,6 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
 
     parlist.sublist("Full Space").set("Preconditioner", all_param.optimization_param.full_space_preconditioner);
     
-   // double homotopy_weight = flow_solver->dg->all_parameters->optimization_param.mesh_weight_factor;
 /*
 //============================ Check hessian vector products =========================================================
     std::vector<double> steps;
@@ -159,72 +158,59 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
     return 0;
 //============================ Check hessian vector products =========================================================
 */   
-    while(1)
+    
+    if(all_param.optimization_param.optimization_type == OptiParam::OptimizationType::reduced_space)
     {
-        //std::cout<<"Homotopy weight = "<<homotopy_weight<<std::endl;
-        //dwr_obj_function.set_homotopy_weight(homotopy_weight);
+        // Reduced space Newton
+        const bool storage = true;
+        const bool useFDHessian = false;
+        auto reduced_objective = ROL::makePtr<ROL::Reduced_Objective_SimOpt<double>>(
+                                                                    objective_function,
+                                                                    flow_constraints,
+                                                                    simulation_variables_rol_ptr,
+                                                                    design_variables_rol_ptr,
+                                                                    adjoint_variables_rol_ptr,
+                                                                    storage,
+                                                                    useFDHessian);
+        optimization_problem = ROL::OptimizationProblem<double>(reduced_objective, design_variables_rol_ptr);
+        ROL::EProblem problemType = optimization_problem.getProblemType();
+        std::cout << ROL::EProblemToString(problemType) << std::endl;
+
+        parlist.sublist("Step").set("Type","Line Search");
+        parlist.sublist("Step").sublist("Line Search").sublist("Descent Method").set("Type", all_param.optimization_param.reduced_space_descent_method);
+
+        if (all_param.optimization_param.reduced_space_descent_method == "Newton-Krylov") {
+            parlist.sublist("General").sublist("Secant").set("Use as Preconditioner", true);
+            //parlist.sublist("General").sublist("Krylov").set("Type","Conjugate Gradients");
+            parlist.sublist("General").sublist("Krylov").set("Type","GMRES");
+            parlist.sublist("General").sublist("Krylov").set("Absolute Tolerance", 1.0e-8);
+            parlist.sublist("General").sublist("Krylov").set("Relative Tolerance", 1.0e-4);
+            parlist.sublist("General").sublist("Krylov").set("Iteration Limit", all_param.optimization_param.linear_iteration_limit);
+            parlist.sublist("General").set("Inexact Hessian-Times-A-Vector",false);
+        }
         
-        if(all_param.optimization_param.optimization_type == OptiParam::OptimizationType::reduced_space)
-        {
-            // Reduced space Newton
-            const bool storage = true;
-            const bool useFDHessian = false;
-            auto reduced_objective = ROL::makePtr<ROL::Reduced_Objective_SimOpt<double>>(
-                                                                        objective_function,
-                                                                        flow_constraints,
-                                                                        simulation_variables_rol_ptr,
-                                                                        design_variables_rol_ptr,
-                                                                        adjoint_variables_rol_ptr,
-                                                                        storage,
-                                                                        useFDHessian);
-            optimization_problem = ROL::OptimizationProblem<double>(reduced_objective, design_variables_rol_ptr);
-            ROL::EProblem problemType = optimization_problem.getProblemType();
-            std::cout << ROL::EProblemToString(problemType) << std::endl;
-
-            parlist.sublist("Step").set("Type","Line Search");
-            parlist.sublist("Step").sublist("Line Search").sublist("Descent Method").set("Type", all_param.optimization_param.reduced_space_descent_method);
-
-            if (all_param.optimization_param.reduced_space_descent_method == "Newton-Krylov") {
-                parlist.sublist("General").sublist("Secant").set("Use as Preconditioner", true);
-                //parlist.sublist("General").sublist("Krylov").set("Type","Conjugate Gradients");
-                parlist.sublist("General").sublist("Krylov").set("Type","GMRES");
-                parlist.sublist("General").sublist("Krylov").set("Absolute Tolerance", 1.0e-8);
-                parlist.sublist("General").sublist("Krylov").set("Relative Tolerance", 1.0e-4);
-                parlist.sublist("General").sublist("Krylov").set("Iteration Limit", all_param.optimization_param.linear_iteration_limit);
-                parlist.sublist("General").set("Inexact Hessian-Times-A-Vector",false);
-            }
-            
-            *rcp_outstream << "Starting Reduced Space mesh optimization..."<<std::endl;
-            ROL::OptimizationSolver<double> solver(optimization_problem, parlist);
-            solver.solve(*rcp_outstream);
-            algo_state = solver.getAlgorithmState();
-        }
-        else if(all_param.optimization_param.optimization_type == OptiParam::OptimizationType::full_space)
-        {
-            // Full space Newton
-            *rcp_outstream << "Starting Full Space mesh optimization..."<<std::endl;
-            auto full_space_step = ROL::makePtr<ROL::FullSpace_BirosGhattas<double>>(parlist);
-            auto status_test = ROL::makePtr<ROL::StatusTest<double>>(parlist);
-            const bool printHeader = true;
-            ROL::Algorithm<double> algorithm(full_space_step, status_test, printHeader);
-            const bool print  = true;
-            algorithm.run(*all_variables_rol_ptr, 
-                          *adjoint_variables_rol_ptr, 
-                          *objective_function, 
-                          *flow_constraints, 
-                          print, 
-                          *rcp_outstream);
-            algo_state = algorithm.getState();
-        }
-        break;
-        /*
-        if(homotopy_weight == 0.0)
-        {
-            break;
-        }
-        homotopy_weight = std::max(0.0, homotopy_weight - 0.1);
-        */
-    }// while ends
+        *rcp_outstream << "Starting Reduced Space mesh optimization..."<<std::endl;
+        ROL::OptimizationSolver<double> solver(optimization_problem, parlist);
+        solver.solve(*rcp_outstream);
+        algo_state = solver.getAlgorithmState();
+    }
+    else if(all_param.optimization_param.optimization_type == OptiParam::OptimizationType::full_space)
+    {
+        // Full space Newton
+        *rcp_outstream << "Starting Full Space mesh optimization..."<<std::endl;
+        auto full_space_step = ROL::makePtr<ROL::FullSpace_BirosGhattas<double>>(parlist);
+        auto status_test = ROL::makePtr<ROL::StatusTest<double>>(parlist);
+        const bool printHeader = true;
+        ROL::Algorithm<double> algorithm(full_space_step, status_test, printHeader);
+        const bool print  = true;
+        algorithm.run(*all_variables_rol_ptr, 
+                      *adjoint_variables_rol_ptr, 
+                      *objective_function, 
+                      *flow_constraints, 
+                      print, 
+                      *rcp_outstream);
+        algo_state = algorithm.getState();
+    }
 
     const double timing_end = MPI_Wtime();
 
