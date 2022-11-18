@@ -142,7 +142,7 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
 
     parlist.sublist("Full Space").set("Preconditioner", all_param.optimization_param.full_space_preconditioner);
 
-
+/*
 //============================ Check hessian vector products =========================================================
     std::vector<double> steps;
     for (int i = -2; i > -9; i--) {
@@ -159,7 +159,7 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
             = objective_function->checkGradient( *all_variables_rol_ptr, *direction, steps, true, *rcp_outstream);
     return 0;
 //============================ Check hessian vector products =========================================================
-   
+*/   
     
     if(all_param.optimization_param.optimization_type == OptiParam::OptimizationType::reduced_space)
     {
