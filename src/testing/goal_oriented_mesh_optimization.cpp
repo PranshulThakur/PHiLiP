@@ -142,6 +142,7 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
     parlist.sublist("General").sublist("Secant").set("Maximum Storage", all_param.optimization_param.max_design_cycles);
 
     parlist.sublist("Full Space").set("Preconditioner", all_param.optimization_param.full_space_preconditioner);
+    parlist.sublist("General").sublist("Krylov").set("Iteration Limit", all_param.optimization_param.linear_iteration_limit); // Used for full space too.
 
 /*
 //============================ Check hessian vector products =========================================================

@@ -283,6 +283,7 @@ public:
 
 private:
     dealii::ConditionalOStream pcout; ///< Parallel std::cout that only outputs on mpi_rank==0
+    unsigned int linear_iteration_limit; ///< Linear iteration limit
 
 }; // class FullSpace_BirosGhattas
 

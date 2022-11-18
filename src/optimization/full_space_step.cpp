@@ -28,6 +28,7 @@ FullSpace_BirosGhattas(
     econd_ = StringToECurvatureCondition(Llist.sublist("Curvature Condition").get("Type","Strong Wolfe Conditions") );
     acceptLastAlpha_ = Llist.get("Accept Last Alpha", false);
     verbosity_ = Glist.get("Print Verbosity",0);
+    linear_iteration_limit = Glist.sublist("Krylov").get("Iteration Limit", 2000);
 
     preconditioner_name_ = parlist.sublist("Full Space").get("Preconditioner","P4");
     use_approximate_full_space_preconditioner_ = (preconditioner_name_ == "P2A" || preconditioner_name_ == "P4A");
@@ -348,7 +349,7 @@ std::vector<double> FullSpace_BirosGhattas<Real>::solve_linear (
     // Used for almost all the results:
     const double tolerance = std::min(1e-4, std::max(1e-6 * rhs_norm, 1e-11));
 
-    dealii::SolverControl solver_control(2000, tolerance, true, true);
+    dealii::SolverControl solver_control(linear_iteration_limit, tolerance, true, true);
     solver_control.enable_history_data();
 
     (void) preconditioner;
