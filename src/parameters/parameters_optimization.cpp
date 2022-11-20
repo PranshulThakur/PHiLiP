@@ -99,6 +99,26 @@ void OptimizationParam::declare_parameters (dealii::ParameterHandler &prm)
         prm.declare_entry("use_coarse_residual", "false",
                             dealii::Patterns::Bool(),
                             "Flag to use coarse residual (i.e. subtract interpolated coarse residual) while computing DWR).");
+        
+        prm.declare_entry("use_fine_solution", "false",
+                            dealii::Patterns::Bool(),
+                            "Use fine solution as initial guess.");
+        
+        prm.declare_entry("regularization_parameter", "0.0",
+                           dealii::Patterns::Double(0.0, 1e100),
+                           "Regularization parameter times identity added to the hessian of control variables.");
+        
+        prm.declare_entry("regularization_scaling", "1.0",
+                           dealii::Patterns::Double(1.0, 1e100),
+                           "Scaling of regularization parameter after each iteration.");
+        
+        prm.declare_entry("regularization_tol_low", "1.0e-2",
+                           dealii::Patterns::Double(0.0, 1.0),
+                           "Tolerance of control search direction below which regularization_parameter is decreased.");
+        
+        prm.declare_entry("regularization_tol_high", "1.0e-1",
+                           dealii::Patterns::Double(0.0, 1.0),
+                           "Tolerance of control search direction above which regularization_parameter is increased.");
     }
 
     prm.leave_subsection();
@@ -124,6 +144,12 @@ void OptimizationParam::parse_parameters (dealii::ParameterHandler &prm)
         line_search_curvature = prm.get("line_search_curvature");
         reduced_space_descent_method = prm.get("reduced_space_descent_method");
         use_coarse_residual = prm.get_bool("use_coarse_residual");
+        use_fine_solution = prm.get_bool("use_fine_solution");
+        
+        regularization_parameter = prm.get_double("regularization_parameter");
+        regularization_scaling = prm.get_double("regularization_scaling");
+        regularization_tol_high = prm.get_double("regularization_tol_high");
+        regularization_tol_low = prm.get_double("regularization_tol_low");
     }
 
     prm.leave_subsection();

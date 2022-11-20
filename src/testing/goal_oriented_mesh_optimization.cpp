@@ -88,7 +88,16 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
     const double exact_functional_error_initial = functional_val_fine - functional_val_coarse;
 //====================================================================================================================================
 
-//    flow_solver->run(); // Solves steady state
+    if(all_param.optimization_param.use_fine_solution == false)
+    {
+        pcout<<"Using coarse solution as the initial guess."<<std::endl;
+        flow_solver->run(); // Solves steady state
+    }
+    else
+    {
+        pcout<<"Using fine solution interpolated to the coarse mesh as initial guess."<<std::endl;
+    }
+
     flow_solver->dg->set_dual(flow_solver->dg->solution);
 
     DealiiVector initial_design_variables;
@@ -140,9 +149,6 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
 
     parlist.sublist("General").sublist("Secant").set("Type","Limited-Memory BFGS");
     parlist.sublist("General").sublist("Secant").set("Maximum Storage", all_param.optimization_param.max_design_cycles);
-
-    parlist.sublist("Full Space").set("Preconditioner", all_param.optimization_param.full_space_preconditioner);
-    parlist.sublist("General").sublist("Krylov").set("Iteration Limit", all_param.optimization_param.linear_iteration_limit); // Used for full space too.
 
 /*
 //============================ Check hessian vector products =========================================================
@@ -200,6 +206,13 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
     }
     else if(all_param.optimization_param.optimization_type == OptiParam::OptimizationType::full_space)
     {
+        parlist.sublist("Full Space").set("Preconditioner", all_param.optimization_param.full_space_preconditioner);
+        parlist.sublist("Full Space").set("Linear iteration Limit", all_param.optimization_param.linear_iteration_limit); 
+        parlist.sublist("Full Space").set("regularization_parameter", all_param.optimization_param.regularization_parameter);
+        parlist.sublist("Full Space").set("regularization_scaling", all_param.optimization_param.regularization_scaling);
+        parlist.sublist("Full Space").set("regularization_tol_low", all_param.optimization_param.regularization_tol_low);
+        parlist.sublist("Full Space").set("regularization_tol_high", all_param.optimization_param.regularization_tol_high);
+
         // Full space Newton
         *rcp_outstream << "Starting Full Space mesh optimization..."<<std::endl;
         auto full_space_step = ROL::makePtr<ROL::FullSpace_BirosGhattas<double>>(parlist);

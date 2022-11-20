@@ -53,6 +53,21 @@ public:
 
     /// Flag to subtract coarse residual from dual weighted residual. Used for full space goal oriented mesh optimization.
     bool use_coarse_residual;
+    
+    /// Flag to use fine solution as an initial guess. Used for full space goal oriented mesh optimization.
+    bool use_fine_solution;
+
+    /// Regularization parameter to be multiplied with identity an dadded to the hessian of control variables.
+    double regularization_parameter;
+
+    /// Scaling for regularization parameter after each iteration.
+    double regularization_scaling;
+
+    /// Regularization tol low.
+    double regularization_tol_low;
+    
+    /// Regularization tol low.
+    double regularization_tol_high;
 
     /// Constructor of mesh adaptation parameters.
     OptimizationParam();

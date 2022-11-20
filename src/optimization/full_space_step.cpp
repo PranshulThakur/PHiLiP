@@ -28,7 +28,6 @@ FullSpace_BirosGhattas(
     econd_ = StringToECurvatureCondition(Llist.sublist("Curvature Condition").get("Type","Strong Wolfe Conditions") );
     acceptLastAlpha_ = Llist.get("Accept Last Alpha", false);
     verbosity_ = Glist.get("Print Verbosity",0);
-    linear_iteration_limit = Glist.sublist("Krylov").get("Iteration Limit", 2000);
 
     preconditioner_name_ = parlist.sublist("Full Space").get("Preconditioner","P4");
     use_approximate_full_space_preconditioner_ = (preconditioner_name_ == "P2A" || preconditioner_name_ == "P4A");
@@ -48,6 +47,11 @@ FullSpace_BirosGhattas(
     esec_ = StringToESecant(secantName_);
     secant_ = SecantFactory<Real>(parlist);
 
+    regularization_parameter = parlist.sublist("Full Space").get("regularization_parameter",1.0);
+    regularization_scaling = parlist.sublist("Full Space").get("regularization_scaling",10.0);
+    regularization_tol_low = parlist.sublist("Full Space").get("regularization_tol_low",1.0e-2);
+    regularization_tol_high = parlist.sublist("Full Space").get("regularization_tol_high",1.0e-1);
+    linear_iteration_limit = parlist.sublist("Full Space").get("Linear iteration Limit", 2000); 
 }
 
 template <class Real>
@@ -437,7 +441,8 @@ std::vector<Real> FullSpace_BirosGhattas<Real>::solve_KKT_system(
         makePtrFromRef<Objective<Real>>(objective),
         makePtrFromRef<Constraint<Real>>(equal_constraints),
         makePtrFromRef<const Vector<Real>>(design_variables),
-        makePtrFromRef<const Vector<Real>>(lagrange_mult));
+        makePtrFromRef<const Vector<Real>>(lagrange_mult),
+        regularization_parameter);
 
 
     std::shared_ptr<BirosGhattasPreconditioner<Real>> kkt_precond =
@@ -579,6 +584,23 @@ void FullSpace_BirosGhattas<Real>::compute(
         search_direction.set(*lhs1);
         lagrange_mult_search_direction_->set(*lhs2);
     }
+    {
+        // Update regularization parameter.
+        const Real ctl_norm = ((dynamic_cast<const Vector_SimOpt<Real>&>(search_direction)).get_2())->norm();
+        if(ctl_norm < regularization_tol_low)
+        {
+            regularization_parameter /= regularization_scaling;
+        }
+        else if(ctl_norm > regularization_tol_high)
+        {
+            regularization_parameter *= regularization_scaling;
+        }
+        else
+        {
+            regularization_parameter = regularization_parameter; // Remains unchanged.
+        }
+    }
+    pcout<<"Regularization parameter for the next iteration = "<<regularization_parameter<<std::endl;
     // std::cout
     //     << "search_direction.norm(): "
     //     << search_direction.norm()
