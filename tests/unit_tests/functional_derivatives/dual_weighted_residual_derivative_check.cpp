@@ -261,6 +261,7 @@ int main (int argc, char * argv[])
 
     unsigned int n_dofs = dg->solution.size(); 
     AssertDimension(n_dofs, n_dofs_coarse);
+    (void) n_dofs_coarse;
     AssertDimension(n_dofs, dwr_objfunc->dIdw.size());
     AssertDimension(n_dofs, dIdw_fd.size()); 
     pcout<<"All dimensions are good."<<std::endl; 

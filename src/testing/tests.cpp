@@ -251,7 +251,7 @@ std::unique_ptr< TestsBase > TestsFactory<dim,nstate,MeshType>
     } else if(test_type == Test_enum::dual_weighted_residual_mesh_adaptation) {
         if constexpr (dim==2 && nstate==1)  return std::make_unique<DualWeightedResidualMeshAdaptation<dim, nstate>>(parameters_input,parameter_handler_input);
     } else if(test_type == Test_enum::goal_oriented_mesh_optimization) {
-        if constexpr (nstate==1)  return std::make_unique<GoalOrientedMeshOptimization<dim, nstate>>(parameters_input,parameter_handler_input);
+        if constexpr ((dim==1 || dim==2) && nstate==1)  return std::make_unique<GoalOrientedMeshOptimization<dim, nstate>>(parameters_input,parameter_handler_input);
     } else if(test_type == Test_enum::taylor_green_vortex_energy_check) {
         if constexpr (dim==3 && nstate==dim+2) return std::make_unique<TaylorGreenVortexEnergyCheck<dim,nstate>>(parameters_input,parameter_handler_input);
     } else if(test_type == Test_enum::taylor_green_vortex_restart_check) {

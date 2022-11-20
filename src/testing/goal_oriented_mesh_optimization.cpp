@@ -286,7 +286,9 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
     return 0;
 }
 
-template class GoalOrientedMeshOptimization <PHILIP_DIM, 1>;
+#if PHILIP_DIM != 3
+    template class GoalOrientedMeshOptimization <PHILIP_DIM, 1>;
+#endif
 
 } // namespace Tests
 } // namespace PHiLiP 
