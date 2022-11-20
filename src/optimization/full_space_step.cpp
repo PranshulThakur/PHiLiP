@@ -776,6 +776,15 @@ void FullSpace_BirosGhattas<Real>::update(
     objective.gradient(*(step_state->gradientVec), design_variables, tol);
     equal_constraints.value(*(step_state->constraintVec), design_variables, tol);
 
+    // Modify lagrange multipliers
+    auto &equal_constraints_sim_opt = dynamic_cast<ROL::Constraint_SimOpt<Real>&>(equal_constraints);
+    const auto &objective_ctl_gradient = *(dynamic_cast<const Vector_SimOpt<Real>&>(*(step_state->gradientVec)).get_1());
+    const auto &design_variables_sim_opt = dynamic_cast<ROL::Vector_SimOpt<Real>&>(design_variables);
+    const auto &simulation_variables = *(design_variables_sim_opt.get_1());
+    const auto &control_variables    = *(design_variables_sim_opt.get_2());
+    equal_constraints_sim_opt.applyInverseAdjointJacobian_1(lagrange_mult, objective_ctl_gradient, simulation_variables, control_variables, tol);
+    lagrange_mult.scale(-1.0);
+
 
     ROL::Ptr<Vector<Real> > lagrangian_gradient = step_state->gradientVec->clone();
     computeLagrangianGradient(*lagrangian_gradient, design_variables, lagrange_mult, *(step_state->gradientVec), equal_constraints);
