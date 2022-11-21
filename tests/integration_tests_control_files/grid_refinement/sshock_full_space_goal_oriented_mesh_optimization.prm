@@ -43,7 +43,7 @@ subsection optimization
     set use_coarse_residual = true
     set use_fine_solution = true
 
-    set gradient_tolerance = 1.0e-11
+    set gradient_tolerance = 2.0e-12
     set max_design_cycles = 30
     set linear_iteration_limit = 2000
     set initial_step_size = 1.0
