@@ -646,6 +646,7 @@ void FullSpace_BirosGhattas<Real>::compute(
     //penalty_value_ = std::max(1e-0/reduced_gradient->norm(), 1.0);
     if(penalty_value_ < 0.0)
     {
+        pcout<<"Encountered negative Biros-Ghattas's penalty. Switching to Doug's penalty."<<std::endl;
         penalty_value_ = std::max(1.0e-2/lagrangian_gradient->norm(), 1.0);
     }
     pcout
