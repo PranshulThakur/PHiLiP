@@ -43,9 +43,9 @@ void OptimizationParam::declare_parameters (dealii::ParameterHandler &prm)
                            dealii::Patterns::Double(0.0, 1.0),
                            "Weight of homotopy parameter added to the objective function.");
         
-        prm.declare_entry("mesh_volume_power", "-2",
+        prm.declare_entry("mesh_volume_power", "2",
                            dealii::Patterns::Integer(),
-                           "Power to which cell volume is raised in mesh distrotion indicator.");
+                           "Power to which cell volume is raised in mesh distortion indicator.");
         
         prm.declare_entry("full_space_preconditioner", "identity",
                           dealii::Patterns::Selection(
