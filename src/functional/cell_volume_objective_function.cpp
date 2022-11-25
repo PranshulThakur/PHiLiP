@@ -25,6 +25,7 @@ real2 CellVolumeObjFunc<dim, nstate, real> :: evaluate_volume_cell_functional(
     const unsigned int n_vol_quad_pts = volume_quadrature.size();
     const unsigned int n_metric_dofs_cell = coords_coeff.size();
 
+    real2 cell_distortion_measure = 0.0;
     real2 cell_volume = 0.0;
     for (unsigned int iquad=0; iquad<n_vol_quad_pts; ++iquad) {
 
@@ -38,17 +39,23 @@ real2 CellVolumeObjFunc<dim, nstate, real> :: evaluate_volume_cell_functional(
             const unsigned int axis = fe_metric.system_to_component_index(idof).first;
             coord_grad[axis] += coords_coeff[idof] * fe_metric.shape_grad (idof, ref_point);
         }
+        real2 jacobian_frobenius_norm_squared = 0.0;
         for (int row=0;row<dim;++row) {
             for (int col=0;col<dim;++col) {
                 metric_jacobian[row][col] = coord_grad[row][col];
+                jacobian_frobenius_norm_squared += pow(coord_grad[row][col], 2);
             }
         }
         const real2 jacobian_determinant = dealii::determinant(metric_jacobian);
 
         cell_volume += 1.0 * jacobian_determinant * quad_weight;
+
+        real2 integrand_distortion = jacobian_frobenius_norm_squared/pow(jacobian_determinant, 2/dim);
+        integrand_distortion = pow(integrand_distortion, mesh_volume_power);
+        cell_distortion_measure += integrand_distortion * jacobian_determinant * quad_weight;
     } // quad loop ends
 
-    real2 cell_volume_obj_func = mesh_weight_factor*pow(cell_volume, mesh_volume_power);
+    real2 cell_volume_obj_func = mesh_weight_factor * cell_distortion_measure/cell_volume;
     
     return cell_volume_obj_func;
 }
