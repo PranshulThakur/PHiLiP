@@ -222,12 +222,13 @@ private:
     std::shared_ptr< Functional<dim, nstate, real> > functional;
 
     /// Stores the weight of mesh distortion term added to the objective function.
-//    const real mesh_weight;
+    const real mesh_weight;
 
     /// Stores initial volume nodes for implementing mesh weight.
-//    const VectorType initial_vol_nodes;
+    const VectorType initial_vol_nodes;
+
     /// Functional used to evaluate cell distortion.
-    std::unique_ptr< Functional<dim, nstate, real> > cell_distortion_functional;
+//    std::unique_ptr< Functional<dim, nstate, real> > cell_distortion_functional;
     
 public:
     /// Stores global dof indices of the fine mesh.
