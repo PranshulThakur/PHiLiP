@@ -41,6 +41,7 @@ public:
     const unsigned int n_metric_dofs_cell = coords_coeff.size();
 
     real2 cell_distortion_measure = 0.0;
+    real2 cell_volume = 0.0;
     for (unsigned int iquad=0; iquad<n_vol_quad_pts; ++iquad) {
 
         const dealii::Point<dim,double> &ref_point = volume_quadrature.point(iquad);
@@ -65,9 +66,15 @@ public:
         real2 integrand_distortion = jacobian_frobenius_norm_squared/pow(jacobian_determinant, 2/dim);
         integrand_distortion = pow(integrand_distortion, mesh_volume_power);
         cell_distortion_measure += integrand_distortion * jacobian_determinant * quad_weight;
+        cell_volume += 1.0 * jacobian_determinant * quad_weight;
     } // quad loop ends
     
-    real2 cell_volume_obj_func = mesh_weight_factor * cell_distortion_measure;
+    real2 cell_volume_obj_func = mesh_weight_factor * cell_distortion_measure/cell_volume;
+    
+    if(dim == 1)
+    {
+        cell_volume_obj_func = mesh_weight_factor*(1.0/cell_volume - 1.0);
+    }
     
     return cell_volume_obj_func;
 }
