@@ -266,6 +266,10 @@ Real FullSpace_BirosGhattas<Real>::computeAugmentedLagrangianPenalty(
     Real penalty = objective_gradient.dot(search_direction);
     penalty += adjoint_jacobian_lagrange.dot(search_direction);
     penalty += equal_constraints_values.dot(lagrange_mult_search_direction);
+    if(penalty > 0)
+    {
+        pcout<<"Not a descent directon. Hessian is not convex."<<std::endl;
+    }
 
     const ROL::Ptr<Vector<Real>> jacobian_search_direction = equal_constraints_values.clone();
     Real tol = std::sqrt(ROL_EPSILON<Real>());
