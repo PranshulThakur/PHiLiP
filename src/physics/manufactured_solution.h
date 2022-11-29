@@ -360,18 +360,33 @@ public:
             // x_j[i][0] = 1-1/sqrt(2);
             // x_j[i][1] = 1/sqrt(2);
             */
+            if(dim == 1)
+            {
+                n_shocks[i] = 3;
+                S_j[i].resize(n_shocks[i]);
+                x_j[i].resize(n_shocks[i]);
 
-            n_shocks[i] = 3;
-            S_j[i].resize(n_shocks[i]);
-            x_j[i].resize(n_shocks[i]);
+                S_j[i][0] = 100;
+                S_j[i][1] = -200;
+                S_j[i][2] = 100;
+                
+                x_j[i][0] = 0.25;
+                x_j[i][1] = 0.5;
+                x_j[i][2] = 0.7;
+            }
+            else
+            {
+                n_shocks[i] = 2;
 
-            S_j[i][0] = 100;
-            S_j[i][1] = -200;
-            S_j[i][2] = 100;
-            
-            x_j[i][0] = 0.25;
-            x_j[i][1] = 0.5;
-            x_j[i][2] = 0.7;
+                S_j[i].resize(n_shocks[i]);
+                x_j[i].resize(n_shocks[i]);
+
+                S_j[i][0] =  50;
+                S_j[i][1] = -50;
+
+                x_j[i][0] = -0.5; //-1/sqrt(2);
+                x_j[i][1] =  0.5; //1/sqrt(2);
+            }
         }
     }
     /// Value
