@@ -221,11 +221,13 @@ private:
     std::shared_ptr< Functional<dim, nstate, real> > functional;
     
     /// Stores the weight of fine residual.
-    const real mesh_weight;
+//    const real mesh_weight;
 
     /// Stores initial volume nodes to evaluate mesh weight.
-    const VectorType initial_vol_nodes;
+//    const VectorType initial_vol_nodes;
 
+    /// Functional used to evaluate cell distortion.
+    std::unique_ptr< Functional<dim, nstate, real> > cell_distortion_functional;
     
 public:
     /// Stores global dof indices of the fine mesh.

@@ -3,7 +3,7 @@
 namespace PHiLiP {
 
 template<int dim, int nstate, typename real>  
-CellVolumeObjFunc<dim, nstate, real> :: CellVolumeObjFunc( 
+CellDistortion<dim, nstate, real> :: CellDistortion( 
     std::shared_ptr<DGBase<dim,real>> dg_input,
     const bool uses_solution_values,
     const bool uses_solution_gradient)
@@ -11,13 +11,13 @@ CellVolumeObjFunc<dim, nstate, real> :: CellVolumeObjFunc(
     , mesh_weight_factor(dg_input->all_parameters->optimization_param.mesh_weight_factor)
     , mesh_volume_power(dg_input->all_parameters->optimization_param.mesh_volume_power)
  {}
-
+/*
 template<int dim, int nstate, typename real>
 template<typename real2>
-real2 CellVolumeObjFunc<dim, nstate, real> :: evaluate_volume_cell_functional(
-    const Physics::PhysicsBase<dim,nstate,real2> &/*physics*/,
-    const std::vector< real2 > &/*soln_coeff*/,
-    const dealii::FESystem<dim> &/*fe_solution*/,
+real2 CellDistortion<dim, nstate, real> :: evaluate_volume_cell_functional(
+    const Physics::PhysicsBase<dim,nstate,real2> &/physics/,
+    const std::vector< real2 > &/soln_coeff/,
+    const dealii::FESystem<dim> &/fe_solution/,
     const std::vector< real2 > &coords_coeff,
     const dealii::FESystem<dim> &fe_metric,
     const dealii::Quadrature<dim> &volume_quadrature) const
@@ -53,10 +53,10 @@ real2 CellVolumeObjFunc<dim, nstate, real> :: evaluate_volume_cell_functional(
     return cell_volume_obj_func;
 }
 
-
-template class CellVolumeObjFunc<PHILIP_DIM, 1, double>;
-template class CellVolumeObjFunc<PHILIP_DIM, 2, double>;
-template class CellVolumeObjFunc<PHILIP_DIM, 3, double>;
-template class CellVolumeObjFunc<PHILIP_DIM, 4, double>;
-template class CellVolumeObjFunc<PHILIP_DIM, 5, double>;
+*/
+template class CellDistortion<PHILIP_DIM, 1, double>;
+template class CellDistortion<PHILIP_DIM, 2, double>;
+template class CellDistortion<PHILIP_DIM, 3, double>;
+template class CellDistortion<PHILIP_DIM, 4, double>;
+template class CellDistortion<PHILIP_DIM, 5, double>;
 } // namespace PHiLiP

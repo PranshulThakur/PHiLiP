@@ -14,12 +14,13 @@ DualWeightedResidualObjFunc<dim, nstate, real> :: DualWeightedResidualObjFunc(
     const bool _use_coarse_residual)
     : Functional<dim, nstate, real> (dg_input, uses_solution_values, uses_solution_gradient)
     , use_coarse_residual(_use_coarse_residual)
-    , mesh_weight(this->dg->all_parameters->optimization_param.mesh_weight_factor)
-    , initial_vol_nodes(this->dg->high_order_grid->volume_nodes)
+//    , mesh_weight(this->dg->all_parameters->optimization_param.mesh_weight_factor)
+//    , initial_vol_nodes(this->dg->high_order_grid->volume_nodes)
 {
     AssertDimension(this->dg->high_order_grid->max_degree, 1);
     compute_interpolation_matrix(); // also stores cellwise_dofs_fine, vector coarse and vector fine.
     functional = FunctionalFactory<dim,nstate,real>::create_Functional(this->dg->all_parameters->functional_param, this->dg);
+    cell_distortion_functional = std::make_unique<CellDistortion<dim, nstate, real>> (this->dg);
 
     if(use_coarse_residual)
     {
@@ -297,7 +298,7 @@ real DualWeightedResidualObjFunc<dim, nstate, real> :: evaluate_objective_functi
 
     real obj_func_global = dwr_error * dwr_error;
     obj_func_global *= 1.0/2.0;
-
+/*
     // Add mesh weight
     VectorType vol_nodes_diff = this->dg->high_order_grid->volume_nodes;
     vol_nodes_diff -= initial_vol_nodes;
@@ -305,6 +306,9 @@ real DualWeightedResidualObjFunc<dim, nstate, real> :: evaluate_objective_functi
     real term2 = vol_nodes_diff*vol_nodes_diff;
     term2 *= 1.0/2.0;
     const real obj_func_net = obj_func_global + mesh_weight * term2;
+*/
+    
+    const real obj_func_net = obj_func_global + cell_distortion_functional->evaluate_functional();
 
     return obj_func_net;
 }
@@ -410,8 +414,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: store_dIdX()
 { 
     this->dIdX.reinit(vector_vol_nodes);
     dwr_x_Tvmult(this->dIdX, dwr_error);
-
-
+/*
     // Add derivative of mesh weight
     VectorType vol_nodes_diff = this->dg->high_order_grid->volume_nodes;
     vol_nodes_diff -= initial_vol_nodes;
@@ -421,6 +424,12 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: store_dIdX()
     term_mesh.update_ghost_values();
 
     this->dIdX += term_mesh;
+    this->dIdX.update_ghost_values();
+*/
+    // Add derivative of cell distortion measure
+    const bool compute_dIdW = false, compute_dIdX = true, compute_d2I = false;
+    cell_distortion_functional->evaluate_functional(compute_dIdW, compute_dIdX, compute_d2I);
+    this->dIdX += cell_distortion_functional->dIdX;
     this->dIdX.update_ghost_values();
 }
 
@@ -523,12 +532,22 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: d2IdXdX_vmult(
     out_vector = term1;
     out_vector += term2;
     out_vector.update_ghost_values();
-
+/*
     // Add the hessian of mesh weight
     VectorType term_mesh = in_vector;
     term_mesh *= mesh_weight;
     term_mesh.update_ghost_values();
     out_vector += term_mesh;
+    out_vector.update_ghost_values();
+*/
+    // Add Hessian-vector product of mesh distortion weight
+    const bool compute_dIdW = false, compute_dIdX = false, compute_d2I = true;
+    cell_distortion_functional->evaluate_functional(compute_dIdW, compute_dIdX, compute_d2I);
+    VectorType out_vector2(out_vector);
+    cell_distortion_functional->d2IdXdX_vmult(out_vector2, in_vector);
+    out_vector2.update_ghost_values();
+
+    out_vector += out_vector2;
     out_vector.update_ghost_values();
 }
 
