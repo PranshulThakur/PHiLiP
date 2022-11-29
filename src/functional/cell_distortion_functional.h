@@ -1,5 +1,5 @@
-#ifndef __CELL_VOLUME_OBJECTIVE_FUNCTION_H__ 
-#define __CELL_VOLUME_OBJECTIVE_FUNCTION_H__ 
+#ifndef __CELL_DISTORTION_FUNCTIONAL_H__ 
+#define __CELL_DISTORTION_FUNCTIONAL_H__ 
 
 #include "functional.h"
 

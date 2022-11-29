@@ -2,7 +2,7 @@
 #include <deal.II/lac/dynamic_sparsity_pattern.h>
 #include <deal.II/lac/sparsity_tools.h>
 #include "linear_solver/linear_solver.h"
-#include "cell_volume_objective_function.h"
+#include "cell_distortion_functional.h"
 
 namespace PHiLiP {
 

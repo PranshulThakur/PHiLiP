@@ -1,4 +1,4 @@
-#include "cell_volume_objective_function.h"
+#include "cell_distortion_functional.h"
 
 namespace PHiLiP {
 
