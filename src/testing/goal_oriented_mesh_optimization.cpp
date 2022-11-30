@@ -72,7 +72,7 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
     flow_solver->run(); // Solves steady state
     flow_solver->dg->output_results_vtk(99999); // Outputs initial solution and grid.
 
-//============================================================================================================= 
+//====================================================================================================================================
     std::unique_ptr<DualWeightedResidualError<dim, nstate , double>> dwr_error_val = std::make_unique<DualWeightedResidualError<dim, nstate , double>>(flow_solver->dg);
     const double abs_error_initial = dwr_error_val->total_dual_weighted_residual_error();
     const double actual_error_initial = dwr_error_val->net_functional_error;
@@ -80,13 +80,23 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
     std::shared_ptr< Functional<dim, nstate, double> > functional = FunctionalFactory<dim,nstate,double>::create_Functional(flow_solver->dg->all_parameters->functional_param, flow_solver->dg);
     flow_solver->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(1);
     flow_solver->dg->assemble_residual();
-    const double fine_residual_initial = sqrt(flow_solver->dg->right_hand_side * flow_solver->dg->right_hand_side);
+    const double fine_residual_norm_initial = sqrt(flow_solver->dg->right_hand_side*flow_solver->dg->right_hand_side);
     double functional_val_coarse = functional->evaluate_functional();
     flow_solver->run();
     double functional_val_fine = functional->evaluate_functional();
     flow_solver->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(-1);
     const double exact_functional_error_initial = functional_val_fine - functional_val_coarse;
-//===============================================================================================================
+//====================================================================================================================================
+
+    if(all_param.optimization_param.use_fine_solution == false)
+    {
+        pcout<<"Using coarse solution as the initial guess."<<std::endl;
+        flow_solver->run(); // Solves steady state
+    }
+    else
+    {
+        pcout<<"Using fine solution interpolated to the coarse mesh as initial guess."<<std::endl;
+    }
 
     flow_solver->dg->set_dual(flow_solver->dg->solution);
 
@@ -140,8 +150,6 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
     parlist.sublist("General").sublist("Secant").set("Type","Limited-Memory BFGS");
     parlist.sublist("General").sublist("Secant").set("Maximum Storage", all_param.optimization_param.max_design_cycles);
 
-    parlist.sublist("Full Space").set("Preconditioner", all_param.optimization_param.full_space_preconditioner);
-    
 /*
 //============================ Check hessian vector products =========================================================
     std::vector<double> steps;
@@ -149,12 +157,14 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
         steps.push_back(std::pow(10,i));
     }
 
-    const auto direction_1 = all_variables_rol_ptr->clone();
-        direction_1->scale(0.5);
+    const auto direction = all_variables_rol_ptr->clone();
+        direction->scale(0.5);
         *rcp_outstream << "obj->checkHessVec..." << std::endl;
-        std::vector<std::vector<double>> results
-          //  = objective_function->checkHessVec( *all_variables_rol_ptr, *direction_1, steps, true, *rcp_outstream);
-            = objective_function->checkGradient( *all_variables_rol_ptr, *direction_1, steps, true, *rcp_outstream);
+        std::vector<std::vector<double>> results_hessvec
+            = objective_function->checkHessVec( *all_variables_rol_ptr, *direction, steps, true, *rcp_outstream);
+        *rcp_outstream << "obj->checkGradient..." << std::endl;
+        std::vector<std::vector<double>> results_gradient
+            = objective_function->checkGradient( *all_variables_rol_ptr, *direction, steps, true, *rcp_outstream);
     return 0;
 //============================ Check hessian vector products =========================================================
 */   
@@ -196,6 +206,13 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
     }
     else if(all_param.optimization_param.optimization_type == OptiParam::OptimizationType::full_space)
     {
+        parlist.sublist("Full Space").set("Preconditioner", all_param.optimization_param.full_space_preconditioner);
+        parlist.sublist("Full Space").set("Linear iteration Limit", all_param.optimization_param.linear_iteration_limit); 
+        parlist.sublist("Full Space").set("regularization_parameter", all_param.optimization_param.regularization_parameter);
+        parlist.sublist("Full Space").set("regularization_scaling", all_param.optimization_param.regularization_scaling);
+        parlist.sublist("Full Space").set("regularization_tol_low", all_param.optimization_param.regularization_tol_low);
+        parlist.sublist("Full Space").set("regularization_tol_high", all_param.optimization_param.regularization_tol_high);
+
         // Full space Newton
         *rcp_outstream << "Starting Full Space mesh optimization..."<<std::endl;
         auto full_space_step = ROL::makePtr<ROL::FullSpace_BirosGhattas<double>>(parlist);
@@ -211,7 +228,7 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
                       *rcp_outstream);
         algo_state = algorithm.getState();
     }
-
+    
     const double timing_end = MPI_Wtime();
 
     *rcp_outstream << "The process took "<<timing_end - timing_start << " seconds to run."<<std::endl;
@@ -219,7 +236,8 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
 
     
     filebuffer.close();
-    
+
+//================================================================================================================================================ 
     const double abs_error_final = dwr_error_val->total_dual_weighted_residual_error();
     const double actual_error_final = dwr_error_val->net_functional_error;
     //================== Evaluate exact functional error=============================================
@@ -258,16 +276,19 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
     pcout<<"Exact functional error final = "<<exact_functional_error_final<<std::endl<<std::endl;
 
     pcout<<"\nResidual coarse sqrt(r^T * r) = "<<coarse_resiudual_norm<<std::endl;
-    pcout<<"Fine residual initial = "<<fine_residual_initial<<std::endl;
+    pcout<<"Initial residual fine sqrt(R^T * R) = "<<fine_residual_norm_initial<<std::endl;
     pcout<<"Residual fine sqrt(R^T * R) = "<<residual_fine_norm<<std::endl;
-    pcout<<"\n sqrt(delU^T * delU) = "<<delU.l2_norm()<<std::endl;
+    pcout<<"\nsqrt(delU^T * delU) = "<<delU.l2_norm()<<std::endl;
     pcout<<"First order term (J_u^T * delU) = "<<first_order_term<<std::endl; 
     pcout<<"Second order term (delU^T * J_uu * delU) = "<<second_order_error<<std::endl;
-
+//================================================================================================================================================ 
+   
     return 0;
 }
 
-template class GoalOrientedMeshOptimization <PHILIP_DIM, 1>;
+#if PHILIP_DIM != 3
+    template class GoalOrientedMeshOptimization <PHILIP_DIM, 1>;
+#endif
 
 } // namespace Tests
 } // namespace PHiLiP 
