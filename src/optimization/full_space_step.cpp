@@ -648,10 +648,14 @@ void FullSpace_BirosGhattas<Real>::compute(
         penalty_offset);
     const auto reduced_gradient = (dynamic_cast<Vector_SimOpt<Real>&>(*lagrangian_gradient)).get_2();
     //penalty_value_ = std::max(1e-0/reduced_gradient->norm(), 1.0);
+    if(algo_state.iter == 0)
+    {
+        penalty_value_ = 1.0;
+    }
     if(penalty_value_ < 0.0)
     {
         pcout<<"Encountered negative Biros-Ghattas's penalty. Switching to Doug's penalty."<<std::endl;
-        penalty_value_ = std::max(1.0e-2/lagrangian_gradient->norm(), 1.0);
+        penalty_value_ = std::max(1.0/reduced_gradient->norm(), 1.0);
         //penalty_value_ *= -0.9;
     }
     pcout
