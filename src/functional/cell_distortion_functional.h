@@ -68,11 +68,11 @@ public:
         cell_volume += 1.0 * jacobian_determinant * quad_weight;
     } // quad loop ends
 
-    real2 cell_volume_obj_func = mesh_weight_factor * cell_distortion_measure/cell_volume;
+    real2 cell_volume_obj_func = mesh_weight_factor * scaling_w_elements * cell_distortion_measure/cell_volume;
 
     if(dim == 1)
     {
-        cell_volume_obj_func = mesh_weight_factor*(1.0/cell_volume - 1.0);
+        cell_volume_obj_func = mesh_weight_factor*scaling_w_elements*(scaling_w_elements/cell_volume - 1.0);
     }
 
     return cell_volume_obj_func;
@@ -112,6 +112,9 @@ private:
     /** It is parameter \f[\gamma \f] in \f[\mathcal{J}(\mathbf{u},\mathbf{x}) = \mu \sum_k \Omega_k^\gamma \f] 
      */
     const int mesh_volume_power;
+
+    /// Scales mesh weight with number of elements.
+    const real scaling_w_elements;
 }; // class ends
 
 } // namespace PHiLiP

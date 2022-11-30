@@ -10,7 +10,10 @@ CellDistortion<dim, nstate, real> :: CellDistortion(
     : Functional<dim, nstate, real>(dg_input, uses_solution_values, uses_solution_gradient)
     , mesh_weight_factor(dg_input->all_parameters->optimization_param.mesh_weight_factor)
     , mesh_volume_power(dg_input->all_parameters->optimization_param.mesh_volume_power)
- {}
+    , scaling_w_elements (1.0/dg_input->triangulation->n_global_active_cells())
+{
+    this->pcout<<"Scaling with number of elements = "<<scaling_w_elements<<std::endl;
+}
 /*
 template<int dim, int nstate, typename real>
 template<typename real2>
