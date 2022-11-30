@@ -52,7 +52,7 @@ subsection optimization
     set line_search_curvature = Strong Wolfe Conditions
     set reduced_space_descent_method = Newton-Krylov
     set full_space_preconditioner = P4
-    set mesh_weight_factor = 1.0e-5
+    set mesh_weight_factor = 5.0e-6
     set mesh_volume_power = 2
 
     set regularization_parameter = 1.0e-2
