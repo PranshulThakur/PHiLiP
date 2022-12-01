@@ -43,7 +43,7 @@ subsection optimization
     set use_coarse_residual = true
     set use_fine_solution = false
 
-    set gradient_tolerance = 1.0e-11
+    set gradient_tolerance = 1.0e-10 #1e-11
     set max_design_cycles = 40
     set linear_iteration_limit = 2000
     set initial_step_size = 1.0
@@ -52,7 +52,7 @@ subsection optimization
     set line_search_curvature = Strong Wolfe Conditions
     set reduced_space_descent_method = Newton-Krylov
     set full_space_preconditioner = P4
-    set mesh_weight_factor = 5.0e-6
+    set mesh_weight_factor = 1.0e-5  #5e-6
     set mesh_volume_power = 2
 
     set regularization_parameter = 1.0e-2
@@ -93,9 +93,9 @@ subsection flow_solver
   set flow_case_type = sshock
   set steady_state = true
   set steady_state_polynomial_ramping = false
-  set poly_degree = 2
-  set max_poly_degree_for_adaptation = 3
+  set poly_degree = 1 #2
+  set max_poly_degree_for_adaptation = 2 #3
   subsection grid
-    set number_of_mesh_refinements = 3
+    set number_of_mesh_refinements = 4  #3
   end
 end
