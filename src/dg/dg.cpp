@@ -487,7 +487,7 @@ void DGBase<dim,real,MeshType>::change_cells_fe_degree_by_deltadegree_and_interp
     [[maybe_unused]] unsigned int no_of_cells_before_changing_p = triangulation->n_active_cells(); // Used for assert.
     using VectorType       = typename dealii::LinearAlgebra::distributed::Vector<double>;
     using DoFHandlerType   = typename dealii::DoFHandler<dim>;
-    using SolutionTransferType = typename MeshTypeHelper<MeshType>::template SolutionTransfer<dim,VectorType,DoFHandlerType>;
+    using SolutionTransferType = typename MeshTypeHelper<MeshType>::template SolutionTransfer<dim,VectorType>;
     VectorType solution_old = solution;
 
 
@@ -515,10 +515,10 @@ void DGBase<dim,real,MeshType>::change_cells_fe_degree_by_deltadegree_and_interp
 
 
     allocate_system();
-    solution.zero_out_ghosts();
+    solution.update_ghost_values();
 
 
-    if constexpr (std::is_same_v<typename dealii::SolutionTransfer<dim,VectorType,DoFHandlerType>,
+    if constexpr (std::is_same_v<typename dealii::SolutionTransfer<dim,VectorType>,
                               decltype(solution_transfer)>) {
      solution_transfer.interpolate(solution_old, solution);
     } else {
@@ -537,7 +537,7 @@ void DGBase<dim,real,MeshType>::refine_or_coarsen_global(const std::string to_do
 {
     using VectorType       = typename dealii::LinearAlgebra::distributed::Vector<double>;
     using DoFHandlerType   = typename dealii::DoFHandler<dim>;
-    using SolutionTransferType = typename MeshTypeHelper<MeshType>::template SolutionTransfer<dim,VectorType,DoFHandlerType>;
+    using SolutionTransferType = typename MeshTypeHelper<MeshType>::template SolutionTransfer<dim,VectorType>;
     VectorType solution_old = solution;
 
 
@@ -587,10 +587,10 @@ void DGBase<dim,real,MeshType>::refine_or_coarsen_global(const std::string to_do
 
 
     allocate_system();
-    solution.zero_out_ghosts();
+    solution.zero_out_ghost_values();
 
 
-    if constexpr (std::is_same_v<typename dealii::SolutionTransfer<dim,VectorType,DoFHandlerType>,
+    if constexpr (std::is_same_v<typename dealii::SolutionTransfer<dim,VectorType>,
                               decltype(solution_transfer)>) {
      solution_transfer.interpolate(solution_old, solution);
     } else {

@@ -422,7 +422,7 @@ void DualWeightedResidualError<dim, nstate, real, MeshType>::output_results_vtk(
         data_out.add_data_vector(adjoint_coarse, adjoint_names, dealii::DataOut_DoFData<dim,dim>::DataVectorType::type_dof_data);
     }
     
-    typename dealii::DataOut<dim,dealii::DoFHandler<dim>>::CurvedCellRegion curved = dealii::DataOut<dim,dealii::DoFHandler<dim>>::CurvedCellRegion::curved_inner_cells;
+    typename dealii::DataOut<dim>::CurvedCellRegion curved = dealii::DataOut<dim>::CurvedCellRegion::curved_inner_cells;
     const dealii::Mapping<dim> &mapping = (*(this->dg->high_order_grid->mapping_fe_field));
     const int grid_degree = this->dg->high_order_grid->max_degree;
     const int n_subdivisions = grid_degree;
