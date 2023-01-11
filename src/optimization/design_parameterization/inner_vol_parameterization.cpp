@@ -141,6 +141,7 @@ bool InnerVolParameterization<dim> ::update_mesh_from_design_variables(
     change_in_des_var -= current_design_var;
 
     current_design_var = design_var;
+    current_design_var.update_ghost_values();
     dXv_dXp.vmult_add(this->high_order_grid->volume_nodes, change_in_des_var); // Xv = Xv + dXv_dXp*(Xp,new - Xp); Gives Xv for surface nodes and Xp,new for inner vol nodes. 
     this->high_order_grid->volume_nodes.update_ghost_values();
     mesh_updated = true;
