@@ -41,5 +41,11 @@ int BaseParameterization<dim> :: is_design_variable_valid(
     return 0;
 }
 
+template<int dim>
+void BaseParameterization<dim> :: update_dXv_dXp(MatrixType & /*dXv_dXp*/) const
+{
+    // Does nothing. Can be overridden in derived classes if dXv_dXp is not constant.
+}
+
 template class BaseParameterization<PHILIP_DIM>;
 } // PHiLiP namespace

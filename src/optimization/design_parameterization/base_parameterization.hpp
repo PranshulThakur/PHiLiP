@@ -29,6 +29,11 @@ public:
 
     /// Computes derivative of volume nodes w.r.t. design parameters.
     virtual void compute_dXv_dXp(MatrixType &dXv_dXp) const = 0;
+    
+    /// Updates the derivative of volume nodes w.r.t. current control variables. 
+    /** It's an empty function in base class and can be overridden in derived classes for use.
+     */
+    virtual void update_dXv_dXp(MatrixType & /*dXv_dXp*/) const;
 
     /// Outputs design variables. Doesn't output anything if not overridden.
     virtual void output_design_variables(const unsigned int /*iteration_no*/) const;

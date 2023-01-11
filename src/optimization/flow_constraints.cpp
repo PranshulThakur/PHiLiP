@@ -85,6 +85,7 @@ void FlowConstraints<dim>
     bool mesh_updated = design_parameterization->update_mesh_from_design_variables(dXvdXp, design_var);
     if(mesh_updated)
     {
+        design_parameterization->update_dXv_dXp(dXvdXp);
         dg->output_results_vtk(iupdate);
         design_parameterization->output_design_variables(iupdate);
         iupdate++;
