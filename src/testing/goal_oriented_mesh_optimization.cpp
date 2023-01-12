@@ -5,6 +5,7 @@
 #include "mesh/mesh_error_estimate.h"
 
 #include "optimization/design_parameterization/inner_vol_parameterization.hpp"
+#include "optimization/design_parameterization/unit_vector_parameterization.hpp"
 #include "optimization/rol_to_dealii_vector.hpp"
 #include "optimization/flow_constraints.hpp"
 #include "optimization/rol_objective.hpp"
@@ -103,7 +104,8 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
     DealiiVector initial_design_variables;
     
     std::shared_ptr<BaseParameterization<dim>> design_parameterization = 
-                        std::make_shared<InnerVolParameterization<dim>>(flow_solver->dg->high_order_grid);
+                        //std::make_shared<InnerVolParameterization<dim>>(flow_solver->dg->high_order_grid);
+                        std::make_shared<UnitVectorParameterization<dim>>(flow_solver->dg->high_order_grid);
 
     design_parameterization->initialize_design_variables(initial_design_variables); // get inner volume nodes
     pcout<<"Initialized design variables."<<std::endl;

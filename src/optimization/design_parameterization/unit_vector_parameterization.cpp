@@ -83,7 +83,7 @@ void UnitVectorParameterization<dim> :: update_dXv_dXp(MatrixType &dXv_dXp) cons
 
 template<int dim>
 bool UnitVectorParameterization<dim> :: update_mesh_from_design_variables(
-    const MatrixType &dXv_dXp,
+    const MatrixType &/*dXv_dXp*/,
     const VectorType &control_var) 
 {
     // check if control variables have changed.
@@ -140,4 +140,5 @@ double UnitVectorParameterization<dim> :: dk_dh(const unsigned int p) const
     return derivative_val;
 }
 
+template class UnitVectorParameterization<PHILIP_DIM>;
 } // namespace PHiLiP

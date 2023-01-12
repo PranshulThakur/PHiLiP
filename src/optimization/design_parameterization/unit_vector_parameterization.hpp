@@ -36,7 +36,7 @@ public:
     
     /// Checks if the design variables have changed and updates the mesh. 
     bool update_mesh_from_design_variables(
-        const MatrixType &dXv_dXp,
+        const MatrixType &/*dXv_dXp*/,
         const VectorType &design_var) override;
 
     /// Returns the number of design variables.
