@@ -1,20 +1,24 @@
 #include "unit_vector_parameterization.hpp"
+#include <deal.II/dofs/dof_tools.h>
+#include <deal.II/lac/dynamic_sparsity_pattern.h>
+#include <deal.II/lac/sparsity_tools.h>
 
 namespace PHiLiP {
 
 template<int dim>
 UnitVectorParameterization<dim>::UnitVectorParameterization(
     std::shared_ptr<HighOrderGrid<dim, double>> _high_order_grid)
-    : BaseParameterization(_high_order_grid)
-    , n_control_variables(this->high_order_grid->volume_nodes.size() - 1)
+    : BaseParameterization<dim>(_high_order_grid)
+    , n_vol_nodes(this->high_order_grid->volume_nodes.size())
+    , n_control_variables(n_vol_nodes - 1)
     , left_end(this->high_order_grid->volume_nodes(0))
-    , right_end(this->high_order_grid->volume_nodes(n_control_variables)
+    , right_end(this->high_order_grid->volume_nodes(n_control_variables))
     , min_mesh_size(1.0e-11)
     , rho(right_end - left_end - min_mesh_size*n_control_variables)
 {
     if( (this->n_mpi > 1) || (dim > 1) )
     {
-        std::cout<<"Cannot use more than one processor as this class is designed for 1D."<<std::endl;
+        std::cout<<"Cannot use more than one processor. This class is designed for 1D."<<std::endl;
         std::abort();
     }
 }
@@ -31,6 +35,8 @@ void UnitVectorParameterization<dim> :: initialize_design_variables(VectorType &
 
     current_control_variables = control_var;
     current_control_variables.update_ghost_values();
+    control_var_norm_squared = control_var * control_var; 
+    scaling_k = rho/control_var_norm_squared;
 }
 
 //========================== Compute dXv_dXp and update it. ============================================================
@@ -38,7 +44,6 @@ template<int dim>
 void UnitVectorParameterization<dim> :: compute_dXv_dXp(MatrixType &dXv_dXp) const
 {
     const dealii::IndexSet &volume_range = this->high_order_grid->volume_nodes.get_partitioner()->locally_owned_range();
-    const unsigned int n_vol_nodes = this->high_order_grid->volume_nodes.size();
     
     dealii::DynamicSparsityPattern dsp(n_vol_nodes, n_control_variables, volume_range);
     for(unsigned int i=1; i<n_vol_nodes; ++i)
@@ -95,7 +100,7 @@ bool UnitVectorParameterization<dim> :: update_mesh_from_design_variables(
     control_var_norm_squared = control_var * control_var; 
     scaling_k = rho/control_var_norm_squared;
 
-    for(unsigned int i=1; i<this->high_order_grid->volume_nodes.size(); ++i)
+    for(unsigned int i=1; i<n_vol_nodes; ++i)
     {
        this->high_order_grid->volume_nodes(i) = this->high_order_grid->volume_nodes(i-1) + scaling_k*pow(control_var(i-1),2) + min_mesh_size;
     }
@@ -115,13 +120,13 @@ template<int dim>
 double UnitVectorParameterization<dim> :: dxi_dhp(const unsigned int i, const unsigned int p) const
 {
     double sum_val_i = 0;
-    for(unsigned int j=0; j<i-1; ++j)
+    for(unsigned int j=0; j<i; ++j)
     {
         sum_val_i += pow(current_control_variables(j),2);
     }
     double derivative_val = sum_val_i * dk_dh(p);
 
-    if(  (i-1) >= p   )
+    if(  p <= (i-1)   )
     {
         derivative_val += scaling_k*2.0*current_control_variables(p);
     }

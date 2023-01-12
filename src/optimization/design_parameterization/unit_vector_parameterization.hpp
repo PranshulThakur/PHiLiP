@@ -53,9 +53,10 @@ public:
     //double d2xi_dhq_dhp(unsigned int i, unsigned int q, unsigned int p);
 
 private:
+   const unsigned int n_vol_nodes;
+   const unsigned int n_control_variables;
    const double left_end; 
    const double right_end; 
-   const unsigned int n_control_variables;
    const double min_mesh_size;
    const double rho;
    double control_var_norm_squared;
