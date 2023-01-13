@@ -53,5 +53,12 @@ void BaseParameterization<dim> :: v1_times_d2XdXp2_times_v2(VectorType &/*out_ve
     // Does nothing. Can be overridden in derived classes if d2Xv_dXp2 is required.
 }
 
+template<int dim>
+double BaseParameterization<dim> :: control_var_norm() const
+{
+    // Does nothing. Can be overridden in derived classes if the norm is required.
+    return 0;
+}
+
 template class BaseParameterization<PHILIP_DIM>;
 } // PHiLiP namespace

@@ -224,5 +224,10 @@ void UnitVectorParameterization<dim> :: v1_times_d2XdXp2_times_v2(VectorType &ou
     out_vector.update_ghost_values();
 }
 
+template<int dim>
+double UnitVectorParameterization<dim> :: control_var_norm() const
+{
+    return sqrt(control_var_norm_squared);
+}
 template class UnitVectorParameterization<PHILIP_DIM>;
 } // namespace PHiLiP

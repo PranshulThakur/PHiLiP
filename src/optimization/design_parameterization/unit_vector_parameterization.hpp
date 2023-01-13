@@ -37,6 +37,9 @@ public:
 
     /// Returns the number of design variables.
     unsigned int get_number_of_design_variables() const override;
+    
+    /// Return the norm of control variables. 
+    double control_var_norm() const override;
 
 //=============== Functions specific to this class =========================================================
     

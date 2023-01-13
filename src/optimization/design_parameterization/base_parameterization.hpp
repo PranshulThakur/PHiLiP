@@ -44,6 +44,9 @@ public:
     /// Checks if the updated design variable doesn't distort the mesh (which is possible when backtracking with high initial step length). Returns 0 if everything is good.
     virtual int is_design_variable_valid(const MatrixType &dXv_dXp, const VectorType &design_var) const;
     
+    /// Return the norm of control variables. 
+    virtual double control_var_norm() const;
+    
     /// Returns the number of design variables. To be implemented by derived classes.
     virtual unsigned int get_number_of_design_variables() const = 0;
 

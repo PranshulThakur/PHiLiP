@@ -109,6 +109,7 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
 
     design_parameterization->initialize_design_variables(initial_design_variables); // get inner volume nodes
     pcout<<"Initialized design variables."<<std::endl;
+    const double initial_control_var_norm = design_parameterization->control_var_norm();
 
 
     // Copy vectors to be used by optimizer into ROL vectors.
@@ -285,6 +286,9 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
     pcout<<"Second order term (delU^T * J_uu * delU) = "<<second_order_error<<std::endl;
 //================================================================================================================================================ 
    
+    const double final_control_var_norm = design_parameterization->control_var_norm();
+    pcout<<"Initial control var norm = "<<initial_control_var_norm<<"     Final control var norm = "<<final_control_var_norm<<std::endl;
+    
     return 0;
 }
 
