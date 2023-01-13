@@ -89,11 +89,13 @@ void OptimizationParam::declare_parameters (dealii::ParameterHandler &prm)
         prm.declare_entry("reduced_space_descent_method", "Newton-Krylov",
                            dealii::Patterns::Selection(
                            " Newton-Krylov | "
-                           " Quasi-Newton Method "
+                           " Quasi-Newton Method | "
+                           " Steepest Descent "
                            ),
                            "Descent method for reduced space. Choices are "
                            " Newton-Krylov | "
-                           " Quasi-Newton Method "
+                           " Quasi-Newton Method | "
+                           " Steepest Descent "
                            );
 
         prm.declare_entry("use_coarse_residual", "false",
