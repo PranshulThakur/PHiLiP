@@ -29,7 +29,7 @@ void UnitVectorParameterization<dim> :: initialize_design_variables(VectorType &
     control_var.reinit(n_control_variables);
     for(unsigned int i=0; i<n_control_variables; ++i)
     {
-        control_var(i) = this->high_order_grid->volume_nodes(i+1) - this->high_order_grid->volume_nodes(i);
+        control_var(i) = sqrt(this->high_order_grid->volume_nodes(i+1) - this->high_order_grid->volume_nodes(i) - min_mesh_size);
     }
     control_var.update_ghost_values();
 
