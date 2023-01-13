@@ -758,6 +758,20 @@ void FlowConstraints<dim>
 
     auto &output_vector_v = ROL_vector_to_dealii_vector_reference(output_vector);
     dXvdXp.Tvmult(output_vector_v, d2RdXdX_dXvdXp_input);
+    
+    // Add contribution from second derivative of Xv wrt parameter p.
+    {
+        const bool compute_dRdW=false; const bool compute_dRdX=true; const bool compute_d2R=false;
+        dg->assemble_residual(compute_dRdW, compute_dRdX, compute_d2R, flow_CFL_);
+        dealii::LinearAlgebra::distributed::Vector<double> v1(dg->high_order_grid->volume_nodes);
+        dg->dRdXv.Tvmult(v1, ROL_vector_to_dealii_vector_reference(dual));
+        
+        auto dealii_output2 = output_vector_v;
+        dealii_output2 *= 0.0;
+        design_parameterization->v1_times_d2XdXp2_times_v2(dealii_output2, v1, input_vector_v); 
+        output_vector_v += dealii_output2;
+        output_vector_v.update_ghost_values();
+    }
 
     n_vmult += 8;
     d2R_mult += 1;

@@ -52,6 +52,8 @@ public:
 
     void get_lambda_times_d2X_dh2(dealii::FullMatrix<double>& lambda_times_d2X_dh2, const VectorType& lambda) const;
 
+    void v1_times_d2XdXp2_times_v2(VectorType &out_vector, const VectorType& v1, const VectorType &v2) const override; 
+
 private:
    const unsigned int n_vol_nodes;
    const unsigned int n_control_variables;

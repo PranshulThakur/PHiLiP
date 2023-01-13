@@ -199,7 +199,6 @@ double UnitVectorParameterization<dim> :: d2_dh2_matrix_at_coordinate(const unsi
 template<int dim>
 void UnitVectorParameterization<dim> :: get_lambda_times_d2X_dh2(dealii::FullMatrix<double>& lambda_times_d2X_dh2, const VectorType& lambda) const
 {
-    lambda_times_d2X_dh2.reinit(n_control_variables, n_control_variables);
     for(unsigned int i=0; i<n_control_variables; ++i)
     {
         for(unsigned int j=0; j<n_control_variables; ++j)
@@ -207,6 +206,22 @@ void UnitVectorParameterization<dim> :: get_lambda_times_d2X_dh2(dealii::FullMat
             lambda_times_d2X_dh2(i,j) = d2_dh2_matrix_at_coordinate(i,j,lambda);
         }
     }
+}
+template<int dim>
+void UnitVectorParameterization<dim> :: v1_times_d2XdXp2_times_v2(VectorType &out_vector, const VectorType& v1, const VectorType &v2) const
+{
+    dealii::FullMatrix<double> v1_times_d2X_dh2(n_control_variables, n_control_variables);
+    get_lambda_times_d2X_dh2(v1_times_d2X_dh2, v1);
+    for(unsigned int i=0; i<n_control_variables; ++i)
+    {
+        out_vector(i) = 0.0;
+        for(unsigned int j=0; j<n_control_variables; ++j)
+        {
+            out_vector(i) += v1_times_d2X_dh2(i,j)*v2(j);
+
+        }
+    }
+    out_vector.update_ghost_values();
 }
 
 template class UnitVectorParameterization<PHILIP_DIM>;

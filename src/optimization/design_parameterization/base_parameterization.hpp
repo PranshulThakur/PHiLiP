@@ -34,6 +34,9 @@ public:
     /** It's an empty function in base class and can be overridden in derived classes for use.
      */
     virtual void update_dXv_dXp(MatrixType & /*dXv_dXp*/) const;
+    
+    /// Computes vector v1 times third order tensor d2Xdh2 times vector v2.
+    virtual void v1_times_d2XdXp2_times_v2(VectorType &/*out_vector*/, const VectorType& /*v1*/, const VectorType &/*v2*/) const; 
 
     /// Outputs design variables. Doesn't output anything if not overridden.
     virtual void output_design_variables(const unsigned int /*iteration_no*/) const;
