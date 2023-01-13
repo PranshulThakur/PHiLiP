@@ -119,6 +119,8 @@ unsigned int UnitVectorParameterization<dim> :: get_number_of_design_variables()
 template<int dim>
 double UnitVectorParameterization<dim> :: dxi_dhp(const unsigned int i, const unsigned int p) const
 {
+    if(i==0) {return 0;}
+    
     double sum_val_i = 0;
     for(unsigned int j=0; j<i; ++j)
     {
@@ -138,6 +140,73 @@ double UnitVectorParameterization<dim> :: dk_dh(const unsigned int p) const
 {
     double derivative_val = -2.0 * current_control_variables(p) * rho / pow(control_var_norm_squared,2);
     return derivative_val;
+}
+
+//========================== Functions related to second order deivatives ==============================================
+
+template<int dim>
+double UnitVectorParameterization<dim> :: d2k_dhq_dhp(const unsigned int q, const unsigned int p) const
+{
+    double derivative_val = 8.0 * current_control_variables(p) * current_control_variables(q) * rho / pow(control_var_norm_squared,3);
+    if(p == q)
+    {
+        derivative_val -= 2.0*rho/pow(control_var_norm_squared,2);
+    }
+    return derivative_val;
+}
+
+template<int dim> 
+double UnitVectorParameterization<dim> :: d2xi_dhq_dhp(const unsigned int i, const unsigned int q, const unsigned int p) const
+{
+    if(i==0) {return 0;}
+
+    double sum_val = 0.0;
+    for(unsigned int j=0; j<i; ++j)
+    {
+        sum_val += pow(current_control_variables(j),2);
+    }
+
+    double derivative_val = d2k_dhq_dhp(q,p)*sum_val;
+    
+    if( q<=(i-1) )
+    {
+        derivative_val += dk_dh(p) * 2.0 * current_control_variables(q);
+    }
+    
+    if( p<=(i-1) )
+    {
+        derivative_val += 2.0*current_control_variables(p)*dk_dh(q);
+        if(p==q)
+        {
+            derivative_val += 2.0*scaling_k;
+        }
+    }
+    return derivative_val;
+}
+
+template<int dim>
+double UnitVectorParameterization<dim> :: d2_dh2_matrix_at_coordinate(const unsigned int i, const unsigned int j, const VectorType &lambda) const
+{
+    AssertDimension(lambda.size(), n_vol_nodes);
+    double derivative_val = 0.0;
+    for(unsigned int q=0; q<n_vol_nodes; ++q)
+    {
+        derivative_val += lambda(q) * d2xi_dhq_dhp(q, j, i);
+    }
+
+    return derivative_val;
+}
+template<int dim>
+void UnitVectorParameterization<dim> :: get_lambda_times_d2X_dh2(dealii::FullMatrix<double>& lambda_times_d2X_dh2, const VectorType& lambda) const
+{
+    lambda_times_d2X_dh2.reinit(n_control_variables, n_control_variables);
+    for(unsigned int i=0; i<n_control_variables; ++i)
+    {
+        for(unsigned int j=0; j<n_control_variables; ++j)
+        {
+            lambda_times_d2X_dh2(i,j) = d2_dh2_matrix_at_coordinate(i,j,lambda);
+        }
+    }
 }
 
 template class UnitVectorParameterization<PHILIP_DIM>;

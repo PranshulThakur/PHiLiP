@@ -30,10 +30,6 @@ public:
     /// Updates the derivative of volume nodes w.r.t. current control variables.
     void update_dXv_dXp(MatrixType &dXv_dXp) const override;
 
-    //void set_lambda_d2XdXp2(VectorType &lambda_input) override;
-
-    //void lambda_d2Xdp2_vmult(VectorType &out_vector, const VectorType& in_vector) const override;
-    
     /// Checks if the design variables have changed and updates the mesh. 
     bool update_mesh_from_design_variables(
         const MatrixType &/*dXv_dXp*/,
@@ -46,11 +42,15 @@ public:
     
     double dk_dh(const unsigned int h_val) const;
 
-    //double d2k_dh1_dh2(unsigned int hval1, unsigned int hval2);
-
     double dxi_dhp(const unsigned int i, const unsigned int p) const;
 
-    //double d2xi_dhq_dhp(unsigned int i, unsigned int q, unsigned int p);
+    double d2k_dhq_dhp(const unsigned int q, const unsigned int p) const;
+
+    double d2xi_dhq_dhp(const unsigned int i, const unsigned int q, const unsigned int p) const;
+
+    double d2_dh2_matrix_at_coordinate(const unsigned int i, const unsigned int j, const VectorType &lambda) const;
+
+    void get_lambda_times_d2X_dh2(dealii::FullMatrix<double>& lambda_times_d2X_dh2, const VectorType& lambda) const;
 
 private:
    const unsigned int n_vol_nodes;
@@ -62,8 +62,6 @@ private:
    double control_var_norm_squared;
    double scaling_k;
    VectorType current_control_variables;
-   //VectorType lambda;
-   //MatrixType lambda_d2Xdp2;
 }; //class ends
 
 } // PHiLiP namespace
