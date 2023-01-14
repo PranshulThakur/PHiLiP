@@ -295,6 +295,14 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
     
     filebuffer.close();
 
+    // output volume nodes
+    pcout<<"volume_nodes_opt = [";
+    for(unsigned int i=0; i<flow_solver->dg->high_order_grid->volume_nodes.size(); ++i)
+    {
+        pcout<<flow_solver->dg->high_order_grid->volume_nodes(i)<<", ";
+    }
+    pcout<<"];"<<std::endl;
+
 //================================================================================================================================================ 
     const double abs_error_final = dwr_error_val->total_dual_weighted_residual_error();
     const double actual_error_final = dwr_error_val->net_functional_error;
