@@ -3,6 +3,7 @@
 #include "physics/physics_factory.h"
 #include <deal.II/numerics/vector_tools.h>
 #include "functional/dual_weighted_residual_obj_func2.h"
+#include "functional/dual_weighted_residual_obj_func1.h"
 
 const int nstate = 1;
 int main (int argc, char * argv[])

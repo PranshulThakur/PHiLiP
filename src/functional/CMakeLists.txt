@@ -6,6 +6,7 @@ SET(SOURCE
     lift_drag.cpp
     target_wall_pressure.cpp
     dual_weighted_residual_obj_func2.cpp
+    dual_weighted_residual_obj_func1.cpp
     cell_distortion_functional.cpp
     )
 

@@ -10,6 +10,7 @@
 #include "optimization/flow_constraints.hpp"
 #include "optimization/rol_objective.hpp"
 #include "functional/dual_weighted_residual_obj_func2.h"
+#include "functional/dual_weighted_residual_obj_func1.h"
 #include "optimization/full_space_step.hpp"
 
 #include "Teuchos_GlobalMPISession.hpp"
