@@ -153,87 +153,73 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
     parlist.sublist("General").sublist("Secant").set("Type","Limited-Memory BFGS");
     parlist.sublist("General").sublist("Secant").set("Maximum Storage", all_param.optimization_param.max_design_cycles);
 
-/*
-//============================ Check hessian vector products =========================================================
-    std::vector<double> steps;
-    for (int i = -2; i > -9; i--) {
-        steps.push_back(std::pow(10,i));
-    }
-
-    const auto direction = all_variables_rol_ptr->clone();
-        direction->scale(0.5);
-        *rcp_outstream << "obj->checkHessVec..." << std::endl;
-        std::vector<std::vector<double>> results_hessvec
-            = objective_function->checkHessVec( *all_variables_rol_ptr, *direction, steps, true, *rcp_outstream);
-        *rcp_outstream << "obj->checkGradient..." << std::endl;
-        std::vector<std::vector<double>> results_gradient
-            = objective_function->checkGradient( *all_variables_rol_ptr, *direction, steps, true, *rcp_outstream);
-    return 0;
-//============================ Check hessian vector products =========================================================
-*/   
 //============================== Check objective function and constraint gradients/Hessians ==================================================================
-    ROL::Ptr<ROL::Vector<double>> d_sim = simulation_variables_rol_ptr->clone(); d_sim->randomize(-1.0, 1.0);
-    ROL::Ptr<ROL::Vector<double>> d_control = design_variables_rol_ptr->clone(); d_control->randomize(-1.0, 1.0);
-    ROL::Vector_SimOpt<double> direction(d_sim, d_control);
+    const bool check_derivatives = false;
+    if(check_derivatives)
+    {
+        ROL::Ptr<ROL::Vector<double>> d_sim = simulation_variables_rol_ptr->clone(); d_sim->randomize(-1.0, 1.0);
+        ROL::Ptr<ROL::Vector<double>> d_control = design_variables_rol_ptr->clone(); d_control->randomize(-1.0, 1.0);
+        ROL::Vector_SimOpt<double> direction(d_sim, d_control);
 
-    *rcp_outstream << "objective_function->checkGradient_1..." << std::endl;
-    objective_function->checkGradient_1(*simulation_variables_rol_ptr, *design_variables_rol_ptr, *d_sim, true, *rcp_outstream);
-    *rcp_outstream << "objective_function->checkGradient_2..." << std::endl;
-    objective_function->checkGradient_2(*simulation_variables_rol_ptr, *design_variables_rol_ptr, *d_control, true, *rcp_outstream);
-    *rcp_outstream << "objective_function->checkHessVec_11..." << std::endl;
-    objective_function->checkHessVec_11(*simulation_variables_rol_ptr, *design_variables_rol_ptr, *d_sim, true, *rcp_outstream);
-    *rcp_outstream << "objective_function->checkHessVec_12..." << std::endl;
-    objective_function->checkHessVec_12(*simulation_variables_rol_ptr, *design_variables_rol_ptr, *d_control, true, *rcp_outstream);
-    *rcp_outstream << "objective_function->checkHessVec_21..." << std::endl;
-    objective_function->checkHessVec_21(*simulation_variables_rol_ptr, *design_variables_rol_ptr, *d_sim, true, *rcp_outstream);
-    *rcp_outstream << "objective_function->checkHessVec_22..." << std::endl;
-    objective_function->checkHessVec_22(*simulation_variables_rol_ptr, *design_variables_rol_ptr, *d_control, true, *rcp_outstream);
+        *rcp_outstream << "objective_function->checkGradient_1..." << std::endl;
+        objective_function->checkGradient_1(*simulation_variables_rol_ptr, *design_variables_rol_ptr, *d_sim, true, *rcp_outstream);
+        *rcp_outstream << "objective_function->checkGradient_2..." << std::endl;
+        objective_function->checkGradient_2(*simulation_variables_rol_ptr, *design_variables_rol_ptr, *d_control, true, *rcp_outstream);
+        *rcp_outstream << "objective_function->checkHessVec_11..." << std::endl;
+        objective_function->checkHessVec_11(*simulation_variables_rol_ptr, *design_variables_rol_ptr, *d_sim, true, *rcp_outstream);
+        *rcp_outstream << "objective_function->checkHessVec_12..." << std::endl;
+        objective_function->checkHessVec_12(*simulation_variables_rol_ptr, *design_variables_rol_ptr, *d_control, true, *rcp_outstream);
+        *rcp_outstream << "objective_function->checkHessVec_21..." << std::endl;
+        objective_function->checkHessVec_21(*simulation_variables_rol_ptr, *design_variables_rol_ptr, *d_sim, true, *rcp_outstream);
+        *rcp_outstream << "objective_function->checkHessVec_22..." << std::endl;
+        objective_function->checkHessVec_22(*simulation_variables_rol_ptr, *design_variables_rol_ptr, *d_control, true, *rcp_outstream);
 
-    *rcp_outstream << "objective_function->checkGradient..." << std::endl;
-    objective_function->checkGradient(*all_variables_rol_ptr, direction, true, *rcp_outstream);
-    *rcp_outstream << "objective_function->checkHessVec..." << std::endl;
-    objective_function->checkHessVec(*all_variables_rol_ptr, direction, true, *rcp_outstream);
+        *rcp_outstream << "objective_function->checkGradient..." << std::endl;
+        objective_function->checkGradient(*all_variables_rol_ptr, direction, true, *rcp_outstream);
+        *rcp_outstream << "objective_function->checkHessVec..." << std::endl;
+        objective_function->checkHessVec(*all_variables_rol_ptr, direction, true, *rcp_outstream);
 
-    // Some additional checks
-    *rcp_outstream << "flow_constraints->checkSolve..." << std::endl;
-    flow_constraints->checkSolve(*simulation_variables_rol_ptr, *design_variables_rol_ptr, *adjoint_variables_rol_ptr, true, *rcp_outstream);
-    *rcp_outstream << "flow_constraints->checkApplyAdjointHessian_11..." << std::endl;
-    flow_constraints->checkApplyAdjointHessian_11(*simulation_variables_rol_ptr, *design_variables_rol_ptr, *adjoint_variables_rol_ptr, *d_sim, *adjoint_variables_rol_ptr, true, *rcp_outstream);
-    *rcp_outstream << "flow_constraints->checkApplyAdjointHessian_12..." << std::endl;
-    flow_constraints->checkApplyAdjointHessian_12(*simulation_variables_rol_ptr, *design_variables_rol_ptr, *adjoint_variables_rol_ptr, *d_sim, *design_variables_rol_ptr, true, *rcp_outstream);
-    *rcp_outstream << "flow_constraints->checkApplyAdjointHessian_21..." << std::endl;
-    flow_constraints->checkApplyAdjointHessian_21(*simulation_variables_rol_ptr, *design_variables_rol_ptr, *adjoint_variables_rol_ptr, *d_control, *adjoint_variables_rol_ptr, true, *rcp_outstream);
-    *rcp_outstream << "flow_constraints->checkApplyAdjointHessian_22..." << std::endl;
-    flow_constraints->checkApplyAdjointHessian_22(*simulation_variables_rol_ptr, *design_variables_rol_ptr, *adjoint_variables_rol_ptr, *d_control, *design_variables_rol_ptr, true, *rcp_outstream);
+        // Some additional checks
+        *rcp_outstream << "flow_constraints->checkSolve..." << std::endl;
+        flow_constraints->checkSolve(*simulation_variables_rol_ptr, *design_variables_rol_ptr, *adjoint_variables_rol_ptr, true, *rcp_outstream);
+        *rcp_outstream << "flow_constraints->checkApplyAdjointHessian_11..." << std::endl;
+        flow_constraints->checkApplyAdjointHessian_11(*simulation_variables_rol_ptr, *design_variables_rol_ptr, *adjoint_variables_rol_ptr, *d_sim, *adjoint_variables_rol_ptr, true, *rcp_outstream);
+        *rcp_outstream << "flow_constraints->checkApplyAdjointHessian_12..." << std::endl;
+        flow_constraints->checkApplyAdjointHessian_12(*simulation_variables_rol_ptr, *design_variables_rol_ptr, *adjoint_variables_rol_ptr, *d_sim, *design_variables_rol_ptr, true, *rcp_outstream);
+        *rcp_outstream << "flow_constraints->checkApplyAdjointHessian_21..." << std::endl;
+        flow_constraints->checkApplyAdjointHessian_21(*simulation_variables_rol_ptr, *design_variables_rol_ptr, *adjoint_variables_rol_ptr, *d_control, *adjoint_variables_rol_ptr, true, *rcp_outstream);
+        *rcp_outstream << "flow_constraints->checkApplyAdjointHessian_22..." << std::endl;
+        flow_constraints->checkApplyAdjointHessian_22(*simulation_variables_rol_ptr, *design_variables_rol_ptr, *adjoint_variables_rol_ptr, *d_control, *design_variables_rol_ptr, true, *rcp_outstream);
 
-    *rcp_outstream << "flow_constraints->checkApplyJacobian_1..." << std::endl;
-    flow_constraints->checkApplyJacobian_1(*simulation_variables_rol_ptr, *design_variables_rol_ptr, *d_sim, *simulation_variables_rol_ptr, true, *rcp_outstream);
-    *rcp_outstream << "flow_constraints->checkApplyJacobian_2..." << std::endl;
-    flow_constraints->checkApplyJacobian_2(*simulation_variables_rol_ptr, *design_variables_rol_ptr, *d_control, *simulation_variables_rol_ptr, true, *rcp_outstream);
-    *rcp_outstream << "flow_constraints->checkApplyJacobian..." << std::endl;
-    flow_constraints->checkApplyJacobian(*all_variables_rol_ptr, direction, *simulation_variables_rol_ptr, true, *rcp_outstream);
-    *rcp_outstream << "flow_constraints->checkApplyAdjointHessian..." << std::endl;
-    flow_constraints->checkApplyAdjointHessian(*all_variables_rol_ptr, *d_sim, direction, *all_variables_rol_ptr, true, *rcp_outstream);
-    *rcp_outstream << "flow_constraints->checkAdjointConsistencyJacobian..." << std::endl;
-    flow_constraints->checkAdjointConsistencyJacobian(*d_sim, direction, *all_variables_rol_ptr, true, *rcp_outstream);
-    *rcp_outstream << "flow_constraints->checkInverseJacobian_1..." << std::endl;
-    flow_constraints->checkInverseJacobian_1(*simulation_variables_rol_ptr, *simulation_variables_rol_ptr, *simulation_variables_rol_ptr, *design_variables_rol_ptr, true, *rcp_outstream);
-    *rcp_outstream << "flow_constraints->checkInverseAdjointJacobian_1..." << std::endl;
-    flow_constraints->checkInverseAdjointJacobian_1(*simulation_variables_rol_ptr, *simulation_variables_rol_ptr, *simulation_variables_rol_ptr, *design_variables_rol_ptr, true, *rcp_outstream);
-    auto robj = ROL::makePtr<ROL::Reduced_Objective_SimOpt<double>>(
-                                                                objective_function,
-                                                                flow_constraints,
-                                                                simulation_variables_rol_ptr,
-                                                                design_variables_rol_ptr,
-                                                                adjoint_variables_rol_ptr,
-                                                                true,
-                                                                false);
-    *rcp_outstream << "robj->checkGradient..." << std::endl;
-    robj->checkGradient(*design_variables_rol_ptr, *d_control, true, *rcp_outstream);
-    *rcp_outstream << "robj->checkHessVec..." << std::endl;
-    robj->checkHessVec(*design_variables_rol_ptr, *d_control, true, *rcp_outstream);
+        *rcp_outstream << "flow_constraints->checkApplyJacobian_1..." << std::endl;
+        flow_constraints->checkApplyJacobian_1(*simulation_variables_rol_ptr, *design_variables_rol_ptr, *d_sim, *simulation_variables_rol_ptr, true, *rcp_outstream);
+        *rcp_outstream << "flow_constraints->checkApplyJacobian_2..." << std::endl;
+        flow_constraints->checkApplyJacobian_2(*simulation_variables_rol_ptr, *design_variables_rol_ptr, *d_control, *simulation_variables_rol_ptr, true, *rcp_outstream);
+        *rcp_outstream << "flow_constraints->checkApplyJacobian..." << std::endl;
+        flow_constraints->checkApplyJacobian(*all_variables_rol_ptr, direction, *simulation_variables_rol_ptr, true, *rcp_outstream);
+        *rcp_outstream << "flow_constraints->checkApplyAdjointHessian..." << std::endl;
+        flow_constraints->checkApplyAdjointHessian(*all_variables_rol_ptr, *d_sim, direction, *all_variables_rol_ptr, true, *rcp_outstream);
+        *rcp_outstream << "flow_constraints->checkAdjointConsistencyJacobian..." << std::endl;
+        flow_constraints->checkAdjointConsistencyJacobian(*d_sim, direction, *all_variables_rol_ptr, true, *rcp_outstream);
+        *rcp_outstream << "flow_constraints->checkInverseJacobian_1..." << std::endl;
+        flow_constraints->checkInverseJacobian_1(*simulation_variables_rol_ptr, *simulation_variables_rol_ptr, *simulation_variables_rol_ptr, *design_variables_rol_ptr, true, *rcp_outstream);
+        *rcp_outstream << "flow_constraints->checkInverseAdjointJacobian_1..." << std::endl;
+        flow_constraints->checkInverseAdjointJacobian_1(*simulation_variables_rol_ptr, *simulation_variables_rol_ptr, *simulation_variables_rol_ptr, *design_variables_rol_ptr, true, *rcp_outstream);
+        auto robj = ROL::makePtr<ROL::Reduced_Objective_SimOpt<double>>(
+                                                                    objective_function,
+                                                                    flow_constraints,
+                                                                    simulation_variables_rol_ptr,
+                                                                    design_variables_rol_ptr,
+                                                                    adjoint_variables_rol_ptr,
+                                                                    true,
+                                                                    false);
+        *rcp_outstream << "robj->checkGradient..." << std::endl;
+        robj->checkGradient(*design_variables_rol_ptr, *d_control, true, *rcp_outstream);
+        *rcp_outstream << "robj->checkHessVec..." << std::endl;
+        robj->checkHessVec(*design_variables_rol_ptr, *d_control, true, *rcp_outstream);
 
-    return 0;
+        return 0;
+    }
 //============================== Check objective function and constraint gradients/Hessians ==================================================================
 
 
