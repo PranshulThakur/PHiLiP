@@ -7,7 +7,7 @@
 namespace PHiLiP {
 
 template <int dim, int nstate, typename real>
-DualWeightedResidualObjFunc<dim, nstate, real> :: DualWeightedResidualObjFunc( 
+DualWeightedResidualObjFunc2<dim, nstate, real> :: DualWeightedResidualObjFunc2( 
     std::shared_ptr<DGBase<dim,real>> dg_input,
     const bool uses_solution_values,
     const bool uses_solution_gradient,
@@ -32,7 +32,7 @@ DualWeightedResidualObjFunc<dim, nstate, real> :: DualWeightedResidualObjFunc(
 //                          Functions used only once in constructor
 //===================================================================================================================================================
 template<int dim, int nstate, typename real>
-void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_interpolation_matrix()
+void DualWeightedResidualObjFunc2<dim, nstate, real> :: compute_interpolation_matrix()
 { 
     vector_coarse = this->dg->solution; // copies values and parallel layout
     vector_vol_nodes = this->dg->high_order_grid->volume_nodes;
@@ -115,7 +115,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_interpolation_mat
 }
 
 template<int dim, int nstate, typename real>
-void DualWeightedResidualObjFunc<dim, nstate, real> :: extract_interpolation_matrices(
+void DualWeightedResidualObjFunc2<dim, nstate, real> :: extract_interpolation_matrices(
     dealii::Table<2, dealii::FullMatrix<real>> &interpolation_hp)
 {
     const dealii::hp::FECollection<dim> &fe = this->dg->dof_handler.get_fe_collection();
@@ -145,7 +145,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: extract_interpolation_mat
 }
 
 template<int dim, int nstate, typename real>
-void DualWeightedResidualObjFunc<dim, nstate, real> :: get_projection_matrix(
+void DualWeightedResidualObjFunc2<dim, nstate, real> :: get_projection_matrix(
     const dealii::FESystem<dim,dim> &fe_i, // fe output
     const dealii::FESystem<dim,dim> &fe_j, // fe input
     dealii::FullMatrix<real> &projection_matrix)
@@ -171,7 +171,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: get_projection_matrix(
 }
 
 template<int dim, int nstate, typename real>
-std::vector<std::vector<dealii::types::global_dof_index>> DualWeightedResidualObjFunc<dim, nstate, real> :: get_cellwise_dof_indices()
+std::vector<std::vector<dealii::types::global_dof_index>> DualWeightedResidualObjFunc2<dim, nstate, real> :: get_cellwise_dof_indices()
 {
     std::vector<std::vector<dealii::types::global_dof_index>> cellwise_dof_indices(this->dg->triangulation->n_active_cells());
     std::vector<dealii::types::global_dof_index> dof_indices;
@@ -197,7 +197,7 @@ std::vector<std::vector<dealii::types::global_dof_index>> DualWeightedResidualOb
 //===================================================================================================================================================
 
 template<int dim, int nstate, typename real>
-real DualWeightedResidualObjFunc<dim, nstate, real> :: evaluate_functional(
+real DualWeightedResidualObjFunc2<dim, nstate, real> :: evaluate_functional(
     const bool compute_dIdW,
     const bool compute_dIdX,
     const bool compute_d2I)
@@ -244,7 +244,7 @@ real DualWeightedResidualObjFunc<dim, nstate, real> :: evaluate_functional(
 
 
 template<int dim, int nstate, typename real>
-real DualWeightedResidualObjFunc<dim, nstate, real> :: evaluate_objective_function()
+real DualWeightedResidualObjFunc2<dim, nstate, real> :: evaluate_objective_function()
 {
     dwr_error.reinit(vector_fine);
     dwr_error = 0;
@@ -314,7 +314,7 @@ real DualWeightedResidualObjFunc<dim, nstate, real> :: evaluate_objective_functi
 }
 
 template<int dim, int nstate, typename real>
-void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_common_vectors_and_matrices()
+void DualWeightedResidualObjFunc2<dim, nstate, real> :: compute_common_vectors_and_matrices()
 {
     const VectorType solution_coarse_stored = this->dg->solution;
     this->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(1);
@@ -410,7 +410,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: compute_common_vectors_an
 }
 
 template<int dim, int nstate, typename real>
-void DualWeightedResidualObjFunc<dim, nstate, real> :: store_dIdX()
+void DualWeightedResidualObjFunc2<dim, nstate, real> :: store_dIdX()
 { 
     this->dIdX.reinit(vector_vol_nodes);
     dwr_x_Tvmult(this->dIdX, dwr_error);
@@ -434,14 +434,14 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: store_dIdX()
 }
 
 template<int dim, int nstate, typename real>
-void DualWeightedResidualObjFunc<dim, nstate, real> :: store_dIdW()
+void DualWeightedResidualObjFunc2<dim, nstate, real> :: store_dIdW()
 {
     this->dIdw.reinit(vector_coarse);
     dwr_u_Tvmult(this->dIdw, dwr_error);
 }
 
 template<int dim, int nstate, typename real>
-void DualWeightedResidualObjFunc<dim, nstate, real> :: d2IdWdW_vmult(
+void DualWeightedResidualObjFunc2<dim, nstate, real> :: d2IdWdW_vmult(
     VectorType &out_vector, 
     const VectorType &in_vector) const
 {
@@ -465,7 +465,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: d2IdWdW_vmult(
 }
 
 template<int dim, int nstate, typename real>
-void DualWeightedResidualObjFunc<dim, nstate, real> :: d2IdWdX_vmult(
+void DualWeightedResidualObjFunc2<dim, nstate, real> :: d2IdWdX_vmult(
     VectorType &out_vector, 
     const VectorType &in_vector) const
 { 
@@ -488,7 +488,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: d2IdWdX_vmult(
 }
 
 template<int dim, int nstate, typename real>
-void DualWeightedResidualObjFunc<dim, nstate, real> :: d2IdWdX_Tvmult(
+void DualWeightedResidualObjFunc2<dim, nstate, real> :: d2IdWdX_Tvmult(
     VectorType &out_vector, 
     const VectorType &in_vector) const
 { 
@@ -512,7 +512,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: d2IdWdX_Tvmult(
 }
 
 template<int dim, int nstate, typename real>
-void DualWeightedResidualObjFunc<dim, nstate, real> :: d2IdXdX_vmult(
+void DualWeightedResidualObjFunc2<dim, nstate, real> :: d2IdXdX_vmult(
     VectorType &out_vector, 
     const VectorType &in_vector) const
 {
@@ -560,7 +560,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: d2IdXdX_vmult(
 //===================================================================================================================================================
 
 template<int dim, int nstate, typename real>
-void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_adjoint_vmult(
+void DualWeightedResidualObjFunc2<dim, nstate, real> :: dwr_adjoint_vmult(
     VectorType &out_vector, 
     const VectorType &in_vector) const
 {
@@ -583,7 +583,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_adjoint_vmult(
 }
 
 template<int dim, int nstate, typename real>
-void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_residual_vmult(
+void DualWeightedResidualObjFunc2<dim, nstate, real> :: dwr_residual_vmult(
     VectorType &out_vector, 
     const VectorType &in_vector) const
 {
@@ -606,7 +606,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_residual_vmult(
 }
 
 template<int dim, int nstate, typename real>
-void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_adjoint_Tvmult(
+void DualWeightedResidualObjFunc2<dim, nstate, real> :: dwr_adjoint_Tvmult(
     VectorType &out_vector, 
     const VectorType &in_vector) const
 {
@@ -614,7 +614,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_adjoint_Tvmult(
 }
 
 template<int dim, int nstate, typename real>
-void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_residual_Tvmult(
+void DualWeightedResidualObjFunc2<dim, nstate, real> :: dwr_residual_Tvmult(
     VectorType &out_vector, 
     const VectorType &in_vector) const
 {
@@ -625,7 +625,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_residual_Tvmult(
 //                          vmults and Tvmults of \eta_x and \eta_u
 //===================================================================================================================================================
 template<int dim, int nstate, typename real>
-void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_x_vmult(
+void DualWeightedResidualObjFunc2<dim, nstate, real> :: dwr_x_vmult(
     VectorType &out_vector,
     const VectorType &in_vector) const
 {
@@ -668,7 +668,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_x_vmult(
 }
 
 template<int dim, int nstate, typename real>
-void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_u_vmult(
+void DualWeightedResidualObjFunc2<dim, nstate, real> :: dwr_u_vmult(
     VectorType &out_vector,
     const VectorType &in_vector) const
 {
@@ -715,7 +715,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_u_vmult(
 }
 
 template<int dim, int nstate, typename real>
-void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_x_Tvmult(
+void DualWeightedResidualObjFunc2<dim, nstate, real> :: dwr_x_Tvmult(
     VectorType &out_vector,
     const VectorType &in_vector) const
 {
@@ -759,7 +759,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_x_Tvmult(
 }
 
 template<int dim, int nstate, typename real>
-void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_u_Tvmult(
+void DualWeightedResidualObjFunc2<dim, nstate, real> :: dwr_u_Tvmult(
     VectorType &out_vector,
     const VectorType &in_vector) const
 {
@@ -809,7 +809,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_u_Tvmult(
 //                          vmults and Tvmults required to compute second derivatives
 //===================================================================================================================================================
 template<int dim, int nstate, typename real>
-void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_diagonal_vmult(
+void DualWeightedResidualObjFunc2<dim, nstate, real> :: dwr_diagonal_vmult(
     VectorType &out_vector, 
     const VectorType &in_vector) const
 {
@@ -833,7 +833,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_diagonal_vmult(
 }
 
 template<int dim, int nstate, typename real>
-void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_times_dwr_adjoint_x_vmult(
+void DualWeightedResidualObjFunc2<dim, nstate, real> :: dwr_times_dwr_adjoint_x_vmult(
     VectorType &out_vector, 
     const VectorType &in_vector) const
 {
@@ -862,7 +862,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_times_dwr_adjoint_x_v
 }
 
 template<int dim, int nstate, typename real>
-void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_times_dwr_residual_x_vmult(
+void DualWeightedResidualObjFunc2<dim, nstate, real> :: dwr_times_dwr_residual_x_vmult(
     VectorType &out_vector, 
     const VectorType &in_vector) const
 {
@@ -876,7 +876,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_times_dwr_residual_x_
 }
 
 template<int dim, int nstate, typename real>
-void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_times_dwr_adjoint_u_vmult(
+void DualWeightedResidualObjFunc2<dim, nstate, real> :: dwr_times_dwr_adjoint_u_vmult(
     VectorType &out_vector, 
     const VectorType &in_vector) const
 {
@@ -909,7 +909,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_times_dwr_adjoint_u_v
 }
 
 template<int dim, int nstate, typename real>
-void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_times_dwr_residual_u_vmult(
+void DualWeightedResidualObjFunc2<dim, nstate, real> :: dwr_times_dwr_residual_u_vmult(
     VectorType &out_vector, 
     const VectorType &in_vector) const
 {
@@ -927,7 +927,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_times_dwr_residual_u_
 }
 
 template<int dim, int nstate, typename real>
-void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_times_dwr_adjoint_x_Tvmult(
+void DualWeightedResidualObjFunc2<dim, nstate, real> :: dwr_times_dwr_adjoint_x_Tvmult(
     VectorType &out_vector, 
     const VectorType &in_vector) const
 {
@@ -956,7 +956,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_times_dwr_adjoint_x_T
 }
 
 template<int dim, int nstate, typename real>
-void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_times_dwr_residual_x_Tvmult(
+void DualWeightedResidualObjFunc2<dim, nstate, real> :: dwr_times_dwr_residual_x_Tvmult(
     VectorType &out_vector, 
     const VectorType &in_vector) const
 {
@@ -971,7 +971,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_times_dwr_residual_x_
 }
 
 template<int dim, int nstate, typename real>
-void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_times_dwr_adjoint_u_Tvmult(
+void DualWeightedResidualObjFunc2<dim, nstate, real> :: dwr_times_dwr_adjoint_u_Tvmult(
     VectorType &out_vector, 
     const VectorType &in_vector) const
 {
@@ -1005,7 +1005,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_times_dwr_adjoint_u_T
 }
 
 template<int dim, int nstate, typename real>
-void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_times_dwr_residual_u_Tvmult(
+void DualWeightedResidualObjFunc2<dim, nstate, real> :: dwr_times_dwr_residual_u_Tvmult(
     VectorType &out_vector, 
     const VectorType &in_vector) const
 {
@@ -1026,7 +1026,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_times_dwr_residual_u_
 //                          vmults and Tvmults of \eta^T \eta_{xx, ux, uu}
 //===================================================================================================================================================
 template<int dim, int nstate, typename real>
-void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_times_dwr_xx_vmult(
+void DualWeightedResidualObjFunc2<dim, nstate, real> :: dwr_times_dwr_xx_vmult(
     VectorType &out_vector, 
     const VectorType &in_vector) const
 {
@@ -1083,7 +1083,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_times_dwr_xx_vmult(
 }
 
 template<int dim, int nstate, typename real>
-void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_times_dwr_ux_vmult(
+void DualWeightedResidualObjFunc2<dim, nstate, real> :: dwr_times_dwr_ux_vmult(
     VectorType &out_vector, 
     const VectorType &in_vector) const
 {
@@ -1143,7 +1143,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_times_dwr_ux_vmult(
 }
 
 template<int dim, int nstate, typename real>
-void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_times_dwr_ux_Tvmult(
+void DualWeightedResidualObjFunc2<dim, nstate, real> :: dwr_times_dwr_ux_Tvmult(
     VectorType &out_vector, 
     const VectorType &in_vector) const
 {
@@ -1203,7 +1203,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_times_dwr_ux_Tvmult(
 }
 
 template<int dim, int nstate, typename real>
-void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_times_dwr_uu_vmult(
+void DualWeightedResidualObjFunc2<dim, nstate, real> :: dwr_times_dwr_uu_vmult(
     VectorType &out_vector, 
     const VectorType &in_vector) const
 {
@@ -1271,7 +1271,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: dwr_times_dwr_uu_vmult(
 //                          Vmults and Tvmults of adjoint
 //===================================================================================================
 template<int dim, int nstate, typename real>
-void DualWeightedResidualObjFunc<dim, nstate, real> :: adjoint_x_vmult(
+void DualWeightedResidualObjFunc2<dim, nstate, real> :: adjoint_x_vmult(
     VectorType &out_vector, 
     const VectorType &in_vector) const
 {
@@ -1289,7 +1289,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: adjoint_x_vmult(
 
 
 template<int dim, int nstate, typename real>
-void DualWeightedResidualObjFunc<dim, nstate, real> :: adjoint_u_vmult(
+void DualWeightedResidualObjFunc2<dim, nstate, real> :: adjoint_u_vmult(
     VectorType &out_vector, 
     const VectorType &in_vector) const
 {
@@ -1306,7 +1306,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: adjoint_u_vmult(
 }
 
 template<int dim, int nstate, typename real>
-void DualWeightedResidualObjFunc<dim, nstate, real> :: adjoint_x_Tvmult(
+void DualWeightedResidualObjFunc2<dim, nstate, real> :: adjoint_x_Tvmult(
     VectorType &out_vector, 
     const VectorType &in_vector) const
 {
@@ -1324,7 +1324,7 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: adjoint_x_Tvmult(
 }
 
 template<int dim, int nstate, typename real>
-void DualWeightedResidualObjFunc<dim, nstate, real> :: adjoint_u_Tvmult(
+void DualWeightedResidualObjFunc2<dim, nstate, real> :: adjoint_u_Tvmult(
     VectorType &out_vector, 
     const VectorType &in_vector) const
 {
@@ -1341,10 +1341,10 @@ void DualWeightedResidualObjFunc<dim, nstate, real> :: adjoint_u_Tvmult(
     out_vector.update_ghost_values();
 }
 
-template class DualWeightedResidualObjFunc <PHILIP_DIM, 1, double>;
-template class DualWeightedResidualObjFunc <PHILIP_DIM, 2, double>;
-template class DualWeightedResidualObjFunc <PHILIP_DIM, 3, double>;
-template class DualWeightedResidualObjFunc <PHILIP_DIM, 4, double>;
-template class DualWeightedResidualObjFunc <PHILIP_DIM, 5, double>;
+template class DualWeightedResidualObjFunc2 <PHILIP_DIM, 1, double>;
+template class DualWeightedResidualObjFunc2 <PHILIP_DIM, 2, double>;
+template class DualWeightedResidualObjFunc2 <PHILIP_DIM, 3, double>;
+template class DualWeightedResidualObjFunc2 <PHILIP_DIM, 4, double>;
+template class DualWeightedResidualObjFunc2 <PHILIP_DIM, 5, double>;
 } // namespace PHiLiP
 

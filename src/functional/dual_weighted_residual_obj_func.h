@@ -1,5 +1,5 @@
-#ifndef __DUAL_WEIGHTED_RESIDUAL_OBJ_FUNC_H__
-#define __DUAL_WEIGHTED_RESIDUAL_OBJ_FUNC_H__
+#ifndef __DUAL_WEIGHTED_RESIDUAL_OBJ_FUNC2_H__
+#define __DUAL_WEIGHTED_RESIDUAL_OBJ_FUNC2_H__
 
 #include "functional.h"
 
@@ -7,21 +7,21 @@ namespace PHiLiP {
 
 /// Class to compute the objective function of dual weighted residual used for optimization based mesh adaptation. \f[ \mathcal{F} = \frac{1}{2} \sum_k \eta_k^2 \f].
 template <int dim, int nstate, typename real>
-class DualWeightedResidualObjFunc : public Functional<dim, nstate, real>
+class DualWeightedResidualObjFunc2 : public Functional<dim, nstate, real>
 {
     using VectorType = dealii::LinearAlgebra::distributed::Vector<real>; ///< Alias for dealii's parallel distributed vector.
     using MatrixType = dealii::TrilinosWrappers::SparseMatrix; ///< Alias for dealii::TrilinosWrappers::SparseMatrix.
 
 public:
     /// Constructor
-    DualWeightedResidualObjFunc( 
+    DualWeightedResidualObjFunc2( 
         std::shared_ptr<DGBase<dim,real>> dg_input,
         const bool uses_solution_values = true,
         const bool uses_solution_gradient = false,
         const bool _use_coarse_residual = false);
 
     /// Destructor
-    ~DualWeightedResidualObjFunc(){}
+    ~DualWeightedResidualObjFunc2(){}
 
 
     /// Computes \f[ out_vector = d2IdWdW*in_vector \f]. 

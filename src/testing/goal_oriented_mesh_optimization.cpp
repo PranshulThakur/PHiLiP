@@ -125,7 +125,7 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
     ROL::Ptr<ROL::Vector<double>> simulation_variables_rol_ptr = ROL::makePtr<VectorAdaptor>(simulation_variables_rol);
     ROL::Ptr<ROL::Vector<double>> design_variables_rol_ptr = ROL::makePtr<VectorAdaptor>(design_variables_rol);
     ROL::Ptr<ROL::Vector<double>> adjoint_variables_rol_ptr = ROL::makePtr<VectorAdaptor>(adjoint_variables_rol);
-    DualWeightedResidualObjFunc<dim, nstate, double> dwr_obj_function(flow_solver->dg, true, false, all_param.optimization_param.use_coarse_residual);
+    DualWeightedResidualObjFunc2<dim, nstate, double> dwr_obj_function(flow_solver->dg, true, false, all_param.optimization_param.use_coarse_residual);
 
     auto objective_function = ROL::makePtr<ROLObjectiveSimOpt<dim,nstate>>(dwr_obj_function, design_parameterization); 
     auto flow_constraints  = ROL::makePtr<FlowConstraints<dim>>(flow_solver->dg, design_parameterization); // Constraints of Residual = 0

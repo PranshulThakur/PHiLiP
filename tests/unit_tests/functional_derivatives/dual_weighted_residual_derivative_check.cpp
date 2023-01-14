@@ -71,7 +71,7 @@ int main (int argc, char * argv[])
     const bool uses_solution_values = true;
     const bool uses_solution_gradient = false;
     const bool use_coarse_residual = false;
-    std::unique_ptr<DualWeightedResidualObjFunc<dim, nstate, double>> dwr_func = std::make_unique<DualWeightedResidualObjFunc<dim, nstate, double>> (dg,
+    std::unique_ptr<DualWeightedResidualObjFunc2<dim, nstate, double>> dwr_func = std::make_unique<DualWeightedResidualObjFunc2<dim, nstate, double>> (dg,
                                                                                                                                                      uses_solution_values, 
                                                                                                                                                      uses_solution_gradient, 
                                                                                                                                                      use_coarse_residual);
@@ -139,7 +139,7 @@ int main (int argc, char * argv[])
 
 // ======= Check if volume nodes and the solution remain the same after evaluating the functional ============================================================================
     // This check ensures that volume_node/solution configuration stays the same. If this same configuration is used again, already computed values aren't re-evaluated.
-    std::unique_ptr<Functional<dim, nstate, double>> dwr_objfunc = std::make_unique<DualWeightedResidualObjFunc<dim, nstate, double>> ( dg, 
+    std::unique_ptr<Functional<dim, nstate, double>> dwr_objfunc = std::make_unique<DualWeightedResidualObjFunc2<dim, nstate, double>> ( dg, 
                                                                                                                                         uses_solution_values, 
                                                                                                                                         uses_solution_gradient, 
                                                                                                                                         use_coarse_residual);
