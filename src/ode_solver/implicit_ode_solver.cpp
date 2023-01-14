@@ -38,6 +38,8 @@ void ImplicitODESolver<dim,real,MeshType>::step_in_time (real dt, const bool pse
             this->dg->right_hand_side,
             this->solution_update,
             this->ODESolverBase<dim,real,MeshType>::all_parameters->linear_solver_param);
+    
+    this->dg->system_matrix *= -1.0; // reset system_matrix.
 
     linesearch();
 
