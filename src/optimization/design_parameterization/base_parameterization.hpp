@@ -29,12 +29,23 @@ public:
 
     /// Computes derivative of volume nodes w.r.t. design parameters.
     virtual void compute_dXv_dXp(MatrixType &dXv_dXp) const = 0;
+    
+    /// Updates the derivative of volume nodes w.r.t. current control variables. 
+    /** It's an empty function in base class and can be overridden in derived classes for use.
+     */
+    virtual void update_dXv_dXp(MatrixType & /*dXv_dXp*/) const;
+    
+    /// Computes vector v1 times third order tensor d2Xdh2 times vector v2.
+    virtual void v1_times_d2XdXp2_times_v2(VectorType &/*out_vector*/, const VectorType& /*v1*/, const VectorType &/*v2*/) const; 
 
     /// Outputs design variables. Doesn't output anything if not overridden.
     virtual void output_design_variables(const unsigned int /*iteration_no*/) const;
 
     /// Checks if the updated design variable doesn't distort the mesh (which is possible when backtracking with high initial step length). Returns 0 if everything is good.
     virtual int is_design_variable_valid(const MatrixType &dXv_dXp, const VectorType &design_var) const;
+    
+    /// Return the norm of control variables. 
+    virtual double control_var_norm() const;
     
     /// Returns the number of design variables. To be implemented by derived classes.
     virtual unsigned int get_number_of_design_variables() const = 0;

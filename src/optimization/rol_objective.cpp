@@ -40,6 +40,7 @@ void ROLObjectiveSimOpt<dim,nstate>::update(
 
     design_var =  ROL_vector_to_dealii_vector_reference(des_var_ctl);
     design_parameterization->update_mesh_from_design_variables(dXvdXp, design_var);
+    design_parameterization->update_dXv_dXp(dXvdXp);
 }
 
 
@@ -311,6 +312,18 @@ void ROLObjectiveSimOpt<dim,nstate>::hessVec_22(
 
     auto &dealii_output = ROL_vector_to_dealii_vector_reference(output_vector);
     dXvdXp.Tvmult(dealii_output, d2IdXdXp_input);
+
+    // Add contribution from second derivative of Xv wrt parameter p.
+    {
+        const bool compute_dIdW = false, compute_dIdX = true, compute_d2I = false;
+        functional.evaluate_functional( compute_dIdW, compute_dIdX, compute_d2I );
+        auto dealii_output2 = dealii_output;
+        dealii_output2 *= 0.0;
+        design_parameterization->v1_times_d2XdXp2_times_v2(dealii_output2, functional.dIdX, dealii_input); 
+        dealii_output += dealii_output2;
+        dealii_output.update_ghost_values();
+    }
+
 
     //n_vmult += 3;
 }
