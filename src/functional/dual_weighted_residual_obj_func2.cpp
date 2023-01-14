@@ -1,4 +1,4 @@
-#include "dual_weighted_residual_obj_func.h"
+#include "dual_weighted_residual_obj_func2.h"
 #include <deal.II/lac/dynamic_sparsity_pattern.h>
 #include <deal.II/lac/sparsity_tools.h>
 #include "linear_solver/linear_solver.h"
