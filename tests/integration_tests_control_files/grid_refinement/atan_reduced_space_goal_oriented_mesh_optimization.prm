@@ -44,7 +44,7 @@ subsection optimization
     set use_fine_solution = false
 
     set gradient_tolerance = 1.0e-11
-    set max_design_cycles = 20
+    set max_design_cycles = 10
     set linear_iteration_limit = 2000
     set initial_step_size = 1.0
     set functional_evaluation_limit = 30
@@ -52,7 +52,7 @@ subsection optimization
     set line_search_curvature = Strong Wolfe Conditions
     set reduced_space_descent_method = Newton-Krylov
     set full_space_preconditioner = P4
-    set mesh_weight_factor = 5.0e-2  #5e-2 5e-2 5e-2
+    set mesh_weight_factor = 0.0  #5e-2 5e-2 5e-2
     set mesh_volume_power = 2
 
     set regularization_parameter = 0.0 #0 0 0 
