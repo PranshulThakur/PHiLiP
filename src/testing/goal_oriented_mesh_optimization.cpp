@@ -153,6 +153,66 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
     parlist.sublist("General").sublist("Secant").set("Type","Limited-Memory BFGS");
     parlist.sublist("General").sublist("Secant").set("Maximum Storage", all_param.optimization_param.max_design_cycles);
 
+
+    auto robj = ROL::makePtr<ROL::Reduced_Objective_SimOpt<double>>(
+                                                                objective_function,
+                                                                flow_constraints,
+                                                                simulation_variables_rol_ptr,
+                                                                design_variables_rol_ptr,
+                                                                adjoint_variables_rol_ptr,
+                                                                true,
+                                                                false);
+    unsigned int mid_index = initial_design_variables.size()/2;
+    const double metric_val = initial_design_variables(mid_index);
+    const int n_evaluations = 100;
+    const double step_size_eval = 2.0*metric_val/n_evaluations;
+
+    dealii::Vector<double> metric_val_vector(n_evaluations);
+    dealii::Vector<double> reduced_obj_val(n_evaluations);
+    dealii::Vector<double> reduced_gradient_norm(n_evaluations);
+    double tol_robj = 1.0e-13;
+    // change metric_val from -2*size to 2.0*size
+    for(int j = 0; j<n_evaluations; ++j)
+    {
+        const double metric_val_updated = step_size_eval*(j+1);
+        metric_val_vector(j) = metric_val_updated;
+        initial_design_variables(mid_index) = metric_val_updated;
+        DealiiVector initial_design_variables2 = initial_design_variables;
+        VectorAdaptor design_variables_rol2(Teuchos::rcp(&initial_design_variables2, false));
+        ROL::Ptr<ROL::Vector<double>> design_variables_rol_ptr2 = ROL::makePtr<VectorAdaptor>(design_variables_rol2);
+        std::cout<<"Evaluating reduced objective function"<<std::endl;
+        robj->update(*design_variables_rol_ptr2);
+        reduced_obj_val(j) = robj->value(*design_variables_rol_ptr2, tol_robj);
+    
+        // Compute reduced gradient.
+        DealiiVector initial_design_variables3 = initial_design_variables;
+        VectorAdaptor design_variables_rol3(Teuchos::rcp(&initial_design_variables3, false));
+        ROL::Ptr<ROL::Vector<double>> grad = ROL::makePtr<VectorAdaptor>(design_variables_rol3);
+        std::cout<<"Evaluating reduced gradient"<<std::endl;
+        robj->gradient(*grad, *design_variables_rol_ptr2, tol_robj);
+        DealiiVector grad_dealii = ROL_vector_to_dealii_vector_reference(*grad);
+        reduced_gradient_norm(j) = abs(grad_dealii(mid_index));
+    }
+
+    std::cout<<"\n metric_val_vector = [";
+    for(int j=0; j<n_evaluations; ++j)
+    {
+        std::cout<<metric_val_vector(j)<<", ";
+    }
+    std::cout<<std::endl;
+    std::cout<<"\n reduced_obj_func = [";
+    for(int j=0; j<n_evaluations; ++j)
+    {
+        std::cout<<reduced_obj_val(j)<<", ";
+    }
+    std::cout<<std::endl;
+    std::cout<<"\n reduced_gradient_norm = [";
+    for(int j=0; j<n_evaluations; ++j)
+    {
+        std::cout<<reduced_gradient_norm(j)<<", ";
+    }
+    std::cout<<std::endl;
+return 0;
 /*
 //============================ Check hessian vector products =========================================================
     std::vector<double> steps;
