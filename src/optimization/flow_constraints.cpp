@@ -83,9 +83,9 @@ void FlowConstraints<dim>
     (void) flag; (void) iter;
     design_var =  ROL_vector_to_dealii_vector_reference(des_var_ctl);
     bool mesh_updated = design_parameterization->update_mesh_from_design_variables(dXvdXp, design_var);
+    design_parameterization->update_dXv_dXp(dXvdXp);
     if(mesh_updated)
     {
-        design_parameterization->update_dXv_dXp(dXvdXp);
         dg->output_results_vtk(iupdate);
         design_parameterization->output_design_variables(iupdate);
         iupdate++;

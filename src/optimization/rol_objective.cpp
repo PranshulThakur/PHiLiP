@@ -39,11 +39,8 @@ void ROLObjectiveSimOpt<dim,nstate>::update(
     functional.set_state(ROL_vector_to_dealii_vector_reference(des_var_sim));
 
     design_var =  ROL_vector_to_dealii_vector_reference(des_var_ctl);
-    bool mesh_updated = design_parameterization->update_mesh_from_design_variables(dXvdXp, design_var);
-    if(mesh_updated)
-    {
-        design_parameterization->update_dXv_dXp(dXvdXp);
-    }
+    design_parameterization->update_mesh_from_design_variables(dXvdXp, design_var);
+    design_parameterization->update_dXv_dXp(dXvdXp);
 }
 
 

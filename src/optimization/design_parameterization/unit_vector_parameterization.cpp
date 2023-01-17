@@ -43,6 +43,12 @@ void UnitVectorParameterization<dim> :: initialize_design_variables(VectorType &
 template<int dim>
 void UnitVectorParameterization<dim> :: compute_dXv_dXp(MatrixType &dXv_dXp) const
 {
+    update_dXv_dXp(dXv_dXp);
+}
+
+template<int dim>
+void UnitVectorParameterization<dim> :: update_dXv_dXp(MatrixType &dXv_dXp) const
+{
     const dealii::IndexSet &volume_range = this->high_order_grid->volume_nodes.get_partitioner()->locally_owned_range();
     
     dealii::DynamicSparsityPattern dsp(n_vol_nodes, n_control_variables, volume_range);
@@ -63,12 +69,7 @@ void UnitVectorParameterization<dim> :: compute_dXv_dXp(MatrixType &dXv_dXp) con
     control_variables_range.add_range(0, n_control_variables);
 
     dXv_dXp.reinit(volume_range, control_variables_range, dsp, this->mpi_communicator);
-    update_dXv_dXp(dXv_dXp);
-}
-
-template<int dim>
-void UnitVectorParameterization<dim> :: update_dXv_dXp(MatrixType &dXv_dXp) const
-{
+    
     for(unsigned int i=1; i<n_vol_nodes; ++i)
     {
         for(unsigned int p=0; p<n_control_variables; ++p)
@@ -76,8 +77,8 @@ void UnitVectorParameterization<dim> :: update_dXv_dXp(MatrixType &dXv_dXp) cons
             dXv_dXp.set(i,p, dxi_dhp(i,p));
         }
     }
-
     dXv_dXp.compress(dealii::VectorOperation::insert);
+    std::cout<<"Frobenius norm of dXv_dXp = "<<dXv_dXp.frobenius_norm()<<std::endl;
 }
 //========================= Other functions from base class which are overridden. =============================================
 
@@ -218,7 +219,6 @@ void UnitVectorParameterization<dim> :: v1_times_d2XdXp2_times_v2(VectorType &ou
         for(unsigned int j=0; j<n_control_variables; ++j)
         {
             out_vector(i) += v1_times_d2X_dh2(i,j)*v2(j);
-
         }
     }
     out_vector.update_ghost_values();
