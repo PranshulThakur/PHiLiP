@@ -296,7 +296,7 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
     filebuffer.close();
 
     // output volume nodes
-    pcout<<"volume_nodes_opt = [";
+    pcout<<"\n volume_nodes_opt = [";
     for(unsigned int i=0; i<flow_solver->dg->high_order_grid->volume_nodes.size(); ++i)
     {
         pcout<<flow_solver->dg->high_order_grid->volume_nodes(i)<<", ";
