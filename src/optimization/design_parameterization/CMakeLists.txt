@@ -4,6 +4,7 @@ set(DESIGN_PARAMETERIZATION_SRC
     identity_parameterization.cpp
     inner_vol_parameterization.cpp
     unit_vector_parameterization.cpp
+	metric_parameterization.cpp
     )
 
 foreach(dim RANGE 1 3)
