@@ -9,7 +9,8 @@ set pde_type  = advection
 set test_type = goal_oriented_mesh_optimization 
 
 set sipg_penalty_factor = 20.0
-set overintegration = 30
+set overintegration = 5
+#set use_collocated_nodes = true
 
 subsection linear solver
 #set linear_solver_type = direct
@@ -45,21 +46,16 @@ subsection optimization
     set use_fine_solution = false
 
     set gradient_tolerance = 1.0e-11
-    set max_design_cycles = 15
+    set max_design_cycles = 30
     set linear_iteration_limit = 2000
     set initial_step_size = 1.0
     set functional_evaluation_limit = 30
     set line_search_method = Backtracking
     set line_search_curvature = Strong Wolfe Conditions
     set reduced_space_descent_method = Newton-Krylov
-    set full_space_preconditioner = P4
-    set mesh_weight_factor = 0.0  #5e-2 5e-2 5e-2
+    
+	set mesh_weight_factor = 0.0  #5e-2 5e-2 5e-2
     set mesh_volume_power = 2
-
-    set regularization_parameter = 0.0 #0 0 0 
-    set regularization_scaling = 2.0
-    set regularization_tol_low = 1.0e-2
-    set regularization_tol_high = 1.0e-1
 end
 
 subsection functional
@@ -79,8 +75,8 @@ subsection flow_solver
   set flow_case_type = atan_shock
   set steady_state = true
   set steady_state_polynomial_ramping = false
-  set poly_degree = 4 #2 1 1
-  set max_poly_degree_for_adaptation = 5  #3 2 2
+  set poly_degree = 2 #2 1 1
+  set max_poly_degree_for_adaptation = 3  #3 2 2
   subsection grid
     set number_of_mesh_refinements = 6  #6 7 8
     set grid_left_bound = 0

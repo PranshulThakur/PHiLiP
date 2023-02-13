@@ -10,8 +10,9 @@
 #include "optimization/rol_to_dealii_vector.hpp"
 #include "optimization/flow_constraints.hpp"
 #include "optimization/rol_objective.hpp"
-#include "functional/dual_weighted_residual_obj_func2.h"
 #include "functional/dual_weighted_residual_obj_func1.h"
+#include "functional/dual_weighted_residual_obj_func2.h"
+#include "functional/dual_weighted_residual_obj_func3.h"
 #include "optimization/full_space_step.hpp"
 
 #include "Teuchos_GlobalMPISession.hpp"
@@ -37,6 +38,100 @@ GoalOrientedMeshOptimization<dim, nstate> :: GoalOrientedMeshOptimization(
 template <int dim, int nstate>
 int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
 {
+	using VectorType = dealii::LinearAlgebra::distributed::Vector<double>;
+	using NormalVector = dealii::Vector<double>;
+	const Parameters::AllParameters all_param = *(TestsBase::all_parameters);
+    std::unique_ptr<FlowSolver::FlowSolver<dim,nstate>> flow_solver = FlowSolver::FlowSolverFactory<dim,nstate>::select_flow_case(&all_param, parameter_handler);
+	std::shared_ptr< Functional<dim, nstate, double> > functional = FunctionalFactory<dim,nstate,double>::create_Functional(flow_solver->dg->all_parameters->functional_param, flow_solver->dg);
+	NormalVector dwr_error(flow_solver->dg->triangulation->n_active_cells());
+	double norm_err = 1.0;
+	unsigned int n_iterations = 0;
+	while(norm_err > 1.0e-1)
+	{
+		n_iterations++;
+		// Solve the flow
+		flow_solver->run(); // Solves steady state
+
+		// Solve adjoint equation
+		flow_solver->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(1);
+		VectorType adjoint(flow_solver->dg->solution);
+		VectorType residual_fine(flow_solver->dg->solution);
+		flow_solver->dg->assemble_residual(true);
+		
+		residual_fine = flow_solver->dg->right_hand_side;
+		residual_fine.update_ghost_values();
+
+		functional->evaluate_functional(true);
+
+		solve_linear(flow_solver->dg->system_matrix_transpose, functional->dIdw, adjoint, flow_solver->dg->all_parameters->linear_solver_param);
+		adjoint *= -1.0;
+		adjoint.update_ghost_values();
+		
+		const unsigned int max_dofs_per_cell = flow_solver->dg->dof_handler.get_fe_collection().max_dofs_per_cell();
+		std::vector<dealii::types::global_dof_index> dofs_indices_fine(max_dofs_per_cell);
+		
+		double sum_gamma = 0.0;
+
+		for (const auto &cell : flow_solver->dg->dof_handler.active_cell_iterators())
+		{
+			if(!cell->is_locally_owned())  continue;
+			
+			cell->get_dof_indices(dofs_indices_fine);
+
+			const unsigned int cell_index = cell->active_cell_index();
+			double sum_val = 0.0;
+			for(unsigned int idof = 0; idof<max_dofs_per_cell; ++idof)
+			{
+				sum_val += adjoint(dofs_indices_fine[idof])*residual_fine(dofs_indices_fine[idof]);
+			}
+			const double sum_val_scaled = sum_val/1.0;
+			const double cell_error = sqrt(sum_val_scaled*sum_val_scaled + 1.0e-15);
+			dwr_error(cell_index) = 1.0/pow(log(1.0/cell_error),1);//sqrt(1.0 + pow(log(cell_error/1.0e-12),2));
+			sum_gamma += 1.0/dwr_error(cell_index); 
+
+		} // cell loop ends
+		
+		flow_solver->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(-1);
+		
+		// Find equidistributed node distribution
+		const double const_val = 1.0/sum_gamma;
+
+		VectorType vol_nodes_diff = flow_solver->dg->high_order_grid->volume_nodes;
+
+		for(unsigned int i = 0; i<flow_solver->dg->high_order_grid->volume_nodes.size()-1; ++i)
+		{
+			const double opt_hk = const_val/dwr_error(i); 
+			flow_solver->dg->high_order_grid->volume_nodes(i+1) = flow_solver->dg->high_order_grid->volume_nodes(i) + opt_hk;
+		}
+
+		vol_nodes_diff -= flow_solver->dg->high_order_grid->volume_nodes;
+		norm_err = vol_nodes_diff.l2_norm();
+		if(n_iterations == 10){break;}
+		
+	} // while loop ends
+		
+	// output cell error
+	std::cout<<"\nCell error = "<<std::endl;
+	dwr_error.print(std::cout, 3, true, false);
+
+	// output volume nodes
+    pcout<<"\n volume_nodes_opt = ["<<flow_solver->dg->high_order_grid->volume_nodes(0);
+    for(unsigned int i=1; i<flow_solver->dg->high_order_grid->volume_nodes.size(); ++i)
+    {
+        pcout<<", "<<flow_solver->dg->high_order_grid->volume_nodes(i);
+    }
+    pcout<<"];"<<std::endl;
+
+	pcout<<"n_iterations = "<<n_iterations<<std::endl;
+	return 0;
+
+
+
+
+
+
+
+/*
     int test_error = 0;
     const Parameters::AllParameters all_param = *(TestsBase::all_parameters);
     using OptiParam = Parameters::OptimizationParam;
@@ -106,9 +201,9 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
     DealiiVector initial_design_variables;
     
     std::shared_ptr<BaseParameterization<dim>> design_parameterization = 
-                        //std::make_shared<InnerVolParameterization<dim>>(flow_solver->dg->high_order_grid);
+                        std::make_shared<InnerVolParameterization<dim>>(flow_solver->dg->high_order_grid);
                         //std::make_shared<UnitVectorParameterization<dim>>(flow_solver->dg->high_order_grid);
-                        std::make_shared<MetricParameterization<dim>>(flow_solver->dg->high_order_grid);
+                        //std::make_shared<MetricParameterization<dim>>(flow_solver->dg->high_order_grid);
 
     design_parameterization->initialize_design_variables(initial_design_variables); // get inner volume nodes
     pcout<<"Initialized design variables."<<std::endl;
@@ -128,7 +223,7 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
     ROL::Ptr<ROL::Vector<double>> simulation_variables_rol_ptr = ROL::makePtr<VectorAdaptor>(simulation_variables_rol);
     ROL::Ptr<ROL::Vector<double>> design_variables_rol_ptr = ROL::makePtr<VectorAdaptor>(design_variables_rol);
     ROL::Ptr<ROL::Vector<double>> adjoint_variables_rol_ptr = ROL::makePtr<VectorAdaptor>(adjoint_variables_rol);
-    DualWeightedResidualObjFunc2<dim, nstate, double> dwr_obj_function(flow_solver->dg, true, false, all_param.optimization_param.use_coarse_residual);
+    DualWeightedResidualObjFunc3<dim, nstate, double> dwr_obj_function(flow_solver->dg, true, false, all_param.optimization_param.use_coarse_residual);
 
     auto objective_function = ROL::makePtr<ROLObjectiveSimOpt<dim,nstate>>(dwr_obj_function, design_parameterization); 
     auto flow_constraints  = ROL::makePtr<FlowConstraints<dim>>(flow_solver->dg, design_parameterization); // Constraints of Residual = 0
@@ -355,6 +450,7 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
     pcout<<"Initial control var norm = "<<initial_control_var_norm<<"     Final control var norm = "<<final_control_var_norm<<std::endl;
     
     return 0;
+*/
 }
 
 #if PHILIP_DIM != 3
