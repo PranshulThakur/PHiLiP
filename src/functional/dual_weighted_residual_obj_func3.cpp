@@ -305,7 +305,7 @@ real DualWeightedResidualObjFunc3<dim, nstate, real> :: evaluate_objective_funct
 
 	tensor2_times_dwr.reinit(this->dg->triangulation->n_active_cells());
 	tensor_matrix_squared_vmult(tensor2_times_dwr, dwr_error);
-	const real obj_func_global = 0.5 * normalvector_dot_product(dwr_error, tensor2_times_dwr);
+	const real obj_func_global = 1.0/2.0 * normalvector_dot_product(dwr_error, tensor2_times_dwr);
 
     // Add contribution from mesh weight.
     //const real obj_func_net = obj_func_global + cell_distortion_functional->evaluate_functional();

@@ -44,9 +44,10 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
     std::unique_ptr<FlowSolver::FlowSolver<dim,nstate>> flow_solver = FlowSolver::FlowSolverFactory<dim,nstate>::select_flow_case(&all_param, parameter_handler);
 	std::shared_ptr< Functional<dim, nstate, double> > functional = FunctionalFactory<dim,nstate,double>::create_Functional(flow_solver->dg->all_parameters->functional_param, flow_solver->dg);
 	NormalVector dwr_error(flow_solver->dg->triangulation->n_active_cells());
+	NormalVector expected_cell_size(flow_solver->dg->triangulation->n_active_cells());
 	double norm_err = 1.0;
 	unsigned int n_iterations = 0;
-	while(norm_err > 1.0e-1)
+	while(norm_err > 1.0e-2)
 	{
 		n_iterations++;
 		// Solve the flow
@@ -69,9 +70,7 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
 		
 		const unsigned int max_dofs_per_cell = flow_solver->dg->dof_handler.get_fe_collection().max_dofs_per_cell();
 		std::vector<dealii::types::global_dof_index> dofs_indices_fine(max_dofs_per_cell);
-		
-		double sum_gamma = 0.0;
-
+		double min_dwr = 10000, max_dwr = 0, sum_dwr = 0;	
 		for (const auto &cell : flow_solver->dg->dof_handler.active_cell_iterators())
 		{
 			if(!cell->is_locally_owned())  continue;
@@ -84,28 +83,53 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
 			{
 				sum_val += adjoint(dofs_indices_fine[idof])*residual_fine(dofs_indices_fine[idof]);
 			}
-			const double sum_val_scaled = sum_val/1.0;
-			const double cell_error = sqrt(sum_val_scaled*sum_val_scaled + 1.0e-15);
-			dwr_error(cell_index) = 1.0/pow(log(1.0/cell_error),1);//sqrt(1.0 + pow(log(cell_error/1.0e-12),2));
-			sum_gamma += 1.0/dwr_error(cell_index); 
-
+			const double sum_val_scaled = sum_val;
+			const double cell_error = sqrt(sum_val_scaled*sum_val_scaled + 1.0e-16);
+			dwr_error(cell_index) = cell_error;
+			sum_dwr += dwr_error(cell_index);
+			if(min_dwr > dwr_error(cell_index)) {min_dwr = dwr_error(cell_index);} 
+			if(max_dwr < dwr_error(cell_index)) {max_dwr = dwr_error(cell_index);} 
 		} // cell loop ends
 		
 		flow_solver->dg->change_cells_fe_degree_by_deltadegree_and_interpolate_solution(-1);
+
+		const double ref_dwr = sum_dwr/flow_solver->dg->triangulation->n_active_cells();
+		
+		for (const auto &cell : flow_solver->dg->dof_handler.active_cell_iterators())
+		{
+			if(!cell->is_locally_owned())  continue;
+			
+			const unsigned int cell_index = cell->active_cell_index();
+			double eps_k = 0;
+			if(dwr_error(cell_index) >= ref_dwr)
+			{
+				eps_k = (log(dwr_error(cell_index)) - log(ref_dwr));///(log(max_dwr) - log(ref_dwr));
+				expected_cell_size(cell_index) = pow(pow(eps_k,2),-1);
+				expected_cell_size(cell_index) = pow(log(ref_dwr)/log(dwr_error(cell_index)),-2);
+			}
+			else
+			{
+				eps_k = (log(dwr_error(cell_index)) - log(ref_dwr));///(log(min_dwr) - log(ref_dwr));	
+				expected_cell_size(cell_index) = pow(pow(eps_k,2),-1);
+				expected_cell_size(cell_index) = pow(log(ref_dwr)/log(dwr_error(cell_index)),-2);
+			}
+
+		} // cell loop ends
 		
 		// Find equidistributed node distribution
-		const double const_val = 1.0/sum_gamma;
+		const double scaling_factor = 1.0/expected_cell_size.l1_norm();
 
 		VectorType vol_nodes_diff = flow_solver->dg->high_order_grid->volume_nodes;
 
 		for(unsigned int i = 0; i<flow_solver->dg->high_order_grid->volume_nodes.size()-1; ++i)
 		{
-			const double opt_hk = const_val/dwr_error(i); 
+			const double opt_hk = scaling_factor*expected_cell_size(i); 
 			flow_solver->dg->high_order_grid->volume_nodes(i+1) = flow_solver->dg->high_order_grid->volume_nodes(i) + opt_hk;
 		}
 
 		vol_nodes_diff -= flow_solver->dg->high_order_grid->volume_nodes;
 		norm_err = vol_nodes_diff.l2_norm();
+		pcout<<"Diff between vol nodes = "<<norm_err<<std::endl;
 		if(n_iterations == 10){break;}
 		
 	} // while loop ends
