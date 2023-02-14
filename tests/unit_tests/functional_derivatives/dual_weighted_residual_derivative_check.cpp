@@ -2,8 +2,9 @@
 #include "dg/dg_factory.hpp"
 #include "physics/physics_factory.h"
 #include <deal.II/numerics/vector_tools.h>
-#include "functional/dual_weighted_residual_obj_func2.h"
 #include "functional/dual_weighted_residual_obj_func1.h"
+#include "functional/dual_weighted_residual_obj_func2.h"
+#include "functional/dual_weighted_residual_obj_func3.h"
 
 const int nstate = 1;
 int main (int argc, char * argv[])
@@ -31,7 +32,7 @@ int main (int argc, char * argv[])
             MPI_COMM_WORLD
             #endif
             );
-    unsigned int grid_refinement_val = 3;
+    unsigned int grid_refinement_val = 6;
     dealii::GridGenerator::hyper_cube(*grid);
     grid->refine_global(grid_refinement_val);
 
@@ -40,12 +41,12 @@ int main (int argc, char * argv[])
     Parameters::AllParameters all_parameters;
     all_parameters.parse_parameters (parameter_handler);
     all_parameters.linear_solver_param.linear_residual = 1.0e-14;
-    all_parameters.optimization_param.mesh_weight_factor = 0.001;
+    //all_parameters.optimization_param.mesh_weight_factor = 0.0;
     //all_parameters.optimization_param.mesh_volume_power = -2;
     all_parameters.manufactured_convergence_study_param.manufactured_solution_param.use_manufactured_source_term = true;
     all_parameters.manufactured_convergence_study_param.manufactured_solution_param.manufactured_solution_type = Parameters::ManufacturedSolutionParam::ManufacturedSolutionType::exp_solution;
     //all_parameters.pde_type = Parameters::AllParameters::PartialDifferentialEquation::diffusion;
-    const unsigned int poly_degree = 1;
+    const unsigned int poly_degree = 2;
     const unsigned int grid_degree = 1;
 
     std::shared_ptr < DGBase<dim, double> > dg = DGFactory<dim, double>::create_discontinuous_galerkin(&all_parameters, poly_degree,poly_degree + 1, grid_degree, grid);
@@ -72,7 +73,7 @@ int main (int argc, char * argv[])
     const bool uses_solution_values = true;
     const bool uses_solution_gradient = false;
     const bool use_coarse_residual = false;
-    std::unique_ptr<DualWeightedResidualObjFunc1<dim, nstate, double>> dwr_func = std::make_unique<DualWeightedResidualObjFunc1<dim, nstate, double>> (dg,
+    std::unique_ptr<DualWeightedResidualObjFunc3<dim, nstate, double>> dwr_func = std::make_unique<DualWeightedResidualObjFunc3<dim, nstate, double>> (dg,
                                                                                                                                                      uses_solution_values, 
                                                                                                                                                      uses_solution_gradient, 
                                                                                                                                                      use_coarse_residual);
@@ -140,7 +141,7 @@ int main (int argc, char * argv[])
 
 // ======= Check if volume nodes and the solution remain the same after evaluating the functional ============================================================================
     // This check ensures that volume_node/solution configuration stays the same. If this same configuration is used again, already computed values aren't re-evaluated.
-    std::unique_ptr<Functional<dim, nstate, double>> dwr_objfunc = std::make_unique<DualWeightedResidualObjFunc1<dim, nstate, double>> ( dg, 
+    std::unique_ptr<Functional<dim, nstate, double>> dwr_objfunc = std::make_unique<DualWeightedResidualObjFunc3<dim, nstate, double>> ( dg, 
                                                                                                                                         uses_solution_values, 
                                                                                                                                         uses_solution_gradient, 
                                                                                                                                         use_coarse_residual);
