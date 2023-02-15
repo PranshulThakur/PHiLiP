@@ -112,10 +112,9 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
 				eps_k = (log(dwr_error(cell_index)) - log(ref_dwr));///(log(min_dwr) - log(ref_dwr));	
 				expected_cell_size(cell_index) = pow(pow(eps_k,2),-1);
 			}
-			
-			expected_cell_size(cell_index) = 1.0/(const_ref + log(dwr_error(cell_index)));
-			//expected_cell_size(cell_index) = sqrt(1.0 + 100*pow(log(dwr_error(cell_index)),2));
 
+			expected_cell_size(cell_index) = 1.0/(const_ref + log(dwr_error(cell_index))); // original formulation
+			expected_cell_size(cell_index) = 1.0/sqrt(pow((const_ref + log(dwr_error(cell_index))),2) + 1); // Adapted from Keigan/May
 		} // cell loop ends
 		
 		// Find equidistributed node distribution
