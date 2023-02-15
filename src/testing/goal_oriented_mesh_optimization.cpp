@@ -84,7 +84,7 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
 				sum_val += adjoint(dofs_indices_fine[idof])*residual_fine(dofs_indices_fine[idof]);
 			}
 			const double sum_val_scaled = sum_val;
-			const double cell_error = sqrt(sum_val_scaled*sum_val_scaled + 1.0e-16);
+			const double cell_error = sqrt(sum_val_scaled*sum_val_scaled + 1.0e-30);
 			dwr_error(cell_index) = cell_error;
 			sum_dwr += dwr_error(cell_index);
 			if(min_dwr > dwr_error(cell_index)) {min_dwr = dwr_error(cell_index);} 
@@ -101,18 +101,20 @@ int GoalOrientedMeshOptimization<dim, nstate> :: run_test () const
 			
 			const unsigned int cell_index = cell->active_cell_index();
 			double eps_k = 0;
+			const double const_ref = 36;
 			if(dwr_error(cell_index) >= ref_dwr)
 			{
 				eps_k = (log(dwr_error(cell_index)) - log(ref_dwr));///(log(max_dwr) - log(ref_dwr));
 				expected_cell_size(cell_index) = pow(pow(eps_k,2),-1);
-				expected_cell_size(cell_index) = pow(log(ref_dwr)/log(dwr_error(cell_index)),-2);
 			}
 			else
 			{
 				eps_k = (log(dwr_error(cell_index)) - log(ref_dwr));///(log(min_dwr) - log(ref_dwr));	
 				expected_cell_size(cell_index) = pow(pow(eps_k,2),-1);
-				expected_cell_size(cell_index) = pow(log(ref_dwr)/log(dwr_error(cell_index)),-2);
 			}
+			
+			expected_cell_size(cell_index) = 1.0/(const_ref + log(dwr_error(cell_index)));
+			//expected_cell_size(cell_index) = sqrt(1.0 + 100*pow(log(dwr_error(cell_index)),2));
 
 		} // cell loop ends
 		
