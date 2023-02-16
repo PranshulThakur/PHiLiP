@@ -52,7 +52,7 @@ subsection optimization
     set functional_evaluation_limit = 30
     set line_search_method = Backtracking
     set line_search_curvature = Strong Wolfe Conditions
-    set reduced_space_descent_method = Quasi-Newton Method#Newton-Krylov
+    set reduced_space_descent_method = Quasi-Newton Method #Newton-Krylov
     
 	set mesh_weight_factor = 0.0  #5e-2 5e-2 5e-2
     set mesh_volume_power = 2
