@@ -20,21 +20,21 @@
 
 namespace PHiLiP {
 
-template <int dim,int nstate, typename real, typename MeshType>
+template <int dim>
 class Target_Jacdet
 {
-	using FadType = Sacado::Fad::DFad<real>; ///< Sacado AD type for first derivatives.
+	using FadType = Sacado::Fad::DFad<double>; ///< Sacado AD type for first derivatives.
 	using FadFadType = Sacado::Fad::DFad<FadType>; ///< Sacado AD type that allows 2nd derivatives.
-    using VectorType = dealii::LinearAlgebra::distributed::Vector<real>; ///< Alias for dealii's parallel distributed vector.
+    using VectorType = dealii::LinearAlgebra::distributed::Vector<double>; ///< Alias for dealii's parallel distributed vector.
     using MatrixType = dealii::TrilinosWrappers::SparseMatrix; ///< Alias for dealii::TrilinosWrappers::SparseMatrix.
-    using NormalVector = dealii::Vector<real>; ///< Alias for serial vector.
+    using NormalVector = dealii::Vector<double>; ///< Alias for serial vector.
 
 public:
-	Target_Jacdet(std::shared_ptr<PHiLiP::DGBase<dim,real,MeshType>> _dg);
+	Target_Jacdet(std::shared_ptr<PHiLiP::DGBase<dim,double>> _dg);
 	~Target_Jacdet(){};
 
-	real evaluate_target_jacdet_functional(bool compute_derivatives);
-	
+	double evaluate_target_jacdet_functional(bool compute_derivatives = false);
+
 	void set_target_jacdet(const NormalVector & _target_jacdet);
 	
 private:
@@ -44,13 +44,13 @@ private:
 	real2 evaluate_volume_cell_functional(
 		const std::vector< real2 > &coords_coeff, 
 		const dealii::FESystem<dim> &fe_metric,
-		const dealii::Quadrature<dim> &volume_quadrature
+		const dealii::Quadrature<dim> &volume_quadrature,
 		const double target_cell_jacdet) const;
 
 	NormalVector target_jacdet;
-	std::shared_ptr<DGBase<dim,real,MeshType>> dg;
+	std::shared_ptr<DGBase<dim,double>> dg;
 	VectorType dIdX;
-	MatrixType d2IdXdX;
+	std::shared_ptr<MatrixType> d2IdXdX;
 	
 }; // class Target_Jacdet
 } // PHiLiP namespace

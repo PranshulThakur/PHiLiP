@@ -9,6 +9,7 @@ SET(SOURCE
     dual_weighted_residual_obj_func2.cpp
 	dual_weighted_residual_obj_func3.cpp
     cell_distortion_functional.cpp
+	target_jacdet_functional.cpp
     )
 
 foreach(dim RANGE 1 3)
