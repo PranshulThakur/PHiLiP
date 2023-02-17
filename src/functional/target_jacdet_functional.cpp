@@ -7,6 +7,7 @@ template<int dim>
 Target_Jacdet<dim>::Target_Jacdet(std::shared_ptr<PHiLiP::DGBase<dim,double>> _dg)
 	: dg(_dg)
 	, d2IdXdX(std::make_shared<MatrixType>())
+	, pcout(std::cout, dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD)==0)
 {
 	NormalVector target_jacdet_initial(dg->triangulation->n_active_cells());
 	target_jacdet_initial *= 0.0;
@@ -70,14 +71,16 @@ real2 Target_Jacdet<dim> :: evaluate_volume_cell_functional(
             }
         }
         const real2 jacobian_determinant = dealii::determinant(metric_jacobian);
-		sum_val += 1.0/2.0*pow((jacobian_determinant - target_cell_jacdet),2);
+		std::cout<<"Jacdet val = "<<jacobian_determinant.val().val()<<std::endl;
+		real2 jacdiff = jacobian_determinant - target_cell_jacdet;
+		sum_val += 1.0/2.0*jacdiff*jacdiff;
 	} // quad loop ends
 
 	return sum_val;
 }
 
 template<int dim>
-double Target_Jacdet<dim> :: evaluate_target_jacdet_functional(bool compute_derivatives)
+double Target_Jacdet<dim> :: evaluate_functional(bool compute_derivatives)
 {
 	double local_functional = 0.0;
 
@@ -90,7 +93,11 @@ double Target_Jacdet<dim> :: evaluate_target_jacdet_functional(bool compute_deri
 	const auto mapping = (*(dg->high_order_grid->mapping_fe_field));
 	dealii::hp::MappingCollection<dim> mapping_collection(mapping);
 
-	allocate_derivatives();
+	if(compute_derivatives)
+	{
+		allocate_derivatives();
+		pcout<<"Evaluating Target_Jacdet functional with derivatives."<<std::endl;
+	}
 
 	auto metric_cell = dg->high_order_grid->dof_handler_grid.begin_active();
 	for(auto soln_cell = dg->dof_handler.begin_active(); soln_cell !=  dg->dof_handler.end(); ++soln_cell, ++metric_cell)

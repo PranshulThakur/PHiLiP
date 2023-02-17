@@ -33,7 +33,7 @@ public:
 	Target_Jacdet(std::shared_ptr<PHiLiP::DGBase<dim,double>> _dg);
 	~Target_Jacdet(){};
 
-	double evaluate_target_jacdet_functional(bool compute_derivatives = false);
+	double evaluate_functional(bool compute_derivatives = false);
 
 	void set_target_jacdet(const NormalVector & _target_jacdet);
 	
@@ -51,6 +51,8 @@ private:
 	std::shared_ptr<DGBase<dim,double>> dg;
 	VectorType dIdX;
 	std::shared_ptr<MatrixType> d2IdXdX;
+
+	dealii::ConditionalOStream pcout; ///< Parallel std::cout that only outputs on mpi_rank==
 	
 }; // class Target_Jacdet
 } // PHiLiP namespace
