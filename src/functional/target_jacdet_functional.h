@@ -37,6 +37,8 @@ public:
 
 	void set_target_jacdet(const NormalVector & _target_jacdet);
 	
+    VectorType dIdX;
+	std::shared_ptr<MatrixType> d2IdXdX;
 private:
 	void allocate_derivatives();
 
@@ -49,9 +51,6 @@ private:
 
 	NormalVector target_jacdet;
 	std::shared_ptr<DGBase<dim,double>> dg;
-	VectorType dIdX;
-	std::shared_ptr<MatrixType> d2IdXdX;
-
 	dealii::ConditionalOStream pcout; ///< Parallel std::cout that only outputs on mpi_rank==
 	
 }; // class Target_Jacdet

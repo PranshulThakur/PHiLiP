@@ -239,12 +239,12 @@ int main (int argc, char * argv[])
     dIdX_fd.update_ghost_values();
     pcout<<"Done evaluating dIdX using finite difference."<<std::endl;
 
-    VectorType diff_dIdX = dwr_objfunc->dIdX; 
+    VectorType diff_dIdX = target_jacdet->dIdX; 
     diff_dIdX -= dIdX_fd;
     diff_dIdX.update_ghost_values();
 
     pcout<<"dIdX analytical = "<<std::endl;
-    dwr_objfunc->dIdX.print(std::cout, 3, true, false);
+    target_jacdet->dIdX.print(std::cout, 3, true, false);
     
     pcout<<"dIdX finite difference = "<<std::endl;
     dIdX_fd.print(std::cout, 3, true, false);

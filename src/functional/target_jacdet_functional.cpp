@@ -5,8 +5,8 @@ namespace PHiLiP {
 
 template<int dim>
 Target_Jacdet<dim>::Target_Jacdet(std::shared_ptr<PHiLiP::DGBase<dim,double>> _dg)
-	: dg(_dg)
-	, d2IdXdX(std::make_shared<MatrixType>())
+	: d2IdXdX(std::make_shared<MatrixType>())
+	, dg(_dg)
 	, pcout(std::cout, dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD)==0)
 {
 	NormalVector target_jacdet_initial(dg->triangulation->n_active_cells());
