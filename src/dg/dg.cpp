@@ -489,8 +489,6 @@ void DGBase<dim,real,MeshType>::change_cells_fe_degree_by_deltadegree_and_interp
     SolutionTransferType solution_transfer(dof_handler);
     solution_transfer.prepare_for_coarsening_and_refinement(solution_old);
 
-
-    high_order_grid->prepare_for_coarsening_and_refinement();
     triangulation->prepare_coarsening_and_refinement();
 
 
@@ -504,9 +502,7 @@ void DGBase<dim,real,MeshType>::change_cells_fe_degree_by_deltadegree_and_interp
 
 
     triangulation->execute_coarsening_and_refinement();
-    high_order_grid->execute_coarsening_and_refinement();
-
-
+    
     allocate_system();
     solution.zero_out_ghosts();
 
