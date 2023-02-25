@@ -5,7 +5,6 @@
 #include "functional/dual_weighted_residual_obj_func1.h"
 #include "functional/dual_weighted_residual_obj_func2.h"
 #include "functional/dual_weighted_residual_obj_func3.h"
-#include "functional/target_jacdet_functional.h"
 
 const int nstate = 1;
 int main (int argc, char * argv[])
@@ -33,7 +32,7 @@ int main (int argc, char * argv[])
             MPI_COMM_WORLD
             #endif
             );
-    unsigned int grid_refinement_val = 3;
+    unsigned int grid_refinement_val = 6;
     dealii::GridGenerator::hyper_cube(*grid);
     grid->refine_global(grid_refinement_val);
 
@@ -47,7 +46,7 @@ int main (int argc, char * argv[])
     all_parameters.manufactured_convergence_study_param.manufactured_solution_param.use_manufactured_source_term = true;
     all_parameters.manufactured_convergence_study_param.manufactured_solution_param.manufactured_solution_type = Parameters::ManufacturedSolutionParam::ManufacturedSolutionType::exp_solution;
     //all_parameters.pde_type = Parameters::AllParameters::PartialDifferentialEquation::diffusion;
-    const unsigned int poly_degree = 1;
+    const unsigned int poly_degree = 2;
     const unsigned int grid_degree = 1;
 
     std::shared_ptr < DGBase<dim, double> > dg = DGFactory<dim, double>::create_discontinuous_galerkin(&all_parameters, poly_degree,poly_degree + 1, grid_degree, grid);
@@ -150,7 +149,7 @@ int main (int argc, char * argv[])
     VectorType diff_sol = dg->solution;
  
     dwr_objfunc->evaluate_functional(true, true, false);
-    double value_original = dwr_objfunc->current_functional_value;
+    const double value_original = dwr_objfunc->current_functional_value;
     
     diff_vol_nodes -= dg->high_order_grid->volume_nodes;
     diff_sol -= dg->solution;
@@ -199,8 +198,14 @@ int main (int argc, char * argv[])
     
 // ====== Check dIdX finite difference ==========================================================================================
     pcout<<"Checking dIdX analytical vs finite difference."<<std::endl; 
-	std::unique_ptr<Target_Jacdet<dim>> target_jacdet = std::make_unique<Target_Jacdet<dim>>(dg);
-    value_original = target_jacdet->evaluate_functional(true);
+    dwr_objfunc->evaluate_functional(true, true, false); // Shouldn't re-evaluate derivatives as it's already computed above.
+    if(value_original != dwr_objfunc->current_functional_value) 
+    {
+        pcout<<"Value of the objective function has changed. Something's wrong.."<<std::endl;
+        pcout<<"Difference = "<<value_original - dwr_objfunc->current_functional_value<<std::endl;
+        return 1;
+    }
+
     pcout<<"Evaluated analytical dIdX."<<std::endl; 
 
     VectorType dIdX_fd;
@@ -211,11 +216,11 @@ int main (int argc, char * argv[])
     const dealii::IndexSet vol_range = dg->high_order_grid->volume_nodes.get_partitioner()->locally_owned_range();
 
     unsigned int n_vol_nodes = dg->high_order_grid->volume_nodes.size();
-    AssertDimension(n_vol_nodes, target_jacdet->dIdX.size());
+    AssertDimension(n_vol_nodes, dwr_objfunc->dIdX.size());
     AssertDimension(n_vol_nodes, dIdX_fd.size()); 
     pcout<<"All dimensions are good."<<std::endl; 
 
-    double step_size_delx = 1.0e-3;
+    double step_size_delx = 1.0e-6;
     pcout<<"Evaluating dIdX using finite difference."<<std::endl;
 
     for(unsigned int i_node = 0; i_node < n_vol_nodes; ++i_node)
@@ -225,9 +230,7 @@ int main (int argc, char * argv[])
         }
         dg->high_order_grid->volume_nodes.update_ghost_values();
         
-        value_perturbed = target_jacdet->evaluate_functional();
-		std::cout<<"\nValue perturbed = "<<value_perturbed<<std::endl;
-		std::cout<<"Value original = "<<value_original<<std::endl;
+        value_perturbed = dwr_objfunc->evaluate_functional();
 
         if(vol_range.is_element(i_node)) {
             dIdX_fd(i_node) = (value_perturbed - value_original)/step_size_delx; 
@@ -239,18 +242,16 @@ int main (int argc, char * argv[])
     dIdX_fd.update_ghost_values();
     pcout<<"Done evaluating dIdX using finite difference."<<std::endl;
 
-    VectorType diff_dIdX = target_jacdet->dIdX; 
+    VectorType diff_dIdX = dwr_objfunc->dIdX; 
     diff_dIdX -= dIdX_fd;
     diff_dIdX.update_ghost_values();
 
     pcout<<"dIdX analytical = "<<std::endl;
-    target_jacdet->dIdX.print(std::cout, 3, true, false);
+    dwr_objfunc->dIdX.print(std::cout, 3, true, false);
     
     pcout<<"dIdX finite difference = "<<std::endl;
     dIdX_fd.print(std::cout, 3, true, false);
-
-	pcout<<"Norm of diff_dIdX = "<<diff_dIdX.l2_norm()<<std::endl;
-	return 0;
+    return 0;
 // ====== Check dIdw finite difference ==========================================================================================
     pcout<<"Now checking dIdw analytical vs finite difference."<<std::endl; 
     dwr_objfunc->evaluate_functional(true, true, false); 
