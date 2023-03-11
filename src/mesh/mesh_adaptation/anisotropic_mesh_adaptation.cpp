@@ -448,7 +448,9 @@ void AnisotropicMeshAdaptation<dim, nstate, real, MeshType> :: adapt_mesh()
 	metric_to_mesh_generator->generate_mesh_from_cellwise_metric(cellwise_optimal_metric);
 	
 	std::shared_ptr<HighOrderGrid<dim,double,MeshType>> new_high_order_mesh = read_gmsh <dim, dim> (
-																	metric_to_mesh_generator->get_generated_mesh_filename());
+																	metric_to_mesh_generator->get_generated_mesh_filename(), 
+                                                                    dg->high_order_grid->max_degree, 
+                                                                    false);
 	dg->set_high_order_grid(new_high_order_mesh);
 	dg->allocate_system();
 
