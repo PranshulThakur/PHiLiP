@@ -190,7 +190,7 @@ void MetricToMeshGenerator<dim, nstate, real, MeshType> :: write_pos_file() cons
 	AssertDimension(fe_system.dofs_per_cell, dealii::GeometryInfo<dim>::vertices_per_cell);
 	
 	// Based on gmsh/tutorials/t17_bgmesh.pos in GMSH4.11.1.
-	// Adapted from GridRefinement::Gmsh_Out::write_pos_anisotropic() to use metric field at nodes. Might need to figure out a way to link it with GridRefinement in future.
+	// Adapted from GridRefinement::Gmsh_Out::write_pos_anisotropic() and modified to use metric field at nodes. Might need to figure out a way to link it with GridRefinement in future.
 	const std::string quotes = "\"";
 	std::ofstream outfile(filename_pos);
 	outfile<<"// Background mesh with containing optimal metric field."<<'\n'; 
@@ -291,7 +291,7 @@ void MetricToMeshGenerator<dim, nstate, real, MeshType> :: write_geo_file() cons
 
 	outfile<<"SetFactory("<<quotes<<"OpenCASCADE"<<quotes<<");"<<'\n'<<'\n';
 
-	// Geo file of rectangle
+	// Geo file of a cube. If we ever do anisotropic meshing for NACA0012, replace by its .geo here.
 	GridRefinement::GmshOut<dim, real>::write_geo_hyper_cube(0.0, 1.0, outfile, true);
 
 	// Merge .pos view
@@ -340,7 +340,7 @@ std::string MetricToMeshGenerator<dim, nstate, real, MeshType> :: get_generated_
 template<int dim, int nstate, typename real, typename MeshType>
 void MetricToMeshGenerator<dim, nstate, real, MeshType> :: delete_generated_files() const
 {
-	// Running this on command lune:
+	// Running this on command line:
 	// rm filename_geo filename_pos filename_msh
 	std::string command_str = "rm " + filename_geo + " " + filename_pos + " " + filename_msh;
 	int val = std::system(command_str.c_str());
