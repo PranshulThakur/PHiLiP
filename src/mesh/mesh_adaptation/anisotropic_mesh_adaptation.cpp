@@ -65,11 +65,13 @@ dealii::Tensor<2, dim, real> AnisotropicMeshAdaptation<dim, nstate, real, MeshTy
 
     std::array<real, dim> abs_eignevalues;
     // Get absolute values of eigenvalues
-    const real min_eigenvalue = 1.0e-7;
+    const real min_eigenvalue = 1.0e-8;
+    const real max_eigenvalue = 1.0e8;
     for(unsigned int i = 0; i<dim; ++i)
     {
         abs_eignevalues[i] = abs(eigen_pair[i].first);
         if(abs_eignevalues[i] < min_eigenvalue) {abs_eignevalues[i] = min_eigenvalue;}
+        if(abs_eignevalues[i] > max_eigenvalue) {abs_eignevalues[i] = max_eigenvalue;}
     }
 
     dealii::Tensor<2, dim, real> positive_definite_tensor; 
