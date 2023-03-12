@@ -72,7 +72,7 @@ dealii::Tensor<2, dim, real> AnisotropicMeshAdaptation<dim, nstate, real, MeshTy
         if(abs_eignevalues[i] < min_eigenvalue) {abs_eignevalues[i] = min_eigenvalue;}
     }
 
-    dealii::Tensor<2, dim, real> positive_definite_tensor; // all entries are 0 by default.
+    dealii::Tensor<2, dim, real> positive_definite_tensor; 
     positive_definite_tensor = 0;
 
     // Form the matrix again with updated eigenvalues
@@ -98,8 +98,8 @@ void AnisotropicMeshAdaptation<dim, nstate, real, MeshType> :: initialize_cellwi
 	const unsigned int n_active_cells = dg->triangulation->n_active_cells();
 	
 	dealii::Tensor<2, dim, real> zero_tensor; // initialized to 0 by default.
-    zero_tensor = 0;
-	for(unsigned int i=0; i<n_active_cells; ++i)
+	
+    for(unsigned int i=0; i<n_active_cells; ++i)
 	{
 		cellwise_optimal_metric.push_back(zero_tensor);
 		cellwise_hessian.push_back(zero_tensor);
@@ -325,8 +325,6 @@ void AnisotropicMeshAdaptation<dim, nstate, real, MeshType> :: compute_goal_orie
 	
     const unsigned int max_dofs_per_cell = this->dg->dof_handler.get_fe_collection().max_dofs_per_cell();
 	std::vector<dealii::types::global_dof_index> dof_indices(max_dofs_per_cell);
-    real hessian_det_max = 0;
-    unsigned int cell_index_max_hessian = 0;
 
 	for(const auto &cell : dg->dof_handler.active_cell_iterators())
 	{
@@ -347,6 +345,7 @@ void AnisotropicMeshAdaptation<dim, nstate, real, MeshType> :: compute_goal_orie
 
         // Compute adjoint gradient
 	    std::array<dealii::Tensor<1, dim, real>, nstate> adjoint_gradient;
+        
         for(unsigned int istate = 0; istate < nstate; ++istate)
         {
             adjoint_gradient[istate] = 0;
@@ -383,19 +382,7 @@ void AnisotropicMeshAdaptation<dim, nstate, real, MeshType> :: compute_goal_orie
             } //idim
         } //istate
 
-        std::cout<<std::endl<<"Cell index = "<<cell_index<<std::endl;
-        const real hessian_det = dealii::determinant(cellwise_hessian[cell_index]);
-        std::cout<<"Hessian determinant = "<<hessian_det<<std::endl;
-        std::cout<<"Adjoint gradient = "<<adjoint_gradient[0]<<std::endl<<std::endl;
-        std::cout<<"Adjoint val = "<<adjoint(dof_indices[0])<<std::endl<<std::endl;
-        if(hessian_det_max < hessian_det)
-        {
-            hessian_det_max = hessian_det;
-            cell_index_max_hessian = cell_index;
-        }
     } // cell loop ends
-
-    std::cout<<"Cell index with max Hessian det = "<<cell_index_max_hessian<<std::endl;
 }
 
 template<int dim, int nstate, typename real, typename MeshType>
@@ -481,7 +468,7 @@ void AnisotropicMeshAdaptation<dim, nstate, real, MeshType> :: adapt_mesh()
 	dg->solution.update_ghost_values();
 
     // Now that DG has read the new grid, delete files.
-	//metric_to_mesh_generator->delete_generated_files();
+	metric_to_mesh_generator->delete_generated_files();
 }
 
 // Instantiations
