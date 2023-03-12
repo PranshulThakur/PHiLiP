@@ -73,6 +73,7 @@ dealii::Tensor<2, dim, real> AnisotropicMeshAdaptation<dim, nstate, real, MeshTy
     }
 
     dealii::Tensor<2, dim, real> positive_definite_tensor; // all entries are 0 by default.
+    positive_definite_tensor = 0;
 
     // Form the matrix again with updated eigenvalues
     // If matrix of eigenvectors = [v1 v2 vdim], the new matrix would be
@@ -97,6 +98,7 @@ void AnisotropicMeshAdaptation<dim, nstate, real, MeshType> :: initialize_cellwi
 	const unsigned int n_active_cells = dg->triangulation->n_active_cells();
 	
 	dealii::Tensor<2, dim, real> zero_tensor; // initialized to 0 by default.
+    zero_tensor = 0;
 	for(unsigned int i=0; i<n_active_cells; ++i)
 	{
 		cellwise_optimal_metric.push_back(zero_tensor);
@@ -265,7 +267,8 @@ void AnisotropicMeshAdaptation<dim, nstate, real, MeshType> :: compute_feature_b
 	const dealii::UpdateFlags update_flags = dealii::update_values | dealii::update_gradients | dealii::update_hessians | dealii::update_quadrature_points | dealii::update_JxW_values;
 	dealii::hp::FEValues<dim,dim>   fe_values_collection_volume (mapping_collection, dg->fe_collection, dg->volume_quadrature_collection, update_flags);
 	
-	std::vector<dealii::types::global_dof_index> dof_indices;
+    const unsigned int max_dofs_per_cell = dg->dof_handler.get_fe_collection().max_dofs_per_cell();
+	std::vector<dealii::types::global_dof_index> dof_indices(max_dofs_per_cell);
 
 	for(const auto &cell : dg->dof_handler.active_cell_iterators())
 	{
@@ -309,7 +312,6 @@ void AnisotropicMeshAdaptation<dim, nstate, real, MeshType> :: compute_goal_orie
     adjoint *= -1.0;
     adjoint.update_ghost_values();
     //==========================================================================================
-    
 	pcout<<"Computing goal-oriented Hessian."<<std::endl;
     // Compute goal oriented pseudo Hessian.
     // From Eq. 28 in Loseille, A., Dervieux, A., and Alauzet, F. "Fully anisotropic goal-oriented mesh adaptation for 3D steady Euler equations.", 2010.
@@ -321,7 +323,10 @@ void AnisotropicMeshAdaptation<dim, nstate, real, MeshType> :: compute_goal_orie
 	const dealii::UpdateFlags update_flags = dealii::update_values | dealii::update_gradients | dealii::update_hessians | dealii::update_quadrature_points | dealii::update_JxW_values;
 	dealii::hp::FEValues<dim,dim>   fe_values_collection_volume (mapping_collection, dg->fe_collection, dg->volume_quadrature_collection, update_flags);
 	
-	std::vector<dealii::types::global_dof_index> dof_indices;
+    const unsigned int max_dofs_per_cell = this->dg->dof_handler.get_fe_collection().max_dofs_per_cell();
+	std::vector<dealii::types::global_dof_index> dof_indices(max_dofs_per_cell);
+    real hessian_det_max = 0;
+    unsigned int cell_index_max_hessian = 0;
 
 	for(const auto &cell : dg->dof_handler.active_cell_iterators())
 	{
@@ -342,6 +347,10 @@ void AnisotropicMeshAdaptation<dim, nstate, real, MeshType> :: compute_goal_orie
 
         // Compute adjoint gradient
 	    std::array<dealii::Tensor<1, dim, real>, nstate> adjoint_gradient;
+        for(unsigned int istate = 0; istate < nstate; ++istate)
+        {
+            adjoint_gradient[istate] = 0;
+        }
         for(unsigned int idof = 0; idof < n_dofs_cell; ++idof)
         { 
             const unsigned int istate = fe_values_volume.get_fe().system_to_component_index(idof).first;
@@ -349,8 +358,7 @@ void AnisotropicMeshAdaptation<dim, nstate, real, MeshType> :: compute_goal_orie
         }
 
         // Obtain flux coeffs
-        std::vector<std::array<dealii::Tensor<1,dim,real>,nstate>> flux_coeffs;
-        flux_coeffs.resize(n_dofs_cell);
+        std::vector<std::array<dealii::Tensor<1,dim,real>,nstate>> flux_coeffs (n_dofs_cell);
         get_flux_coeffs(flux_coeffs, fe_values_volume, dof_indices, cell);
         
         // Compute Hessian
@@ -360,6 +368,7 @@ void AnisotropicMeshAdaptation<dim, nstate, real, MeshType> :: compute_goal_orie
             for(unsigned int idim = 0; idim < dim; ++idim)
             {
                 dealii::Tensor<2,dim,real> flux_hessian_at_istate_idim;
+                flux_hessian_at_istate_idim = 0;
                 for(unsigned int idof = 0; idof<n_dofs_cell; ++idof)
                 {
                     const unsigned int icomp = fe_values_volume.get_fe().system_to_component_index(idof).first;
@@ -373,7 +382,20 @@ void AnisotropicMeshAdaptation<dim, nstate, real, MeshType> :: compute_goal_orie
                 cellwise_hessian[cell_index] += flux_hessian_at_istate_idim;
             } //idim
         } //istate
+
+        std::cout<<std::endl<<"Cell index = "<<cell_index<<std::endl;
+        const real hessian_det = dealii::determinant(cellwise_hessian[cell_index]);
+        std::cout<<"Hessian determinant = "<<hessian_det<<std::endl;
+        std::cout<<"Adjoint gradient = "<<adjoint_gradient[0]<<std::endl<<std::endl;
+        std::cout<<"Adjoint val = "<<adjoint(dof_indices[0])<<std::endl<<std::endl;
+        if(hessian_det_max < hessian_det)
+        {
+            hessian_det_max = hessian_det;
+            cell_index_max_hessian = cell_index;
+        }
     } // cell loop ends
+
+    std::cout<<"Cell index with max Hessian det = "<<cell_index_max_hessian<<std::endl;
 }
 
 template<int dim, int nstate, typename real, typename MeshType>
@@ -426,6 +448,7 @@ void AnisotropicMeshAdaptation<dim, nstate, real, MeshType> :: get_flux_coeffs(
     for(unsigned int iquad = 0; iquad<n_quad_pts; ++iquad)
     {
         std::array< real, nstate > soln_at_q;
+        soln_at_q.fill(0.0);
         for(unsigned int idof = 0; idof < n_dofs_cell; ++idof)
         {
             const unsigned int istate = fe_values_support_pts.get_fe().system_to_component_index(idof).first;
@@ -435,7 +458,6 @@ void AnisotropicMeshAdaptation<dim, nstate, real, MeshType> :: get_flux_coeffs(
         // Here we assume flux_coeffs[idof] = flux_at_iquad.
         flux_coeffs[iquad] = pde_physics_double->convective_flux(soln_at_q);
     }
-
 }
 
 template<int dim, int nstate, typename real, typename MeshType>
@@ -459,7 +481,7 @@ void AnisotropicMeshAdaptation<dim, nstate, real, MeshType> :: adapt_mesh()
 	dg->solution.update_ghost_values();
 
     // Now that DG has read the new grid, delete files.
-	metric_to_mesh_generator->delete_generated_files();
+	//metric_to_mesh_generator->delete_generated_files();
 }
 
 // Instantiations
