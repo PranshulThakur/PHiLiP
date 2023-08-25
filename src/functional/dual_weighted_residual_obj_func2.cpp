@@ -16,6 +16,11 @@ DualWeightedResidualObjFunc2<dim, nstate, real> :: DualWeightedResidualObjFunc2(
     , use_coarse_residual(_use_coarse_residual)
     , coarse_poly_degree(this->dg->get_min_fe_degree())
     , fine_poly_degree(coarse_poly_degree + 1)
+    , linear_solver_tolerance_low(1.0e-11)
+    , linear_solver_tolerance_high(linear_solver_tolerance_low)
+    , jacobian_prec(nullptr)
+    , adjoint_jacobian_prec(nullptr)
+    , preconditioner_flag(true)
 {
     AssertDimension(this->dg->high_order_grid->max_degree, 1);
     if(this->dg->get_min_fe_degree() != this->dg->get_max_fe_degree())
@@ -34,7 +39,8 @@ DualWeightedResidualObjFunc2<dim, nstate, real> :: DualWeightedResidualObjFunc2(
     }
     
     linear_solver_param = this->dg->all_parameters->linear_solver_param;
-    linear_solver_param.linear_residual = 1.0e-15;
+    linear_solver_param.linear_residual = linear_solver_tolerance_high;
+    use_preconditioners = preconditioner_flag;
 }
 
 //===================================================================================================================================================
@@ -231,13 +237,19 @@ real DualWeightedResidualObjFunc2<dim, nstate, real> :: evaluate_functional(
 
     if(actually_compute_value)
     {
+        linear_solver_param.linear_residual = linear_solver_tolerance_low;
+        use_preconditioners = false;
         this->current_functional_value = evaluate_objective_function(); // also stores adjoint and residual_used.
         this->pcout<<"Evaluated objective function."<<std::endl;
         AssertDimension(this->dg->solution.size(), vector_coarse.size());
+        linear_solver_param.linear_residual = linear_solver_tolerance_high;
+        use_preconditioners = preconditioner_flag;
     }
 
     if(compute_derivatives)
     {
+        linear_solver_param.linear_residual = linear_solver_tolerance_low;
+        use_preconditioners = false;
         this->pcout<<"Computing common vectors and matrices."<<std::endl;
         compute_common_vectors_and_matrices();
         AssertDimension(this->dg->solution.size(), vector_coarse.size());
@@ -246,6 +258,8 @@ real DualWeightedResidualObjFunc2<dim, nstate, real> :: evaluate_functional(
         this->pcout<<"Stored dIdX."<<std::endl;
         store_dIdW();
         this->pcout<<"Stored dIdw."<<std::endl;
+        linear_solver_param.linear_residual = linear_solver_tolerance_high;
+        use_preconditioners = preconditioner_flag;
     }
 
     return this->current_functional_value;
@@ -416,6 +430,7 @@ void DualWeightedResidualObjFunc2<dim, nstate, real> :: compute_common_vectors_a
         dwr_dwr_RI_times_rux.compress(dealii::VectorOperation::add);
         dwr_dwr_RI_times_ruu.compress(dealii::VectorOperation::add);
     }
+    construct_preconditioners();
 }
 
 template<int dim, int nstate, typename real>
@@ -1291,8 +1306,15 @@ void DualWeightedResidualObjFunc2<dim, nstate, real> :: adjoint_x_vmult(
     v1.reinit(vector_fine);
     matrix_ux.vmult(v1, in_vector);
     v1.update_ghost_values();
-
-    solve_linear(R_u_transpose, v1, out_vector, linear_solver_param);
+    
+    if(use_preconditioners)
+    {
+        apply_inverse_adjointjacobian_preconditioner(out_vector, v1);
+    }
+    else
+    {
+        solve_linear(R_u_transpose, v1, out_vector, linear_solver_param);
+    }
     out_vector.update_ghost_values();
 }
 
@@ -1309,8 +1331,15 @@ void DualWeightedResidualObjFunc2<dim, nstate, real> :: adjoint_u_vmult(
     v1.reinit(vector_fine);
     matrix_uu.vmult(v1, in_vector);
     v1.update_ghost_values();
-
-    solve_linear(R_u_transpose, v1, out_vector, linear_solver_param);
+    
+    if(use_preconditioners)
+    {
+        apply_inverse_adjointjacobian_preconditioner(out_vector, v1);
+    }
+    else
+    {
+        solve_linear(R_u_transpose, v1, out_vector, linear_solver_param);
+    }
     out_vector.update_ghost_values();
 }
 
@@ -1325,7 +1354,14 @@ void DualWeightedResidualObjFunc2<dim, nstate, real> :: adjoint_x_Tvmult(
     VectorType v1;
     v1.reinit(vector_fine);
     VectorType in_vector_copy = in_vector; // because solve_linear() does not take it as a const.
-    solve_linear(R_u, in_vector_copy, v1, linear_solver_param);
+    if(use_preconditioners)
+    {
+        apply_inverse_jacobian_preconditioner(v1, in_vector_copy);
+    }
+    else
+    {
+        solve_linear(R_u, in_vector_copy, v1, linear_solver_param);
+    }
     v1.update_ghost_values();
 
     matrix_ux.Tvmult(out_vector, v1);
@@ -1343,11 +1379,100 @@ void DualWeightedResidualObjFunc2<dim, nstate, real> :: adjoint_u_Tvmult(
     VectorType v1;
     v1.reinit(vector_fine);
     VectorType in_vector_copy = in_vector;
-    solve_linear(R_u, in_vector_copy, v1, linear_solver_param);
+    if(use_preconditioners)
+    {
+        apply_inverse_jacobian_preconditioner(v1, in_vector_copy);
+    }
+    else
+    {
+        solve_linear(R_u, in_vector_copy, v1, linear_solver_param);
+    }
     v1.update_ghost_values();
 
     matrix_uu.Tvmult(out_vector, v1);
     out_vector.update_ghost_values();
+}
+
+//=====================================================================================================
+//                          Functions related to preconditioners
+//=====================================================================================================
+template <int dim, int nstate, typename real>
+DualWeightedResidualObjFunc2<dim, nstate, real> :: ~DualWeightedResidualObjFunc2()
+{
+    delete jacobian_prec;
+    jacobian_prec = nullptr;
+
+    delete adjoint_jacobian_prec;
+    adjoint_jacobian_prec = nullptr;
+}
+
+template<int dim, int nstate, typename real>
+int DualWeightedResidualObjFunc2<dim, nstate, real> :: construct_preconditioners()
+{
+    // Assumes dg has already assembled R_u and R_u^T.
+    std::cout<<"Reached here 1"<<std::endl<<std::flush;
+    Epetra_CrsMatrix * jacobian = const_cast<Epetra_CrsMatrix *>(&(R_u.trilinos_matrix()));
+    std::cout<<"Reached here 2"<<std::endl<<std::flush;
+    delete jacobian_prec; jacobian_prec = nullptr;
+    std::cout<<"Reached here 3"<<std::endl<<std::flush;
+
+    Epetra_CrsMatrix * adjoint_jacobian = const_cast<Epetra_CrsMatrix *>(&(R_u_transpose.trilinos_matrix()));
+    delete adjoint_jacobian_prec; adjoint_jacobian_prec = nullptr;
+
+    Teuchos::ParameterList List;
+    const std::string PrecType = "ILUT";
+    List.set("fact: ilut level-of-fill", 50.0);
+    List.set("fact: absolute threshold", 1e-3);
+    List.set("fact: relative threshold", 1.01);//1.0+1e-2);
+    List.set("fact: drop tolerance", 0.0);//1e-12);
+    List.set("schwarz: reordering type", "rcm");
+    const int OverlapLevel = 1; // one row of overlap among the processes
+
+    Ifpack Factory;
+
+    jacobian_prec = Factory.Create(PrecType, jacobian, OverlapLevel);
+    assert (jacobian_prec != 0);
+    IFPACK_CHK_ERR(jacobian_prec->SetParameters(List));
+    IFPACK_CHK_ERR(jacobian_prec->Initialize());
+    IFPACK_CHK_ERR(jacobian_prec->Compute());
+
+    adjoint_jacobian_prec = Factory.Create(PrecType, adjoint_jacobian, OverlapLevel);
+    assert (adjoint_jacobian_prec != 0);
+    IFPACK_CHK_ERR(adjoint_jacobian_prec->SetParameters(List));
+    IFPACK_CHK_ERR(adjoint_jacobian_prec->Initialize());
+    IFPACK_CHK_ERR(adjoint_jacobian_prec->Compute());
+    
+    return 0;
+}
+
+template<int dim, int nstate, typename real>
+void DualWeightedResidualObjFunc2<dim, nstate, real> :: apply_inverse_jacobian_preconditioner(
+    VectorType &out_vector, 
+    VectorType &in_vector) const
+{
+    
+    Epetra_Vector input_trilinos(View,
+                    R_u.trilinos_matrix().DomainMap(),
+                    in_vector.begin());
+    Epetra_Vector output_trilinos(View,
+                    R_u.trilinos_matrix().RangeMap(),
+                    out_vector.begin());
+    jacobian_prec->ApplyInverse (input_trilinos, output_trilinos); 
+}
+
+template<int dim, int nstate, typename real>
+void DualWeightedResidualObjFunc2<dim, nstate, real> :: apply_inverse_adjointjacobian_preconditioner(
+    VectorType &out_vector, 
+    VectorType &in_vector) const
+{
+    
+    Epetra_Vector input_trilinos(View,
+                    R_u_transpose.trilinos_matrix().DomainMap(),
+                    in_vector.begin());
+    Epetra_Vector output_trilinos(View,
+                    R_u_transpose.trilinos_matrix().RangeMap(),
+                    out_vector.begin());
+    adjoint_jacobian_prec->ApplyInverse (input_trilinos, output_trilinos); 
 }
 
 template class DualWeightedResidualObjFunc2 <PHILIP_DIM, 1, double>;
