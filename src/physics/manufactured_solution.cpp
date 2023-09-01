@@ -11,6 +11,13 @@ template class dealii::Function<PHILIP_DIM,Sacado::Fad::DFad<double>>;
 
 namespace PHiLiP {
 
+const double x1_cshock = 0.4;
+const double x2_cshock = 0.6;
+const double x3_cshock = 0.4;
+const double a_cshock = 2.0*x3_cshock + 2*x1_cshock - 4*x2_cshock;
+const double b_cshock = x3_cshock - x1_cshock - a_cshock;
+const double c_cshock = x1_cshock;
+const double epsilon_cshock = 5.0e-2;
 ///< Provide isfinite for double.
 bool isfinite(double value)
 {
@@ -159,7 +166,8 @@ inline real ManufacturedSolutionSShock<dim,real>
         const real x = point[0], y = point[1];
         // val = 0.75*tanh(2*(sin(5*y)-3*x));
         // val = 0.75*tanh(20*(sin(10*y-5)-6*x+3));
-        val = a*tanh(b*sin(c*y + d) + e*x + f);
+        const real z = x - (a_cshock*y*y + b_cshock*y + c_cshock);
+        val = tanh(z/epsilon_cshock);
     }
     return val;
 }
@@ -487,14 +495,15 @@ inline dealii::Tensor<1,dim,real> ManufacturedSolutionSShock<dim,real>
     dealii::Tensor<1,dim,real> gradient;
     if(dim == 2){
         const real x = point[0], y = point[1];
+        const real z = x - (a_cshock*y*y + b_cshock*y + c_cshock);
         // gradient[0] = -4.5*pow(cosh(6*x-2*sin(5*y)),-2);  
         // gradient[1] =  7.5*pow(cosh(6*x-2*sin(5*y)),-2)*cos(5*y);
         // gradient[0] = -90*pow(cosh(-120*x-20*sin(5-10*y)+60),-2);
         // gradient[1] = 150*pow(cosh(-120*x-20*sin(5-10*y)+60),-2)*cos(5-10*y);
 
-        const real denominator = pow(cosh(f + e*x + b*sin(d + c*y)), -2);
-        gradient[0] =              a*e*denominator;
-        gradient[1] = a*b*c*cos(d+c*y)*denominator; 
+        const real common_factor = 1.0 - pow(tanh(z/epsilon_cshock),2);
+        gradient[0] =            common_factor/epsilon_cshock;
+        gradient[1] = common_factor/epsilon_cshock*(-2.0*a_cshock*y -b_cshock); 
     }
     return gradient;
 }
@@ -927,6 +936,7 @@ inline dealii::SymmetricTensor<2,dim,real> ManufacturedSolutionSShock<dim,real>
     dealii::SymmetricTensor<2,dim,real> hessian;
     if (dim==2) {
         const real x = point[0], y = point[1];
+        const real z = x - (a_cshock*y*y + b_cshock*y + c_cshock);
         // hessian[0][0] =  54*tanh(6*x-2*sin(5*y))*pow(cosh(6*x-2*sin(5*y)),-2);
         // hessian[0][1] = -90*tanh(6*x-2*sin(5*y))*pow(cosh(6*x-2*sin(5*y)),-2)*cos(5*y);
 
@@ -939,15 +949,14 @@ inline dealii::SymmetricTensor<2,dim,real> ManufacturedSolutionSShock<dim,real>
         // hessian[1][0] = hessian[0][1];
         // hessian[1][1] =   1500*pow(cosh(20*(-3+6*x+sin(5-10*y))),2)*(40*pow(cos(5-10*y),2)*tanh(20*(-3+6*x+sin(5-10*y)))+sin(5-10*y));
     
-        const real component   = f + e*x + b*sin(d+c*y);
-        const real numerator   = sinh(component); 
-        const real denominator = pow(cosh(component), -3);
+        const real component   = 2.0/(epsilon_cshock*epsilon_cshock) * tanh(z/epsilon_cshock);
+        const real dz_dy  = -2.0*a_cshock*y - b_cshock; 
 
-        hessian[0][0] =              -2*a*e*e*numerator*denominator;
-        hessian[0][1] = -2*a*b*c*e*cos(d+c*y)*numerator*denominator;
+        hessian[0][0] = -component;
+        hessian[0][1] = -component*dz_dy;
 
         hessian[1][0] = hessian[0][1];
-        hessian[1][1] = -a*b*c*c*pow(cosh(component), -2)*(2*b*pow(cos(c*y + d),2)*tanh(component) + sin(c*y + d));
+        hessian[1][1] = -2.0*a_cshock/epsilon_cshock*(1.0 - pow(tanh(z/epsilon_cshock),2)) - component*pow(dz_dy,2);
     }
     return hessian;
 }
