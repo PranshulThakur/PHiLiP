@@ -172,6 +172,12 @@ public:
      */
     virtual dealii::UpdateFlags post_get_needed_update_flags () const;
     
+    /// Evaluates beta, the velocity of state 0 dependent on position for linear advection.
+    dealii::Tensor<1,dim,real> get_beta(const dealii::Point<dim,real> &pos) const;
+    
+    /// Evaluates V, the velocity of state 1 of linear advection.
+    dealii::Tensor<1,dim,real> get_vel_vec() const;
+    
 protected:
     /// ConditionalOStream.
     /** Used as std::cout, but only prints if mpi_rank == 0

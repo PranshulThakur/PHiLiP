@@ -5,7 +5,7 @@ set dimension = 2
 
 # The PDE we want to solve. Choices are
 # <advection|diffusion|convection_diffusion>.
-set pde_type  = advection      
+set pde_type  = advection_vector     
 set test_type = anisotropic_mesh_adaptation
 
 set sipg_penalty_factor = 20.0
@@ -45,7 +45,7 @@ subsection optimization
     set use_fine_solution = false
 
     set gradient_tolerance = 1.0e-10 #1e-11
-    set max_design_cycles = 110
+    set max_design_cycles = 200
     set linear_iteration_limit = 1000
     set initial_step_size = 1.0
     set functional_evaluation_limit = 30
@@ -53,7 +53,7 @@ subsection optimization
     set line_search_curvature = Strong Wolfe Conditions
     set reduced_space_descent_method = Newton-Krylov
     set full_space_preconditioner = P2A
-    set mesh_weight_factor = 0.1
+    set mesh_weight_factor = 1.0e-4
 
     set regularization_parameter = 1.0
     set regularization_scaling = 2.0
@@ -84,7 +84,7 @@ subsection functional
    set normLp = 2.0
 
    # boundaries to be used
-   set boundary_vector = [1,2]
+   set boundary_vector = [1]
    set use_all_boundaries = false
 end
 

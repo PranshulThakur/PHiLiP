@@ -31,16 +31,41 @@ void ConvectionDiffusion<dim,nstate,real>
         boundary_gradients[i] = this->manufactured_solution_function->gradient (pos, i);
     }
 
+    const dealii::Tensor<1,dim,real> beta_vec = this->get_beta(pos);
+    const dealii::Tensor<1,dim,real> velocity_field = this->get_vel_vec();
     for (int istate=0; istate<nstate; ++istate) {
 
-        std::array<real,nstate> characteristic_dot_n = convective_eigenvalues(boundary_values, normal_int);
-        const bool inflow = (characteristic_dot_n[istate] <= 0.);
+        real characteristic_dot_n = 0;
+        if(istate==0)
+        {
+            for(int idim = 0; idim<dim; ++idim)
+            {
+                characteristic_dot_n += beta_vec[idim]*normal_int[idim];
+            }
+        }
+        else
+        {
+            for(int idim = 0; idim<dim; ++idim)
+            {
+                characteristic_dot_n += velocity_field[idim]*normal_int[idim];
+            }
+        }
+
+        const bool inflow = (characteristic_dot_n <= 0.);
 
         if (inflow || hasDiffusion) { // Dirichlet boundary condition
             // soln_bc[istate] = boundary_values[istate];
             // soln_grad_bc[istate] = soln_grad_int[istate];
 
-            soln_bc[istate] = boundary_values[istate];
+            soln_bc[istate] = 0.0;
+            if(istate==0)
+            {
+                const real x = pos[0];
+                if(x <= 0.5)
+                {
+                    soln_bc[istate] = 1.0;
+                }
+            }
             soln_grad_bc[istate] = soln_grad_int[istate];
 
         } else { // Neumann boundary condition
@@ -66,11 +91,11 @@ std::array<dealii::Tensor<1,dim,real>,nstate> ConvectionDiffusion<dim,nstate,rea
 ::convective_flux (const std::array<real,nstate> &solution) const
 {
     std::array<dealii::Tensor<1,dim,real>,nstate> conv_flux;
-    const dealii::Tensor<1,dim,real> velocity_field = advection_speed();
+    //const dealii::Tensor<1,dim,real> velocity_field = advection_speed();
     for (int i=0; i<nstate; ++i) {
         conv_flux[i] = 0.0;
         for (int d=0; d<dim; ++d) {
-            conv_flux[i][d] += velocity_field[d] * solution[i];
+            conv_flux[i][d] += solution[i];
         }
     }
     return conv_flux;

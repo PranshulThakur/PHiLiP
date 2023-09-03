@@ -116,10 +116,10 @@ int AnisotropicMeshAdaptationCases<dim, nstate> :: run_test () const
     
     flow_solver->run();
     output_vtk_files(flow_solver->dg);
-/*
+
     std::unique_ptr<MeshOptimizer<dim,nstate>> mesh_optimizer = std::make_unique<MeshOptimizer<dim,nstate>> (flow_solver->dg,&param, true);
     mesh_optimizer->run_full_space_optimizer();
-*/    
+    
     //std::unique_ptr<MeshOptimizer<dim,nstate>> mesh_optimizer = std::make_unique<MeshOptimizer<dim,nstate>> (flow_solver->dg,&param, false);
     //mesh_optimizer->run_reduced_space_optimizer();
     
@@ -130,6 +130,7 @@ return 0;
 
 #if PHILIP_DIM==2
 template class AnisotropicMeshAdaptationCases <PHILIP_DIM, 1>;
+template class AnisotropicMeshAdaptationCases <PHILIP_DIM, 2>;
 template class AnisotropicMeshAdaptationCases <PHILIP_DIM, PHILIP_DIM + 2>;
 #endif
 } // namespace Tests

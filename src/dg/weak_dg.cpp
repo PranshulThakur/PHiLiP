@@ -139,6 +139,45 @@ real1 norm(const dealii::Tensor<1,dim,real1> x)
      return sqrt(val);
 }
 
+template <int dim, int nstate, typename real2>
+std::array<real2, nstate> evaluate_advection_flux_dot_n(
+    const std::array<real2,nstate> &soln_int,
+    const std::array<real2,nstate> &soln_ext,
+    const dealii::Tensor<1,dim,real2> &normal_int,
+    const dealii::Tensor<1,dim,real2> &beta_vec,
+    const dealii::Tensor<1,dim,real2> &velocity_field)
+{
+    real2 beta_dot_n = 0;
+    real2 velvec_dot_n = 0;
+    for(int d=0; d<dim; ++d)
+    {
+        beta_dot_n += beta_vec[d]*normal_int[d]; 
+        velvec_dot_n += velocity_field[d]*normal_int[d]; 
+    }
+
+    std::array<real2, nstate> conv_flux_dot_n;
+
+    if(beta_dot_n > 0)
+    {
+        conv_flux_dot_n[0] = beta_dot_n*soln_int[0];
+    }
+    else
+    {
+        conv_flux_dot_n[0] = beta_dot_n*soln_ext[0];
+    }
+
+    if(velvec_dot_n > 0)
+    {
+        conv_flux_dot_n[1] = velvec_dot_n*soln_int[1];
+    }
+    else
+    {
+        conv_flux_dot_n[1] = velvec_dot_n*soln_ext[1];
+    }
+   
+   return conv_flux_dot_n;
+}
+
 namespace PHiLiP {
 
 template <int dim, int nstate, typename real, typename MeshType>
@@ -1211,6 +1250,8 @@ void DGWeak<dim,nstate,real,MeshType>::assemble_boundary_term(
 
     const dealii::Tensor<1,dim,real> unit_normal = dealii::GeometryInfo<dim>::unit_normal_vector[face_number];
     std::vector<dealii::Tensor<1,dim,real2>> phys_unit_normal(n_quad_pts);
+    std::vector<dealii::Tensor<1,dim,real2>> beta_vec(n_quad_pts);
+    const dealii::Tensor<1,dim,real2> velocity_field = physics.get_vel_vec();
 
     for (unsigned int iquad=0; iquad<n_quad_pts; ++iquad) {
         if (compute_metric_derivatives) {
@@ -1219,6 +1260,7 @@ void DGWeak<dim,nstate,real,MeshType>::assemble_boundary_term(
                 const int iaxis = fe_metric.system_to_component_index(idof).first;
                 real_quad_pts[iquad][iaxis] += coords_coeff[idof] * fe_metric.shape_value(idof,unit_quad_pts[iquad]);
             }
+            beta_vec[iquad] = physics.get_beta(real_quad_pts[iquad]);
 
             const real2 jacobian_determinant = dealii::determinant(metric_jacobian[iquad]);
             const dealii::Tensor<2,dim,real2> jacobian_transpose_inverse = dealii::transpose(dealii::invert(metric_jacobian[iquad]));
@@ -1483,6 +1525,8 @@ void DGWeak<dim,nstate,real,MeshType>::assemble_boundary_term(
         // Losing 2p+1 OOA on functionals for all PDEs.
         //conv_num_flux_dot_n[iquad] = conv_num_flux.evaluate_flux(soln_int[iquad], soln_ext[iquad], normal_int);
         conv_num_flux_dot_n[iquad] = conv_num_flux.evaluate_flux(soln_ext[iquad], soln_ext[iquad], normal_int);
+        conv_num_flux_dot_n[iquad] = evaluate_advection_flux_dot_n<dim,nstate,real2>(soln_ext[iquad], soln_ext[iquad], normal_int, beta_vec[iquad], velocity_field);
+        
         // Notice that the flux uses the solution given by the Dirichlet or Neumann boundary condition
         diss_soln_num_flux[iquad] = diss_num_flux.evaluate_solution_flux(soln_ext[iquad], soln_ext[iquad], normal_int);
 
@@ -2282,6 +2326,9 @@ void DGWeak<dim,nstate,real,MeshType>::assemble_face_term(
     std::vector<Tensor1D> phys_unit_normal_int(n_face_quad_pts), phys_unit_normal_ext(n_face_quad_pts);
     std::vector<real2> surface_jac_det(n_face_quad_pts);
     std::vector<real2> faceJxW(n_face_quad_pts);
+    
+    std::vector<dealii::Tensor<1,dim,real2>> beta_vec(n_face_quad_pts);
+    const dealii::Tensor<1,dim,real2> velocity_field = physics.get_vel_vec();
 
     dealii::FullMatrix<real> interpolation_operator_int(n_soln_dofs_int, n_face_quad_pts);
     dealii::FullMatrix<real> interpolation_operator_ext(n_soln_dofs_ext, n_face_quad_pts);
@@ -2291,9 +2338,20 @@ void DGWeak<dim,nstate,real,MeshType>::assemble_face_term(
         gradient_operator_ext[d].reinit(dealii::TableIndices<2>(n_soln_dofs_ext, n_face_quad_pts));
     }
 
+    const unsigned int n_metric_dofs = fe_metric.dofs_per_cell;
+    
     for (unsigned int iquad=0; iquad<n_face_quad_pts; ++iquad) {
 
         real2 surface_jac_det_int, surface_jac_det_ext;
+        
+        dealii::Point<dim,real2> real_quad_pt;
+        for (int d=0;d<dim;++d) { real_quad_pt[d] = 0;}
+        for (unsigned int idof = 0; idof < n_metric_dofs; ++idof) 
+        {
+            const int iaxis = fe_metric.system_to_component_index(idof).first;
+            real_quad_pt[iaxis] += coords_coeff_int[idof] * fe_metric.shape_value(idof,unit_quad_pts_int[iquad]);
+        }
+        beta_vec[iquad] = physics.get_beta(real_quad_pt);
 
         if (compute_metric_derivatives) {
 
@@ -2546,6 +2604,8 @@ void DGWeak<dim,nstate,real,MeshType>::assemble_face_term(
 
         // Evaluate physical convective flux, physical dissipative flux, and source term
         conv_num_flux_dot_n = conv_num_flux.evaluate_flux(soln_int[iquad], soln_ext[iquad], phys_unit_normal_int[iquad]);
+        conv_num_flux_dot_n = evaluate_advection_flux_dot_n<dim,nstate,real2>(
+                        soln_int[iquad], soln_ext[iquad], phys_unit_normal_int[iquad], beta_vec[iquad], velocity_field);
         diss_soln_num_flux = diss_num_flux.evaluate_solution_flux(soln_int[iquad], soln_ext[iquad], phys_unit_normal_int[iquad]);
 
         ADArrayTensor1 diss_soln_jump_int, diss_soln_jump_ext;
@@ -3701,17 +3761,26 @@ void DGWeak<dim,nstate,real,MeshType>::assemble_volume_term(
         }
         conv_phys_flux_at_q[iquad] = physics.convective_flux (soln_at_q[iquad]);
         diss_phys_flux_at_q[iquad] = physics.dissipative_flux (soln_at_q[iquad], soln_grad_at_q[iquad], current_cell_index);
-
-        if(physics.has_nonzero_physical_source){
-            physical_source_at_q.resize(n_quad_pts);
-            dealii::Point<dim,real2> ad_points;
-            for (int d=0;d<dim;++d) { ad_points[d] = 0.0;}
-            for (unsigned int idof = 0; idof < n_metric_dofs; ++idof) {
-                const int iaxis = fe_metric.system_to_component_index(idof).first;
-                ad_points[iaxis] += coords_coeff[idof] * fe_metric.shape_value(idof,unit_quad_pts[iquad]);
-            }
-            physical_source_at_q[iquad] = physics.physical_source_term (ad_points, soln_at_q[iquad], soln_grad_at_q[iquad], current_cell_index);
+        
+        dealii::Point<dim,real2> ad_points;
+        for (int d=0;d<dim;++d) { ad_points[d] = 0.0;}
+        for (unsigned int idof = 0; idof < n_metric_dofs; ++idof) {
+            const int iaxis = fe_metric.system_to_component_index(idof).first;
+            ad_points[iaxis] += coords_coeff[idof] * fe_metric.shape_value(idof,unit_quad_pts[iquad]);
         }
+    
+        const dealii::Tensor<1,dim,real2> beta_vec = physics.get_beta(ad_points);
+        const dealii::Tensor<1,dim,real2> velocity_field = physics.get_vel_vec();
+
+        for(int d=0; d<dim; ++d)
+        {
+            conv_phys_flux_at_q[iquad][0][d] = beta_vec[d]*soln_at_q[iquad][0];
+            conv_phys_flux_at_q[iquad][1][d] = velocity_field[d]*soln_at_q[iquad][1];
+        }
+
+        physical_source_at_q.resize(n_quad_pts);
+        physical_source_at_q[iquad][0] = 0;
+        physical_source_at_q[iquad][1] = soln_at_q[iquad][0];
 
         if (this->all_parameters->artificial_dissipation_param.add_artificial_dissipation) {
             ArrayTensor artificial_diss_phys_flux_at_q;
@@ -3761,10 +3830,9 @@ void DGWeak<dim,nstate,real,MeshType>::assemble_volume_term(
                 rhs[itest] = rhs[itest] + gradient_operator[d][itest][iquad] * diss_phys_flux_at_q[iquad][istate][d] * JxW_iquad;
             }
             // Physical source
-            if(physics.has_nonzero_physical_source){
-                rhs[itest] = rhs[itest] + interpolation_operator[itest][iquad]* physical_source_at_q[iquad][istate] * JxW_iquad;
-            }
-            // Source
+            rhs[itest] = rhs[itest] + interpolation_operator[itest][iquad]* physical_source_at_q[iquad][istate] * JxW_iquad;
+           
+           // Source
             if(this->all_parameters->manufactured_convergence_study_param.manufactured_solution_param.use_manufactured_source_term) {
                 rhs[itest] = rhs[itest] + interpolation_operator[itest][iquad]* source_at_q[iquad][istate] * JxW_iquad;
             }

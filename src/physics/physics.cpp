@@ -188,6 +188,28 @@ dealii::UpdateFlags PhysicsBase<dim,nstate,real>
     return dealii::update_values;
 }
 
+template <int dim, int nstate, typename real>
+dealii::Tensor<1,dim,real> PhysicsBase<dim,nstate,real>
+::get_beta(const dealii::Point<dim,real> &pos) const
+{
+    dealii::Tensor<1,dim,real> beta_vec;
+    const real x = pos[0];
+    const real y = pos[1];
+    beta_vec[0] = y;
+    beta_vec[1] = -x;
+    return beta_vec;
+}
+
+template <int dim, int nstate, typename real>
+dealii::Tensor<1,dim,real> PhysicsBase<dim,nstate,real>
+::get_vel_vec() const
+{
+    dealii::Tensor<1,dim,real> vel_vec;
+    vel_vec[0] = 1.0;
+    vel_vec[1] = -1.0;
+    return vel_vec;
+}
+
 template class PhysicsBase < PHILIP_DIM, 1, double >;
 template class PhysicsBase < PHILIP_DIM, 2, double >;
 template class PhysicsBase < PHILIP_DIM, 3, double >;
