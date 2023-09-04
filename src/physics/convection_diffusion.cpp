@@ -66,6 +66,11 @@ void ConvectionDiffusion<dim,nstate,real>
                     soln_bc[istate] = 1.0;
                 }
             }
+            if(istate==1)
+            {
+                soln_bc[istate] = 0.0;
+            }
+
             soln_grad_bc[istate] = soln_grad_int[istate];
 
         } else { // Neumann boundary condition
