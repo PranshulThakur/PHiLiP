@@ -3745,7 +3745,7 @@ void DGWeak<dim,nstate,real,MeshType>::assemble_volume_term(
     std::vector< ArrayTensor > conv_phys_flux_at_q(n_quad_pts);
     std::vector< ArrayTensor > diss_phys_flux_at_q(n_quad_pts);
     std::vector< Array > source_at_q;
-    std::vector< Array > physical_source_at_q;
+    std::vector< Array > physical_source_at_q(n_quad_pts);
 
     for (unsigned int iquad=0; iquad<n_quad_pts; ++iquad) {
         for (int istate=0; istate<nstate; istate++) {
@@ -3778,7 +3778,6 @@ void DGWeak<dim,nstate,real,MeshType>::assemble_volume_term(
             conv_phys_flux_at_q[iquad][1][d] = velocity_field[d]*soln_at_q[iquad][1];
         }
 
-        physical_source_at_q.resize(n_quad_pts);
         physical_source_at_q[iquad][0] = 0;
         physical_source_at_q[iquad][1] = soln_at_q[iquad][0];
 

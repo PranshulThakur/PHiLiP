@@ -116,8 +116,8 @@ real2 FunctionalNormLpBoundary<dim,nstate,real,MeshType>::evaluate_boundary_inte
     if(!eval_boundary)
         return lpnorm_value;
 
-    for(unsigned int istate = 0; istate < nstate; ++istate)
-        lpnorm_value += pow(soln_at_q[istate], this->normLp);
+    //for(unsigned int istate = 0; istate < nstate; ++istate)
+    lpnorm_value += pow(soln_at_q[1], this->normLp);
 
     return lpnorm_value;
 }

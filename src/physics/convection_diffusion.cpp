@@ -38,20 +38,20 @@ void ConvectionDiffusion<dim,nstate,real>
         real characteristic_dot_n = 0;
         if(istate==0)
         {
-            for(int idim = 0; idim<dim; ++idim)
+            for(int d = 0; d<dim; ++d)
             {
-                characteristic_dot_n += beta_vec[idim]*normal_int[idim];
+                characteristic_dot_n += beta_vec[d]*normal_int[d];
             }
         }
         else
         {
-            for(int idim = 0; idim<dim; ++idim)
+            for(int d = 0; d<dim; ++d)
             {
-                characteristic_dot_n += velocity_field[idim]*normal_int[idim];
+                characteristic_dot_n += velocity_field[d]*normal_int[d];
             }
         }
 
-        const bool inflow = (characteristic_dot_n <= 0.);
+        const bool inflow = (characteristic_dot_n < 0.0);
 
         if (inflow || hasDiffusion) { // Dirichlet boundary condition
             // soln_bc[istate] = boundary_values[istate];
@@ -61,7 +61,7 @@ void ConvectionDiffusion<dim,nstate,real>
             if(istate==0)
             {
                 const real x = pos[0];
-                if(x <= 0.5)
+                if(x <= 0.4)
                 {
                     soln_bc[istate] = 1.0;
                 }

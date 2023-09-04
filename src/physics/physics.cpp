@@ -9,6 +9,12 @@
 
 #include "physics.h"
 
+const double x1_cshock = 0.4;
+const double x2_cshock = 0.6;
+const double x3_cshock = 0.4;
+const double a_cshock = 2.0*x3_cshock + 2*x1_cshock - 4*x2_cshock;
+const double b_cshock = x3_cshock - x1_cshock - a_cshock;
+
 namespace PHiLiP {
 namespace Physics {
 
@@ -193,10 +199,10 @@ dealii::Tensor<1,dim,real> PhysicsBase<dim,nstate,real>
 ::get_beta(const dealii::Point<dim,real> &pos) const
 {
     dealii::Tensor<1,dim,real> beta_vec;
-    const real x = pos[0];
+    //const real x = pos[0];
     const real y = pos[1];
-    beta_vec[0] = y;
-    beta_vec[1] = -x;
+    beta_vec[0] = -(2.0*a_cshock*y + b_cshock);
+    beta_vec[1] = -1.0;
     return beta_vec;
 }
 
