@@ -62,6 +62,15 @@ void SlidingBoundaryParameterization<dim> :: compute_innersliding_vol_index_to_v
                 ++n_fixed_nodes_local;
                 std::cout<<"y is constrained."<<std::endl;
             }
+
+            if( (x==0.25) && (y==1.0) )
+            {
+                // Constrain both
+                is_a_fixed_node(vol_index) = 1;
+                is_a_fixed_node(vol_index + 1) = 1;
+                ++n_fixed_nodes_local;
+                std::cout<<"both x and y are constrained."<<std::endl;
+            }
         }
     }
     is_a_fixed_node.update_ghost_values();

@@ -61,7 +61,7 @@ void ConvectionDiffusion<dim,nstate,real>
             if(istate==0)
             {
                 const real x = pos[0];
-                if(x <= 0.4)
+                if(x <= 0.25)
                 {
                     soln_bc[istate] = 1.0;
                 }
