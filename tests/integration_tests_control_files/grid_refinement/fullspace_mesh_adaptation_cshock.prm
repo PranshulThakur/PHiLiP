@@ -66,7 +66,7 @@ subsection functional
   set functional_type = normLp_boundary
 
    # exponent
-   set normLp = 1.0
+   set normLp = 2.0
 
    # boundaries to be used
    set boundary_vector = [1, 2]
