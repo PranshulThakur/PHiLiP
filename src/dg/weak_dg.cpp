@@ -3779,7 +3779,7 @@ void DGWeak<dim,nstate,real,MeshType>::assemble_volume_term(
         }
 
         physical_source_at_q[iquad][0] = 0;
-        physical_source_at_q[iquad][1] = soln_at_q[iquad][0];
+        physical_source_at_q[iquad][1] = pow(soln_at_q[iquad][0],2);
 
         if (this->all_parameters->artificial_dissipation_param.add_artificial_dissipation) {
             ArrayTensor artificial_diss_phys_flux_at_q;

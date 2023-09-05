@@ -9,8 +9,8 @@
 
 #include "physics.h"
 
-const double x1_cshock = 0.25;
-const double x2_cshock = 5.0/16.0;
+const double x1_cshock = 0.6;
+const double x2_cshock = 0.35;
 const double x3_cshock = 0.25;
 const double a_cshock = 2.0*x3_cshock + 2*x1_cshock - 4*x2_cshock;
 const double b_cshock = x3_cshock - x1_cshock - a_cshock;
