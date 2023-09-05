@@ -1,5 +1,6 @@
 #include "non_periodic_cube_flow.h"
 #include <deal.II/grid/grid_generator.h>
+#include "mesh/gmsh_reader.hpp"
 
 namespace PHiLiP {
 namespace FlowSolver {
@@ -23,6 +24,15 @@ std::shared_ptr<Triangulation> NonPeriodicCubeFlow<dim,nstate>::generate_grid() 
     grid->refine_global(number_of_refinements);
 
     return grid;
+}
+
+template <int dim, int nstate>
+void NonPeriodicCubeFlow<dim,nstate>::set_higher_order_grid(std::shared_ptr<DGBase<dim, double>> dg) const
+{
+    const std::string mesh_filename = this->all_param.flow_solver_param.input_mesh_filename+std::string(".msh");
+    const bool use_mesh_smoothing = false;
+    std::shared_ptr<HighOrderGrid<dim,double>> mesh_high_order = read_gmsh<dim, dim> (mesh_filename, 0, use_mesh_smoothing);
+    dg->set_high_order_grid(mesh_high_order);
 }
 
 template <int dim, int nstate>
