@@ -7,7 +7,7 @@ shock_left = 0.25;
 Point(5) = {shock_left, 1, 0, 1.0};
 Point(6) = {shock_left, 0, 0, 1.0};
 
-shock_right = 0.5;
+shock_right = 0.7;
 Point(7) = {shock_right, 1, 0, 1.0};
 Point(8) = {shock_right, 0, 0, 1.0};
 
@@ -54,14 +54,14 @@ Physical Curve("six", 6) = {8};
 //+
 Physical Curve("three", 3) = {7, 6, 5};
 
-n_vertical = 8;
+n_vertical = 9;
 progression_vertical = 1;
 
-n_left = 2;
+n_left = 8;
 progression_left = 1;
 n_mid = 2;
 progression_mid = 1;
-n_right = 3;
+n_right = 10;
 progression_right = 1;
 
 //+
