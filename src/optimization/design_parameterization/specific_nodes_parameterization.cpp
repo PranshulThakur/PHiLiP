@@ -29,12 +29,8 @@ void SpecificNodesParameterization<dim> :: compute_control_index_to_vol_index()
  //   const dealii::IndexSet &surface_range = this->high_order_grid->surface_nodes.get_partitioner()->locally_owned_range();
     
     dealii::Point<dim> A_right, B_right, C_right, D_left, E_left, F_left;
-    A_right[0] = -0.06; A_right[1] = 0.0;
-    B_right[0] = -0.07; B_right[1] = 3.0;
-    C_right[0] = -0.07; C_right[1] = -3.0;
-    D_left[0] = 1.0; D_left[1] = 0.0;
-    E_left[0] = 2.6; E_left[1] = 3.0;
-    F_left[0] = 2.6; F_left[1] = -3.0;
+    A_right[0] = 0.25; A_right[1] = 0.0;
+    B_right[0] = 0.25; B_right[1] = 1.0;
 
     for(unsigned int i_vol = 0; i_vol<n_vol_nodes; ++i_vol) 
     {
@@ -55,14 +51,20 @@ void SpecificNodesParameterization<dim> :: compute_control_index_to_vol_index()
             const double y = this->high_order_grid->volume_nodes(i_vol+1);
 
             const bool is_part_of_line1 = check_if_node_belongs_to_the_line(A_right, B_right, x, y);
-            const bool is_part_of_line2 = check_if_node_belongs_to_the_line(A_right, C_right, x, y);
-    //        const bool is_part_of_line3 = check_if_node_belongs_to_the_line(D_left, E_left, x, y);
-    //        const bool is_part_of_line4 = check_if_node_belongs_to_the_line(D_left, F_left, x, y);
 
-            if( is_part_of_line1 || is_part_of_line2)// || is_part_of_line3 || is_part_of_line4 )
+            if( is_part_of_line1 )
             {
                 is_a_control_node(i_vol) = 1;
-                is_a_control_node(i_vol+1) = 0;
+                is_a_control_node(i_vol+1) = 1;
+
+                if( y==0 || y==1)
+                {
+                    is_a_control_node(i_vol+1) = 0;
+                    if(y==1)
+                    {
+                        is_a_control_node(i_vol) = 0;
+                    }
+                }
             }
         }
     }
