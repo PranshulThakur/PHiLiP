@@ -118,8 +118,8 @@ real2 FunctionalNormLpBoundary<dim,nstate,real,MeshType>::evaluate_boundary_inte
 
     //=======================================================================
     // Evaluate continuous logistic heaviside.
-    const double xc = 0.8;
-    const double xmax = 0.9; // \in [0.9,1). 
+    const double xc = 0.97;
+    const double xmax = 0.999; // \in [0.9,1). 
     const double log_term = log(1.0/xmax - 1.0);
     const double epsilon_val = -(1.0 - xc)/log_term;
     real2 x = phys_coord[0];
