@@ -3,11 +3,11 @@ Point(2) = {0 ,1 ,0 , 1.0};
 Point(3) = {1 ,0 ,0 , 1.0};
 Point(4) = {1 ,1 ,0 , 1.0};
 
-shock_left = 0.25;
+shock_left = 3.0/8.0;
 Point(5) = {shock_left, 1, 0, 1.0};
 Point(6) = {shock_left, 0, 0, 1.0};
 
-shock_right = 0.7;
+shock_right = 0.6;
 Point(7) = {shock_right, 1, 0, 1.0};
 Point(8) = {shock_right, 0, 0, 1.0};
 
@@ -57,11 +57,11 @@ Physical Curve("three", 3) = {7, 6, 5};
 n_vertical = 9;
 progression_vertical = 1;
 
-n_left = 8;
+n_left = 3;
 progression_left = 1;
 n_mid = 2;
 progression_mid = 1;
-n_right = 10;
+n_right = 3;
 progression_right = 1;
 
 //+
