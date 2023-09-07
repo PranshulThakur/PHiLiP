@@ -29,8 +29,8 @@ void SpecificNodesParameterization<dim> :: compute_control_index_to_vol_index()
  //   const dealii::IndexSet &surface_range = this->high_order_grid->surface_nodes.get_partitioner()->locally_owned_range();
     
     dealii::Point<dim> A_right, B_right, C_right, D_left, E_left, F_left;
-    A_right[0] = 0.25; A_right[1] = 0.0;
-    B_right[0] = 0.25; B_right[1] = 1.0;
+    A_right[0] = 3.0/8.0; A_right[1] = 0.0;
+    B_right[0] = 3.0/8.0; B_right[1] = 1.0;
 
     for(unsigned int i_vol = 0; i_vol<n_vol_nodes; ++i_vol) 
     {

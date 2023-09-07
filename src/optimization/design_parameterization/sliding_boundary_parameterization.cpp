@@ -63,7 +63,7 @@ void SlidingBoundaryParameterization<dim> :: compute_innersliding_vol_index_to_v
                 std::cout<<"y is constrained."<<std::endl;
             }
 
-            if( (x==0.25) && (y==1.0) )
+            if( (x==3.0/8.0) && (y==1.0) )
             {
                 // Constrain both
                 is_a_fixed_node(vol_index) = 1;
