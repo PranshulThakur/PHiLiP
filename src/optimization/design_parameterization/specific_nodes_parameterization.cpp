@@ -27,10 +27,6 @@ void SpecificNodesParameterization<dim> :: compute_control_index_to_vol_index()
     // Get locally owned volume and surface ranges of indices held by current processor.
     const dealii::IndexSet &volume_range = this->high_order_grid->volume_nodes.get_partitioner()->locally_owned_range();
  //   const dealii::IndexSet &surface_range = this->high_order_grid->surface_nodes.get_partitioner()->locally_owned_range();
-    
-    dealii::Point<dim> A_right, B_right, C_right, D_left, E_left, F_left;
-    A_right[0] = 3.0/8.0; A_right[1] = 0.0;
-    B_right[0] = 3.0/8.0; B_right[1] = 1.0;
 
     for(unsigned int i_vol = 0; i_vol<n_vol_nodes; ++i_vol) 
     {
@@ -50,9 +46,9 @@ void SpecificNodesParameterization<dim> :: compute_control_index_to_vol_index()
             const double x = this->high_order_grid->volume_nodes(i_vol);
             const double y = this->high_order_grid->volume_nodes(i_vol+1);
 
-            const bool is_part_of_line1 = check_if_node_belongs_to_the_line(A_right, B_right, x, y);
-
-            if( is_part_of_line1 )
+            const bool is_part_of_line = check_if_node_belongs_to_the_line(x);
+            
+            if( is_part_of_line)
             {
                 is_a_control_node(i_vol) = 1;
                 is_a_control_node(i_vol+1) = 1;
@@ -60,7 +56,7 @@ void SpecificNodesParameterization<dim> :: compute_control_index_to_vol_index()
                 if( y==0 || y==1)
                 {
                     is_a_control_node(i_vol+1) = 0;
-                    if(y==1)
+                    if( (y==1) && (x==3.0/8.0))
                     {
                         is_a_control_node(i_vol) = 0;
                     }
@@ -249,25 +245,11 @@ int SpecificNodesParameterization<dim> :: is_design_variable_valid(
 }
     
 template<int dim>
-bool SpecificNodesParameterization<dim> :: check_if_node_belongs_to_the_line(
-    const dealii::Point<dim> &start_point, 
-    const dealii::Point<dim> &end_point,
-    const double x, const double y) const
+bool SpecificNodesParameterization<dim> :: check_if_node_belongs_to_the_line(const double x) const
 {
-    const double start_x = start_point[0];
-    const double start_y = start_point[1];
-    const double end_x = end_point[0];
-    const double end_y = end_point[1];
+    if(x > 0.2 && x < 0.55) {return true;}
 
-    if(  (x - start_x)*(x - end_x) > 1.0e-6) {return false;}
-    if(  (y - start_y)*(y - end_y) > 1.0e-6) {return false;}
-
-    const double y_expected = (end_y - start_y)/(end_x - start_x) * (x - start_x) + start_y;
-
-    const double diff = abs(y - y_expected);
-    if(diff > 1.0e-5) {return false;}
-
-    return true;
+    return false;
 }
 
 template class SpecificNodesParameterization<PHILIP_DIM>;
