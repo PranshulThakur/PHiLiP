@@ -73,6 +73,10 @@ subsection functional
    set use_all_boundaries = false
 end
 
+subsection mesh adaptation
+    set use_goal_oriented_mesh_adaptation = true
+end
+
 subsection flow_solver
   set flow_case_type = non_periodic_cube_flow
   set steady_state = true
