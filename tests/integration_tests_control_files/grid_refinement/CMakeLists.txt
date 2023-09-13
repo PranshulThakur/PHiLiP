@@ -193,4 +193,10 @@ add_test(
   COMMAND mpirun -n ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_2D -i ${CMAKE_CURRENT_BINARY_DIR}/fullspace_mesh_adaptation_cshock.prm
   WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
 )
+configure_file(implicit_shock_tracking_cshock.prm implicit_shock_tracking_cshock.prm  COPYONLY)
+add_test(
+  NAME IMPLICIT_SHOCK_TRACKING_CSHOCK
+  COMMAND mpirun -n ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_2D -i ${CMAKE_CURRENT_BINARY_DIR}/implicit_shock_tracking_cshock.prm
+  WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
+)
 
