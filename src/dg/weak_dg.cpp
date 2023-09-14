@@ -174,7 +174,14 @@ std::array<real2, nstate> evaluate_advection_flux_dot_n(
     {
         conv_flux_dot_n[1] = velvec_dot_n*soln_ext[1];
     }
-   
+
+/*
+    const double a_valh = 10;
+    real2 heaviside_0 = 1.0/( 1.0 + exp(-2.0*a_valh*beta_dot_n));
+    real2 heaviside_1 = 1.0/( 1.0 + exp(-2.0*a_valh*velvec_dot_n));
+    conv_flux_dot_n[0] = beta_dot_n*(soln_int[0]*heaviside_0 + soln_ext[0]*(1.0 - heaviside_0));  
+    conv_flux_dot_n[1] = velvec_dot_n*(soln_int[1]*heaviside_1 + soln_ext[1]*(1.0 - heaviside_1));  
+*/
    return conv_flux_dot_n;
 }
 
