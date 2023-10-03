@@ -51,7 +51,7 @@ void ConvectionDiffusion<dim,nstate,real>
             }
         }
 
-        const bool inflow = (characteristic_dot_n < 0.0);
+        const bool inflow = (characteristic_dot_n <= 0.0);
 
         if (inflow || hasDiffusion) { // Dirichlet boundary condition
             // soln_bc[istate] = boundary_values[istate];
@@ -69,7 +69,7 @@ void ConvectionDiffusion<dim,nstate,real>
             }
             if(istate==1)
             {
-                soln_bc[istate] = 0.0;
+                soln_bc[istate] = 0.5;
             }
 
             soln_grad_bc[istate] = soln_grad_int[istate];
