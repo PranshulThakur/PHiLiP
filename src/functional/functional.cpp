@@ -118,18 +118,18 @@ real2 FunctionalNormLpBoundary<dim,nstate,real,MeshType>::evaluate_boundary_inte
 
     //=======================================================================
     // Evaluate continuous logistic heaviside.
-    const double xc = 0.95;
-    const double xmax = 0.999; // \in [0.9,1). 
-    const double log_term = log(1.0/xmax - 1.0);
-    const double epsilon_val = -(1.0 - xc)/log_term;
-    real2 x = phys_coord[0];
-    real2 heaviside_at_x = 1.0/(1.0 + exp(-(x-xc)/epsilon_val));
+    real2 y = phys_coord[1];
+    const double yc = 0.05;
+    const double heaviside_min = 1.0e-5; // heaviside at y=0
+    const double logterm = log(1/heaviside_min - 1.0);
+    const double epsilon_val = yc/logterm;
+    real2 heaviside_at_y = 1.0/(1.0 + exp(-(y-yc)/epsilon_val));
     //=======================================================================
   
     
     //for(unsigned int istate = 0; istate < nstate; ++istate)
     const unsigned int istate=1;
-    lpnorm_value += heaviside_at_x * pow(soln_at_q[istate], this->normLp);
+    lpnorm_value += heaviside_at_y * pow(soln_at_q[istate], this->normLp);
 
     return lpnorm_value;
 }

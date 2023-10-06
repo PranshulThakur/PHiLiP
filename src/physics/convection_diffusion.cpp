@@ -69,7 +69,7 @@ void ConvectionDiffusion<dim,nstate,real>
             }
             if(istate==1)
             {
-                soln_bc[istate] = 0.5;
+                soln_bc[istate] = 0.25;
             }
 
             soln_grad_bc[istate] = soln_grad_int[istate];
