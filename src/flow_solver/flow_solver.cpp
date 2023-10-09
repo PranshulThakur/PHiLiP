@@ -584,15 +584,7 @@ int FlowSolver<dim,nstate>::run() const
         }
 
         ode_solver->steady_state();
-        flow_solver_case->steady_state_postprocessing(dg);
-        
-        const bool use_isotropic_mesh_adaptation = (all_param.mesh_adaptation_param.total_mesh_adaptation_cycles > 0) 
-                                        && (all_param.mesh_adaptation_param.mesh_adaptation_type != Parameters::MeshAdaptationParam::MeshAdaptationType::anisotropic_adaptation);
-        
-        if(use_isotropic_mesh_adaptation)
-        {
-            perform_steady_state_mesh_adaptation();
-        }
+        flow_solver_case->steady_state_postprocessing(dg);        
     }
     pcout << "done." << std::endl;
     return 0;
