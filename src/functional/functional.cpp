@@ -102,7 +102,7 @@ template <typename real2>
 real2 FunctionalNormLpBoundary<dim,nstate,real,MeshType>::evaluate_boundary_integrand(
     const PHiLiP::Physics::PhysicsBase<dim,nstate,real2> &/* physics */,
     const unsigned int                                    boundary_id,
-    const dealii::Point<dim,real2> &                      /*phys_coord*/,
+    const dealii::Point<dim,real2> &                      phys_coord,
     const dealii::Tensor<1,dim,real2> &                   /* normal */,
     const std::array<real2,nstate> &                      soln_at_q,
     const std::array<dealii::Tensor<1,dim,real2>,nstate> &/* soln_grad_at_q */) const
@@ -126,9 +126,9 @@ real2 FunctionalNormLpBoundary<dim,nstate,real,MeshType>::evaluate_boundary_inte
     real2 heaviside_at_x = 1.0/(1.0 + exp(-(x-xc)/epsilon_val));
     //=======================================================================
 */    
-    const double heaviside_at_x = 1.0;
+    const real2 x_val = phys_coord[0];
     for(unsigned int istate = 0; istate < nstate; ++istate)
-        lpnorm_value += heaviside_at_x * pow(soln_at_q[istate], this->normLp);
+        lpnorm_value += (1+x_val) * pow(soln_at_q[istate], this->normLp);
 
     return lpnorm_value;
 }
