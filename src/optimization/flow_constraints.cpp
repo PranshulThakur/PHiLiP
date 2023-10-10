@@ -11,6 +11,8 @@
 
 #include "global_counter.hpp"
 
+#include "functional/functional.h"
+
 namespace PHiLiP {
 
 template<int dim>
@@ -866,6 +868,14 @@ double FlowConstraints<dim>
 ::output_results_vtk (const unsigned int output_number) const
 {
     dg->output_results_vtk(output_number);
+    
+    const double functional_exact = 1.755; 
+    std::shared_ptr< Functional<dim, 1, double> > functional
+                                = FunctionalFactory<dim,1,double>::create_Functional(dg->all_parameters->functional_param, dg);
+    const double functional_val = functional->evaluate_functional();
+    const double error_val = abs(functional_val - functional_exact);
+    return error_val;
+    /*
     const unsigned int poly_degree = dg->get_min_fe_degree();
     dealii::QGauss<dim> quad_extra(dg->max_degree+1);
     const dealii::Mapping<dim> &mapping = (*(dg->high_order_grid->mapping_fe_field));
@@ -907,6 +917,7 @@ double FlowConstraints<dim>
 
     double l2error_global = sqrt(dealii::Utilities::MPI::sum(l2error, MPI_COMM_WORLD));
     return l2error_global;
+    */
 }
 template class FlowConstraints<PHILIP_DIM>;
 
