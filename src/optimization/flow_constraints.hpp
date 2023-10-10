@@ -307,7 +307,7 @@ public:
     //                          const ROL::Vector<double> &g,
     //                          double &tol) override;
     /// Outputs the mesh and solution using stored pointer to DGBase.
-    void output_results_vtk(const unsigned int output_number) const;
+    double output_results_vtk(const unsigned int output_number) const;
 
 };
 

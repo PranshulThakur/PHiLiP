@@ -862,10 +862,51 @@ void FlowConstraints<dim>
 // }
 
 template<int dim>
-void FlowConstraints<dim>
+double FlowConstraints<dim>
 ::output_results_vtk (const unsigned int output_number) const
 {
     dg->output_results_vtk(output_number);
+    const unsigned int poly_degree = dg->get_min_fe_degree();
+    dealii::QGauss<dim> quad_extra(dg->max_degree+1);
+    const dealii::Mapping<dim> &mapping = (*(dg->high_order_grid->mapping_fe_field));
+    dealii::FEValues<dim,dim> fe_values_extra(mapping, dg->fe_collection[poly_degree], quad_extra, 
+            dealii::update_values | dealii::update_JxW_values | dealii::update_quadrature_points);
+    const unsigned int n_quad_pts = fe_values_extra.n_quadrature_points;
+    std::array<double,1> soln_at_q;
+
+    double l2error = 0;
+
+    std::vector<dealii::types::global_dof_index> dofs_indices (fe_values_extra.dofs_per_cell);
+
+    for(const auto &cell : dg->dof_handler.active_cell_iterators())
+    {
+        if(! cell->is_locally_owned()) {continue;}
+        
+        fe_values_extra.reinit(cell);
+        cell->get_dof_indices(dofs_indices);
+                
+        for (unsigned int iquad=0; iquad<n_quad_pts; ++iquad) 
+        {
+
+            std::fill(soln_at_q.begin(), soln_at_q.end(), 0);
+            for (unsigned int idof=0; idof<fe_values_extra.dofs_per_cell; ++idof) 
+            {
+                const unsigned int istate = fe_values_extra.get_fe().system_to_component_index(idof).first;
+                soln_at_q[istate] += dg->solution[dofs_indices[idof]] * fe_values_extra.shape_value_component(idof, iquad, istate);
+            }
+
+            const dealii::Point<dim> physical_point = fe_values_extra.quadrature_point(iquad);
+            double sol_at_q_exact = 1;
+            if( (physical_point[0] + 0.3*physical_point[1]) < 0.0)
+            {
+                sol_at_q_exact = 0;
+            }
+            l2error += pow((soln_at_q[0] - sol_at_q_exact),2)*fe_values_extra.JxW(iquad);
+        }
+    } // cell loop ends.
+
+    double l2error_global = sqrt(dealii::Utilities::MPI::sum(l2error, MPI_COMM_WORLD));
+    return l2error_global;
 }
 template class FlowConstraints<PHILIP_DIM>;
 
