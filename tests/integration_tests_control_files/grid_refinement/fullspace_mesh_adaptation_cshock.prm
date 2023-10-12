@@ -22,6 +22,15 @@ subsection linear solver
   end 
 end
 
+subsection mesh adaptation
+   set total_mesh_adaptation_cycles = 10
+   set use_goal_oriented_mesh_adaptation = true
+   set mesh_adaptation_type = h_adaptation
+   subsection fixed-fraction
+     set refine_fraction = 0.1
+   end
+end
+
 subsection ODE solver
   #output solution
   #set output_solution_every_x_steps = 1
