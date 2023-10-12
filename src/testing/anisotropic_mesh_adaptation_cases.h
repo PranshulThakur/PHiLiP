@@ -35,6 +35,9 @@ public:
     
     /// Outputs vtk files with primal and adjoint solutions.
     double output_vtk_files(std::shared_ptr<DGBase<dim,double>> dg) const;
+    
+    /// Evaluates exact solution.
+    std::array<double, nstate> evaluate_soln_exact(const dealii::Point<dim> &point) const;
 }; 
 
 } // Tests namespace

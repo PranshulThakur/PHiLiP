@@ -108,6 +108,60 @@ double AnisotropicMeshAdaptationCases<dim,nstate> :: evaluate_abs_dwr_error(std:
 }
 
 template <int dim, int nstate>
+std::array<double,nstate> AnisotropicMeshAdaptationCases<dim,nstate> :: evaluate_soln_exact(const dealii::Point<dim> &point) const
+{
+    std::array<double, nstate> soln_exact;
+    const double x = point[0];
+    const double y = point[1];
+    const double a = -0.4;
+    const double b = 0.4;
+    const double c = 3.0/8.0;
+    const double x_on_curve = a*pow(y,2) + b*y + c;
+
+    // Get u0 exact
+    soln_exact[0] = 0.0;
+    if(x <= x_on_curve)
+    {
+        soln_exact[0] = 1.0;
+    }
+
+    // Get u1 exact
+    const bool region_1 = (y > (1.0-x)) && (x <=x_on_curve);
+    const bool region_2 = (y <= (1.0-x)) && (x <= x_on_curve);
+    const bool region_3 = (y <= (1.0-x)) && (x > x_on_curve);
+    const bool region_4 = (x > x_on_curve) && (y < (11.0/8.0 - x)) && (y > (1.0-x));
+    const bool region_5 = y >= (11.0/8.0 - x);
+    const double y_tilde = (-(b+1.0) - sqrt(pow(b+1.0,2) - 4.0*a*(c-x-y)))/(2.0*a);
+    const double x_tilde = a*pow(y_tilde,2) + b*y_tilde + c;
+    if(region_1)
+    {
+        soln_exact[1] = 0.3 + (1.0-y);
+    }
+    else if(region_2)
+    {
+        soln_exact[1] = 0.3 + x;
+    }
+    else if(region_3)
+    {
+        soln_exact[1] = 0.3 + x_tilde;
+    }
+    else if(region_4)
+    {
+        soln_exact[1] = 0.3 + (1.0 - y_tilde);
+    }
+    else if(region_5)
+    {
+        soln_exact[1] = 0.3;
+    }
+    else
+    {
+        std::cout<<"The domain is completely covered by regions 1 to 5. Shouldn't have reached here. Aborting.."<<std::endl;
+        std::abort();
+    }
+    return soln_exact;
+}
+
+template <int dim, int nstate>
 int AnisotropicMeshAdaptationCases<dim, nstate> :: run_test () const
 {
     const Parameters::AllParameters param = *(TestsBase::all_parameters);
