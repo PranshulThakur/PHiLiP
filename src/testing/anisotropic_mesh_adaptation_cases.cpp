@@ -108,6 +108,57 @@ double AnisotropicMeshAdaptationCases<dim,nstate> :: evaluate_abs_dwr_error(std:
 }
 
 template <int dim, int nstate>
+double AnisotropicMeshAdaptationCases<dim,nstate> :: evaluate_solution_error(std::shared_ptr<DGBase<dim,double>> dg) const
+{
+    int overintegrate = 10;
+    const unsigned int poly_degree = dg->get_min_fe_degree();
+    dealii::QGauss<dim> quad_extra(poly_degree+1+overintegrate);
+    const dealii::Mapping<dim> &mapping = (*(dg->high_order_grid->mapping_fe_field));
+    dealii::FEValues<dim,dim> fe_values_extra(mapping, dg->fe_collection[poly_degree], quad_extra, 
+            dealii::update_values | dealii::update_JxW_values | dealii::update_quadrature_points);
+    const unsigned int n_quad_pts = fe_values_extra.n_quadrature_points;
+    const unsigned int n_dofs_cell = fe_values_extra.dofs_per_cell;
+    std::array<double,nstate> soln_at_q;
+
+    double l2error = 0;
+
+    std::vector<dealii::types::global_dof_index> dofs_indices (n_dofs_cell);
+
+    // Integrate solution error and output error
+    for (const auto &cell : dg->dof_handler.active_cell_iterators()) 
+    {
+        if (!cell->is_locally_owned()) continue;
+        fe_values_extra.reinit (cell);
+        cell->get_dof_indices (dofs_indices);
+
+        for(unsigned int iquad = 0; iquad < n_quad_pts; ++iquad)
+        {
+            std::fill(soln_at_q.begin(), soln_at_q.end(), 0.0);
+
+            const dealii::Point<dim> &phys_point = fe_values_extra.quadrature_point(iquad);
+            const std::array<double,nstate> soln_exact_at_q = evaluate_soln_exact(phys_point);
+            for(unsigned int idof = 0; idof < n_dofs_cell; ++idof)
+            {
+                const unsigned int istate = fe_values_extra.get_fe().system_to_component_index(idof).first;
+                soln_at_q[istate] += dg->solution(dofs_indices[idof])*fe_values_extra.shape_value_component(idof,iquad,istate); 
+            }
+
+            double error_norm_squared = 0;
+            for(unsigned int istate = 0; istate < nstate; ++istate)
+            {
+                error_norm_squared += pow(soln_exact_at_q[istate] - soln_at_q[istate],2);
+            }
+            l2error += error_norm_squared * fe_values_extra.JxW(iquad);
+        }
+
+    } // cell loop ends
+    const double l2error_global = sqrt(dealii::Utilities::MPI::sum(l2error, MPI_COMM_WORLD));
+
+
+    return l2error_global;
+}
+
+template <int dim, int nstate>
 std::array<double,nstate> AnisotropicMeshAdaptationCases<dim,nstate> :: evaluate_soln_exact(const dealii::Point<dim> &point) const
 {
     std::array<double, nstate> soln_exact;
