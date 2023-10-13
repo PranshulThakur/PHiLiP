@@ -64,7 +64,6 @@ void ConvectionDiffusion<dim,nstate,real>
                 if(x <= 3.0/8.0)  // update also in sliding boundary parameterization.
                 {
                     soln_bc[istate] = 1.0;
-                    if(x == 3.0/8.0) {soln_bc[istate] = 0.5;}
                 }
             }
             if(istate==1)
