@@ -224,7 +224,7 @@ int AnisotropicMeshAdaptationCases<dim, nstate> :: run_test () const
 {
     const Parameters::AllParameters param = *(TestsBase::all_parameters);
     const bool run_mesh_optimizer = true;
-    const bool run_fixedfraction_mesh_adaptation = true;
+    const bool run_fixedfraction_mesh_adaptation = false;
     
     std::unique_ptr<FlowSolver::FlowSolver<dim,nstate>> flow_solver = FlowSolver::FlowSolverFactory<dim,nstate>::select_flow_case(&param, parameter_handler);
     
@@ -243,7 +243,9 @@ int AnisotropicMeshAdaptationCases<dim, nstate> :: run_test () const
 
     if(run_mesh_optimizer)
     {
-        std::unique_ptr<MeshOptimizer<dim,nstate>> mesh_optimizer = std::make_unique<MeshOptimizer<dim,nstate>> (flow_solver->dg,&param, true);
+        const double mesh_weight = param.optimization_param.mesh_weight_factor;
+        std::unique_ptr<MeshOptimizer<dim,nstate>> mesh_optimizer = 
+                                                   std::make_unique<MeshOptimizer<dim,nstate>> (flow_solver->dg, &param, mesh_weight, true);
         mesh_optimizer->run_full_space_optimizer();
 
         const double solution_error = evaluate_solution_error(flow_solver->dg);

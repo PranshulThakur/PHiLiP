@@ -5,10 +5,11 @@ namespace PHiLiP {
 template<int dim, int nstate, typename real>  
 CellDistortion<dim, nstate, real> :: CellDistortion( 
     std::shared_ptr<DGBase<dim,real>> dg_input,
+    const real mesh_weight_factor_input,
     const bool uses_solution_values,
     const bool uses_solution_gradient)
     : Functional<dim, nstate, real>(dg_input, uses_solution_values, uses_solution_gradient)
-    , mesh_weight_factor(dg_input->all_parameters->optimization_param.mesh_weight_factor)
+    , mesh_weight_factor(mesh_weight_factor_input)
     , mesh_volume_power(dg_input->all_parameters->optimization_param.mesh_volume_power)
     , scaling_w_elements (1.0/dg_input->triangulation->n_global_active_cells())
 {

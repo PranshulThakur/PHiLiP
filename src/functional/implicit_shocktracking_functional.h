@@ -16,6 +16,7 @@ public:
     /// Constructor
     ImplicitShockTrackingFunctional( 
         std::shared_ptr<DGBase<dim,real>> dg_input,
+        const real weight_on_mesh_distortion,
         const bool uses_solution_values = true,
         const bool uses_solution_gradient = false,
         const bool _use_coarse_residual = false);

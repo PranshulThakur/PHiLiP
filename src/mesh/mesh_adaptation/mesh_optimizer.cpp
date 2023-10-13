@@ -28,11 +28,13 @@ template<int dim, int nstate>
 MeshOptimizer<dim,nstate>::MeshOptimizer(
     std::shared_ptr<DGBase<dim,double>> dg_input,
     const Parameters::AllParameters *const parameters_input, 
+    const double _weight_on_mesh_distortion,
     const bool _use_full_space_method)
     : dg(dg_input)
     , all_parameters(parameters_input)
     , use_full_space_method(_use_full_space_method)
     , std_outstream(nullptr)
+    , weight_on_mesh_distortion(_weight_on_mesh_distortion)
     , mpi_communicator(MPI_COMM_WORLD)
     , pcout(std::cout, dealii::Utilities::MPI::this_mpi_process(mpi_communicator)==0)
 {
@@ -60,11 +62,13 @@ void MeshOptimizer<dim,nstate>::initialize_objfunc_and_design_parameterization()
 
     if(all_parameters->mesh_adaptation_param.use_goal_oriented_mesh_adaptation)
     {
-        objective_function = std::make_shared<DualWeightedResidualObjFunc2<dim, nstate, double>> (dg,uses_solution_values,uses_solution_gradient,uses_coarse_residual);
+        objective_function = std::make_shared<DualWeightedResidualObjFunc2<dim, nstate, double>> 
+                            (dg, weight_on_mesh_distortion, uses_solution_values,uses_solution_gradient,uses_coarse_residual);
     }
     else
     {
-        objective_function = std::make_shared<ImplicitShockTrackingFunctional<dim, nstate, double>> (dg,uses_solution_values,uses_solution_gradient,uses_coarse_residual);
+        objective_function = std::make_shared<ImplicitShockTrackingFunctional<dim, nstate, double>> 
+                            (dg, weight_on_mesh_distortion, uses_solution_values,uses_solution_gradient,uses_coarse_residual);
     }
 }
 

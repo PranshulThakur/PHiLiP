@@ -9,6 +9,7 @@ namespace PHiLiP {
 template <int dim, int nstate, typename real>
 DualWeightedResidualObjFunc2<dim, nstate, real> :: DualWeightedResidualObjFunc2( 
     std::shared_ptr<DGBase<dim,real>> dg_input,
+    const real mesh_weight_factor_input,
     const bool uses_solution_values,
     const bool uses_solution_gradient,
     const bool _use_coarse_residual)
@@ -31,7 +32,7 @@ DualWeightedResidualObjFunc2<dim, nstate, real> :: DualWeightedResidualObjFunc2(
     
     compute_interpolation_matrix(); // also stores cellwise_dofs_fine, vector coarse and vector fine.
     functional = FunctionalFactory<dim,nstate,real>::create_Functional(this->dg->all_parameters->functional_param, this->dg);
-    cell_distortion_functional = std::make_unique<CellDistortion<dim, nstate, real>> (this->dg);
+    cell_distortion_functional = std::make_unique<CellDistortion<dim, nstate, real>> (this->dg, mesh_weight_factor_input);
 
     if(use_coarse_residual)
     {

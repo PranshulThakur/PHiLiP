@@ -20,6 +20,7 @@ public:
     /// Constructor
     CellDistortion( 
         std::shared_ptr<DGBase<dim,real>> dg_input,
+        const real mesh_weight_factor_input,
         const bool uses_solution_values = false,
         const bool uses_solution_gradient = false);
 
