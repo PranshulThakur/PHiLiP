@@ -8,6 +8,7 @@
 #include "mesh/mesh_adaptation/mesh_optimizer.hpp"
 #include "mesh/mesh_adaptation/mesh_adaptation.h"
 #include <deal.II/grid/grid_in.h>
+#include <deal.II/base/convergence_table.h>
 
 namespace PHiLiP {
 namespace Tests {
@@ -133,16 +134,22 @@ double AnisotropicMeshAdaptationCases<dim,nstate> :: evaluate_solution_error(std
 
         for(unsigned int iquad = 0; iquad < n_quad_pts; ++iquad)
         {
-            std::fill(soln_at_q.begin(), soln_at_q.end(), 0.0);
-
             const dealii::Point<dim> &phys_point = fe_values_extra.quadrature_point(iquad);
             const std::array<double,nstate> soln_exact_at_q = evaluate_soln_exact(phys_point);
+            
+            std::fill(soln_at_q.begin(), soln_at_q.end(), 0.0);
             for(unsigned int idof = 0; idof < n_dofs_cell; ++idof)
             {
                 const unsigned int istate = fe_values_extra.get_fe().system_to_component_index(idof).first;
                 soln_at_q[istate] += dg->solution(dofs_indices[idof])*fe_values_extra.shape_value_component(idof,iquad,istate); 
             }
-
+/*
+            std::cout<<"(x,y) = ("<<phys_point[0]<<", "<<phys_point[1]
+            <<");  soln_at_q[0] = "<<soln_at_q[0]<<";  soln_exact_at_q[0] = "<<soln_exact_at_q[0]<<std::endl;
+            
+            std::cout<<"(x,y) = ("<<phys_point[0]<<", "<<phys_point[1]
+            <<");  soln_at_q[1] = "<<soln_at_q[1]<<";  soln_exact_at_q[1] = "<<soln_exact_at_q[1]<<std::endl;
+*/
             double error_norm_squared = 0;
             for(unsigned int istate = 0; istate < nstate; ++istate)
             {
@@ -182,7 +189,7 @@ std::array<double,nstate> AnisotropicMeshAdaptationCases<dim,nstate> :: evaluate
     const bool region_3 = (y <= (1.0-x)) && (x > x_on_curve);
     const bool region_4 = (x > x_on_curve) && (y < (11.0/8.0 - x)) && (y > (1.0-x));
     const bool region_5 = y >= (11.0/8.0 - x);
-    const double y_tilde = (-(b+1.0) - sqrt(pow(b+1.0,2) - 4.0*a*(c-x-y)))/(2.0*a);
+    const double y_tilde = (-(b+1.0) + sqrt(pow(b+1.0,2) - 4.0*a*(c-x-y)))/(2.0*a);
     const double x_tilde = a*pow(y_tilde,2) + b*y_tilde + c;
     if(region_1)
     {
@@ -217,31 +224,35 @@ int AnisotropicMeshAdaptationCases<dim, nstate> :: run_test () const
 {
     const Parameters::AllParameters param = *(TestsBase::all_parameters);
     const bool run_mesh_optimizer = true;
-    const bool run_fixedfraction_mesh_adaptation = false;
+    const bool run_fixedfraction_mesh_adaptation = true;
     
     std::unique_ptr<FlowSolver::FlowSolver<dim,nstate>> flow_solver = FlowSolver::FlowSolverFactory<dim,nstate>::select_flow_case(&param, parameter_handler);
     
     flow_solver->run();
 
-    std::vector<double> functional_error_vector;
+    std::vector<double> solution_error_vector;
     std::vector<unsigned int> n_cycle_vector;
     std::vector<unsigned int> n_dofs_vector;
 
-    const double functional_error_initial = evaluate_functional_error(flow_solver->dg);
-    functional_error_vector.push_back(functional_error_initial);
+    const double solution_error_initial = evaluate_solution_error(flow_solver->dg);
+    solution_error_vector.push_back(solution_error_initial);
     n_dofs_vector.push_back(flow_solver->dg->n_dofs());
     unsigned int current_cycle = 0;
     n_cycle_vector.push_back(current_cycle++);
+    dealii::ConvergenceTable convergence_table;
 
     if(run_mesh_optimizer)
     {
         std::unique_ptr<MeshOptimizer<dim,nstate>> mesh_optimizer = std::make_unique<MeshOptimizer<dim,nstate>> (flow_solver->dg,&param, true);
         mesh_optimizer->run_full_space_optimizer();
 
-        const double functional_error = evaluate_functional_error(flow_solver->dg);
-        functional_error_vector.push_back(functional_error);
+        const double solution_error = evaluate_solution_error(flow_solver->dg);
+        solution_error_vector.push_back(solution_error);
         n_dofs_vector.push_back(flow_solver->dg->n_dofs());
         n_cycle_vector.push_back(current_cycle++);
+        
+        convergence_table.add_value("cells", flow_solver->dg->triangulation->n_global_active_cells());
+        convergence_table.add_value("soln_error_l2",solution_error);
     }
 
     if(run_fixedfraction_mesh_adaptation)
@@ -256,10 +267,13 @@ int AnisotropicMeshAdaptationCases<dim, nstate> :: run_test () const
             meshadaptation->adapt_mesh();
             flow_solver->run();
 
-            const double functional_error = evaluate_functional_error(flow_solver->dg);
-            functional_error_vector.push_back(functional_error);
+            const double solution_error = evaluate_solution_error(flow_solver->dg);
+            solution_error_vector.push_back(solution_error);
             n_dofs_vector.push_back(flow_solver->dg->n_dofs());
             n_cycle_vector.push_back(current_cycle++);
+            
+            convergence_table.add_value("cells", flow_solver->dg->triangulation->n_global_active_cells());
+            convergence_table.add_value("soln_error_l2",solution_error);
         }
     }
 
@@ -282,15 +296,24 @@ int AnisotropicMeshAdaptationCases<dim, nstate> :: run_test () const
     }
     pcout<<"];"<<std::endl;
 
-    std::string functional_type = "functional_error";
+    std::string functional_type = "solution_error";
     pcout<<"\n "<<functional_type<<" = [";
-    for(long unsigned int i=0; i<functional_error_vector.size(); ++i)
+    for(long unsigned int i=0; i<solution_error_vector.size(); ++i)
     {
         if(i!=0) {pcout<<", ";}
-        pcout<<functional_error_vector[i];
+        pcout<<solution_error_vector[i];
     }
     pcout<<"];"<<std::endl;
 
+    
+    convergence_table.evaluate_convergence_rates("soln_error_l2", "cells", dealii::ConvergenceTable::reduction_rate_log2, dim);
+    convergence_table.set_scientific("soln_error_l2", true);
+
+    pcout << std::endl << std::endl << std::endl << std::endl;
+    pcout << " ********************************************" << std::endl;
+    pcout << " Convergence summary" << std::endl;
+    pcout << " ********************************************" << std::endl;
+    if(pcout.is_active()) {convergence_table.write_text(pcout.get_stream());}
     return 0;
 }
 
