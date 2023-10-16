@@ -41,6 +41,10 @@ public:
     
     /// Evaluates exact solution.
     std::array<double, nstate> evaluate_soln_exact(const dealii::Point<dim> &point) const;
+
+    /// Move nodes to the curve.
+    void move_nodes_to_shock(std::shared_ptr<DGBase<dim,double>> dg) const;
+
 }; 
 
 } // Tests namespace

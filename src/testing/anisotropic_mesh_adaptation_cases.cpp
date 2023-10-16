@@ -22,6 +22,44 @@ AnisotropicMeshAdaptationCases<dim, nstate> :: AnisotropicMeshAdaptationCases(
 {}
 
 template <int dim, int nstate>
+void AnisotropicMeshAdaptationCases<dim,nstate> :: move_nodes_to_shock(std::shared_ptr<DGBase<dim,double>> dg) const
+{
+    const dealii::IndexSet &volume_range = dg->high_order_grid->volume_nodes.get_partitioner()->locally_owned_range();
+    const unsigned int n_vol_nodes = dg->high_order_grid->volume_nodes.size();
+
+    for (unsigned int i = 0; i<n_vol_nodes; ++i)
+    {
+        if(! volume_range.is_element(i)) {continue;}
+
+        if(i % dim == 0)
+        {
+            const double x = dg->high_order_grid->volume_nodes(i);
+
+            const double y = dg->high_order_grid->volume_nodes(i+1);
+
+            const double x_curve = -0.4*pow(y,2) + 0.4*y + 0.375;
+
+            const double a1 = 0.1875, a2 = 28125, a3 = 0.4875;
+
+            if(x == 0.375)
+            {
+                dg->high_order_grid->volume_nodes(i) = x_curve;
+            }
+            else if (x == a3)
+            {
+                dg->high_order_grid->volume_nodes(i) = (0.6 + x_curve)/2.0;
+            }
+            else if (x==a2)
+            {
+                dg->high_order_grid->volume_nodes(i) = (a1 + x_curve)/2.0;
+            }
+        }
+    } // ivol for loop ends
+    dg->high_order_grid->volume_nodes.update_ghost_values();
+}
+
+
+template <int dim, int nstate>
 void AnisotropicMeshAdaptationCases<dim,nstate> :: verify_fe_values_shape_hessian(const DGBase<dim, double> &dg) const
 {
     const auto mapping = (*(dg.high_order_grid->mapping_fe_field));
@@ -243,6 +281,7 @@ int AnisotropicMeshAdaptationCases<dim, nstate> :: run_test () const
 
     if(run_mesh_optimizer)
     {
+    /*
         double mesh_weight = param.optimization_param.mesh_weight_factor;
         Parameters::AllParameters param2 = *(TestsBase::all_parameters);
         for(unsigned int i=0; i<2; ++i)
@@ -253,7 +292,9 @@ int AnisotropicMeshAdaptationCases<dim, nstate> :: run_test () const
             mesh_weight = 0.0;
             param2.optimization_param.max_design_cycles = 16;
         }
-
+    */
+        move_nodes_to_shock(flow_solver->dg);
+        flow_solver->run();
         const double solution_error = evaluate_solution_error(flow_solver->dg);
         solution_error_vector.push_back(solution_error);
         n_dofs_vector.push_back(flow_solver->dg->n_dofs());
