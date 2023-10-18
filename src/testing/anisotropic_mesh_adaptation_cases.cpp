@@ -130,12 +130,73 @@ double AnisotropicMeshAdaptationCases<dim,nstate> :: output_vtk_files(std::share
 template <int dim, int nstate>
 double AnisotropicMeshAdaptationCases<dim,nstate> :: evaluate_functional_error(std::shared_ptr<DGBase<dim,double>> dg) const
 {
-    const double functional_exact = 0.0;
+
+    const double functional_exact = 0.1512447195285363; 
     std::shared_ptr< Functional<dim, nstate, double> > functional
                                 = FunctionalFactory<dim,nstate,double>::create_Functional(dg->all_parameters->functional_param, dg);
     const double functional_val = functional->evaluate_functional();
-    const double error_val = abs(functional_val - functional_exact);
+    const double error_val = abs(functional_exact - functional_val);
     return error_val;
+
+/*
+    int overintegrate = 500;
+    const unsigned int poly_degree = dg->get_min_fe_degree();
+    dealii::QGauss<dim-1> face_quad_extra(overintegrate);
+    const dealii::Mapping<dim> &mapping = (*(dg->high_order_grid->mapping_fe_field));
+    dealii::FEFaceValues<dim,dim> fe_face_values_extra(mapping, dg->fe_collection[poly_degree], face_quad_extra, 
+            dealii::update_values | dealii::update_JxW_values | dealii::update_quadrature_points);
+    const unsigned int n_face_quad_pts = fe_face_values_extra.n_quadrature_points;
+    
+    double functional_local = 0.0;
+
+    // Integrate solution error and output error
+    for (const auto &cell : dg->dof_handler.active_cell_iterators()) 
+    {
+        if (!cell->is_locally_owned()) continue;
+
+        for(unsigned int iface = 0; iface < dealii::GeometryInfo<dim>::faces_per_cell; ++iface)
+        {
+            auto face = cell->face(iface);
+            if(face->at_boundary())
+            {
+                const unsigned int boundary_id = face->boundary_id();
+                if(boundary_id == 1)
+                {
+                    fe_face_values_extra.reinit (cell, iface);
+
+                    for(unsigned int iquad = 0; iquad < n_face_quad_pts; ++iquad)
+                    {
+                        const dealii::Point<dim> &phys_point = fe_face_values_extra.quadrature_point(iquad);
+                        const std::array<double,nstate> soln_exact_at_q = evaluate_soln_exact(phys_point);
+                        if( abs(phys_point[0] - 1.0) > 1.0e-15)
+                        {
+                            std::cout<<"Not at right boundary. Aborting..."<<std::endl;
+                            std::cout<<"x = "<<std::setprecision(16)<<phys_point[0]<<std::endl;
+                            std::cout<<"error in x = "<<std::setprecision(16)<<abs(1.0-phys_point[0])<<std::endl;
+                            std::abort();
+                        }
+                        
+                        //=======================================================================
+                        // Evaluate continuous logistic heaviside.
+                        const double y = phys_point[1];
+                        const double yc = 0.05;
+                        const double heaviside_min = 1.0e-5; // heaviside at y=0
+                        const double logterm = log(1/heaviside_min - 1.0);
+                        const double epsilon_val = yc/logterm;
+                        const double heaviside_at_y = 1.0/(1.0 + exp(-(y-yc)/epsilon_val));
+                        //=======================================================================
+                        const double integrand = heaviside_at_y * pow(soln_exact_at_q[1],2);
+                        functional_local += integrand*fe_face_values_extra.JxW(iquad);                        
+                    } // iquad ends
+                    
+                } // if (boundary_id==1) ends
+            } // if (face->at_boundary()) ends
+        } // face loop ends
+    } // cell loop ends
+
+    const double functional_global = dealii::Utilities::MPI::sum(functional_local, MPI_COMM_WORLD);
+    return functional_global;
+*/ 
 }
 
 template <int dim, int nstate>
@@ -229,25 +290,26 @@ std::array<double,nstate> AnisotropicMeshAdaptationCases<dim,nstate> :: evaluate
     const bool region_5 = y >= (11.0/8.0 - x);
     const double y_tilde = (-(b+1.0) + sqrt(pow(b+1.0,2) - 4.0*a*(c-x-y)))/(2.0*a);
     const double x_tilde = a*pow(y_tilde,2) + b*y_tilde + c;
+    const double u1_bc = 0.3;
     if(region_1)
     {
-        soln_exact[1] = 0.3 + (1.0-y);
+        soln_exact[1] = u1_bc + (1.0-y);
     }
     else if(region_2)
     {
-        soln_exact[1] = 0.3 + x;
+        soln_exact[1] = u1_bc + x;
     }
     else if(region_3)
     {
-        soln_exact[1] = 0.3 + x_tilde;
+        soln_exact[1] = u1_bc + x_tilde;
     }
     else if(region_4)
     {
-        soln_exact[1] = 0.3 + (1.0 - y_tilde);
+        soln_exact[1] = u1_bc + (1.0 - y_tilde);
     }
     else if(region_5)
     {
-        soln_exact[1] = 0.3;
+        soln_exact[1] = u1_bc;
     }
     else
     {
@@ -262,18 +324,18 @@ int AnisotropicMeshAdaptationCases<dim, nstate> :: run_test () const
 {
     const Parameters::AllParameters param = *(TestsBase::all_parameters);
     const bool run_mesh_optimizer = true;
-    const bool run_fixedfraction_mesh_adaptation = true;
+    const bool run_fixedfraction_mesh_adaptation = false;
     
     std::unique_ptr<FlowSolver::FlowSolver<dim,nstate>> flow_solver = FlowSolver::FlowSolverFactory<dim,nstate>::select_flow_case(&param, parameter_handler);
     
     flow_solver->run();
 
-    std::vector<double> solution_error_vector;
+    std::vector<double> functional_error_vector;
     std::vector<unsigned int> n_cycle_vector;
     std::vector<unsigned int> n_dofs_vector;
 
-    const double solution_error_initial = evaluate_solution_error(flow_solver->dg);
-    solution_error_vector.push_back(solution_error_initial);
+    const double functional_error_initial = evaluate_functional_error(flow_solver->dg);
+    functional_error_vector.push_back(functional_error_initial);
     n_dofs_vector.push_back(flow_solver->dg->n_dofs());
     unsigned int current_cycle = 0;
     n_cycle_vector.push_back(current_cycle++);
@@ -281,10 +343,10 @@ int AnisotropicMeshAdaptationCases<dim, nstate> :: run_test () const
 
     if(run_mesh_optimizer)
     {
-    /*
+    
         double mesh_weight = param.optimization_param.mesh_weight_factor;
         Parameters::AllParameters param2 = *(TestsBase::all_parameters);
-        for(unsigned int i=0; i<2; ++i)
+        for(unsigned int i=0; i<1; ++i)
         {
             std::unique_ptr<MeshOptimizer<dim,nstate>> mesh_optimizer = 
                                                 std::make_unique<MeshOptimizer<dim,nstate>> (flow_solver->dg, &param2, mesh_weight, true);
@@ -292,16 +354,15 @@ int AnisotropicMeshAdaptationCases<dim, nstate> :: run_test () const
             mesh_weight = 0.0;
             param2.optimization_param.max_design_cycles = 16;
         }
-    */
-        move_nodes_to_shock(flow_solver->dg);
-        flow_solver->run();
-        const double solution_error = evaluate_solution_error(flow_solver->dg);
-        solution_error_vector.push_back(solution_error);
+    
+        const double functional_error = evaluate_functional_error(flow_solver->dg);
+        functional_error_vector.push_back(functional_error);
         n_dofs_vector.push_back(flow_solver->dg->n_dofs());
         n_cycle_vector.push_back(current_cycle++);
+        pcout<<"Current cycle = "<<(current_cycle-1)<<";  Functional error = "<<functional_error<<std::endl;
         
         convergence_table.add_value("cells", flow_solver->dg->triangulation->n_global_active_cells());
-        convergence_table.add_value("soln_error_l2",solution_error);
+        convergence_table.add_value("functional_error",functional_error);
     }
 
     if(run_fixedfraction_mesh_adaptation)
@@ -316,13 +377,14 @@ int AnisotropicMeshAdaptationCases<dim, nstate> :: run_test () const
             meshadaptation->adapt_mesh();
             flow_solver->run();
 
-            const double solution_error = evaluate_solution_error(flow_solver->dg);
-            solution_error_vector.push_back(solution_error);
+            const double functional_error = evaluate_functional_error(flow_solver->dg);
+            functional_error_vector.push_back(functional_error);
             n_dofs_vector.push_back(flow_solver->dg->n_dofs());
             n_cycle_vector.push_back(current_cycle++);
+            pcout<<"Current cycle = "<<(current_cycle-1)<<";  Functional error = "<<functional_error<<std::endl;
             
             convergence_table.add_value("cells", flow_solver->dg->triangulation->n_global_active_cells());
-            convergence_table.add_value("soln_error_l2",solution_error);
+            convergence_table.add_value("functional_error",functional_error);
         }
     }
 
@@ -345,18 +407,18 @@ int AnisotropicMeshAdaptationCases<dim, nstate> :: run_test () const
     }
     pcout<<"];"<<std::endl;
 
-    std::string functional_type = "solution_error";
-    pcout<<"\n "<<functional_type<<" = [";
-    for(long unsigned int i=0; i<solution_error_vector.size(); ++i)
+    std::string functional_type = "functional_error";
+    pcout<<"\n "<<functional_type<<" = ["<<std::setprecision(16);
+    for(long unsigned int i=0; i<functional_error_vector.size(); ++i)
     {
         if(i!=0) {pcout<<", ";}
-        pcout<<solution_error_vector[i];
+        pcout<<functional_error_vector[i];
     }
     pcout<<"];"<<std::endl;
 
     
-    convergence_table.evaluate_convergence_rates("soln_error_l2", "cells", dealii::ConvergenceTable::reduction_rate_log2, dim);
-    convergence_table.set_scientific("soln_error_l2", true);
+    convergence_table.evaluate_convergence_rates("functional_error", "cells", dealii::ConvergenceTable::reduction_rate_log2, dim);
+    convergence_table.set_scientific("functional_error", true);
 
     pcout << std::endl << std::endl << std::endl << std::endl;
     pcout << " ********************************************" << std::endl;

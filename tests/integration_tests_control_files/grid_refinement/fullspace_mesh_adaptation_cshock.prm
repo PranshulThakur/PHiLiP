@@ -8,7 +8,7 @@ set dimension = 2
 set pde_type  = advection_vector     
 set test_type = anisotropic_mesh_adaptation
 
-#set overintegration = 10
+#set overintegration = 4
 
 subsection linear solver
 #set linear_solver_type = direct
