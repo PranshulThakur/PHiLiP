@@ -9,12 +9,13 @@ namespace PHiLiP {
 template <int dim, int nstate, typename real>
 ImplicitShockTrackingFunctional<dim, nstate, real> :: ImplicitShockTrackingFunctional( 
     std::shared_ptr<DGBase<dim,real>> dg_input,
+    const real weight_on_mesh_distortion,
     const bool uses_solution_values,
     const bool uses_solution_gradient,
     const bool _use_coarse_residual)
     : Functional<dim, nstate, real> (dg_input, uses_solution_values, uses_solution_gradient)
     , use_coarse_residual(_use_coarse_residual)
-    , mesh_weight(this->dg->all_parameters->optimization_param.mesh_weight_factor)
+    , mesh_weight(weight_on_mesh_distortion)
     , initial_vol_nodes(this->dg->high_order_grid->volume_nodes)
     , coarse_poly_degree(this->dg->get_min_fe_degree())
     , fine_poly_degree(coarse_poly_degree + 1)
@@ -30,7 +31,7 @@ ImplicitShockTrackingFunctional<dim, nstate, real> :: ImplicitShockTrackingFunct
         this->pcout<<"Using coarse residual."<<std::endl;
     }
     
-    cell_distortion_functional = std::make_unique<CellDistortion<dim, nstate, real>> (this->dg);
+    cell_distortion_functional = std::make_unique<CellDistortion<dim, nstate, real>> (this->dg, weight_on_mesh_distortion);
 }
 
 //===================================================================================================================================================

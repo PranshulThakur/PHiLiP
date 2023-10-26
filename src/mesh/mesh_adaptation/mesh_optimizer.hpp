@@ -19,7 +19,8 @@ public:
 // Member functions
     /// Constructor.
     MeshOptimizer(std::shared_ptr<DGBase<dim,double>> dg_input,
-                  const Parameters::AllParameters *const parameters_input, 
+                  const Parameters::AllParameters *const parameters_input,
+                  const double weight_on_mesh_distortion,
                   const bool _use_full_space_method);
     
     /// Destructor.
@@ -77,6 +78,8 @@ public:
     std::filebuf filebuffer;
 
     std::ostream std_outstream;
+
+    const double weight_on_mesh_distortion;
     
     /// Alias for MPI_COMM_WORLD
     MPI_Comm mpi_communicator;
