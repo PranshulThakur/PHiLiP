@@ -36,8 +36,8 @@ public:
     /// Outputs vtk files with primal and adjoint solutions.
     double output_vtk_files(std::shared_ptr<DGBase<dim,double>> dg, const int count_val) const;
     
-    /// Evaluates l2 norm of solution error.
-    double evaluate_enthalpy_error(std::shared_ptr<DGBase<dim,double>> dg) const;
+    /// Evaluates l2 norm of various errors.
+    std::tuple<double,double,double,double> evaluate_enthalpy_entropy_pressure_density_error(std::shared_ptr<DGBase<dim,double>> dg) const;
 
     void evaluate_regularization_matrix(
         dealii::TrilinosWrappers::SparseMatrix &regularization_matrix,

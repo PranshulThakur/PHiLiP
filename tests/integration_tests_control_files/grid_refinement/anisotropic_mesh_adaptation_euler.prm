@@ -12,13 +12,13 @@ set conv_num_flux = hllc
 
 set diss_num_flux = symm_internal_penalty
 
-set overintegration = 6
+#set overintegration = 6
 #set output_face_results_vtk = true
 #set sipg_penalty_factor = 20.0
 
 subsection euler
   set reference_length = 1.0
-  set mach_infinity = 3.0 
+  set mach_infinity = 2.25 
   set angle_of_attack = 0
 end
 
@@ -58,7 +58,7 @@ subsection linear solver
 end
 
 subsection mesh adaptation
-   set total_mesh_adaptation_cycles = 0
+   set total_mesh_adaptation_cycles = 2
    set use_goal_oriented_mesh_adaptation = true
    set mesh_adaptation_type = h_adaptation
    subsection fixed-fraction
@@ -72,7 +72,7 @@ subsection optimization
     set use_fine_solution = false
 
     set gradient_tolerance = 1.0e-10 
-    set max_design_cycles = 200
+    set max_design_cycles = 0
     set linear_iteration_limit = 1000
     set initial_step_size = 1.0
     set functional_evaluation_limit = 30
@@ -93,21 +93,21 @@ subsection ODE solver
   set nonlinear_max_iterations            = 2000
   set nonlinear_steady_residual_tolerance = 1e-11
   set ode_solver_type  = implicit
-  set initial_time_step = 1
-#  set time_step_factor_residual = 15.0
-#  set time_step_factor_residual_exp = 2
+  set initial_time_step = 1.0
+  #set time_step_factor_residual = 1.0
+  #set time_step_factor_residual_exp = 1.01
   set print_iteration_modulo              = 1
 end
 
 subsection flow_solver
   set flow_case_type = naca0012
-  set poly_degree = 0
+  set poly_degree = 1
   set max_poly_degree_for_adaptation = 3
   set steady_state = true
   set steady_state_polynomial_ramping = true
   subsection grid
     #set grid_degree = 2
-    set input_mesh_filename = ../../meshes/cylindermesh
+    set input_mesh_filename = ../../meshes/supersonicvortex
     #set input_mesh_filename = ../../meshes/naca0012_hopw_ref0
     #set number_of_mesh_refinements = 2
   end

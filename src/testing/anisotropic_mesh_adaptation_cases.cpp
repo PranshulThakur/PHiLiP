@@ -178,11 +178,11 @@ double AnisotropicMeshAdaptationCases<dim,nstate> :: output_vtk_files(std::share
 {
     const int outputval = 7000 + countval;
     dg->output_results_vtk(outputval);
-
+/*
     std::unique_ptr<DualWeightedResidualError<dim, nstate , double>> dwr_error_val = std::make_unique<DualWeightedResidualError<dim, nstate , double>>(dg);
     const double abs_dwr_error = dwr_error_val->total_dual_weighted_residual_error();
     return abs_dwr_error;
-
+*/
     return 0;
 }
 
@@ -220,7 +220,8 @@ double AnisotropicMeshAdaptationCases<dim,nstate> :: evaluate_abs_dwr_error(std:
 }
 
 template <int dim, int nstate>
-double AnisotropicMeshAdaptationCases<dim,nstate> :: evaluate_enthalpy_error(std::shared_ptr<DGBase<dim,double>> dg) const
+std::tuple<double,double,double,double> AnisotropicMeshAdaptationCases<dim,nstate> 
+    :: evaluate_enthalpy_entropy_pressure_density_error(std::shared_ptr<DGBase<dim,double>> dg) const
 {
 if constexpr (nstate==dim+2)
 {
@@ -237,13 +238,15 @@ if constexpr (nstate==dim+2)
     dealii::QGauss<dim> quad_extra(poly_degree+1+overintegrate);
     const dealii::Mapping<dim> &mapping = (*(dg->high_order_grid->mapping_fe_field));
     dealii::FEValues<dim,dim> fe_values_extra(mapping, dg->fe_collection[poly_degree], quad_extra, 
-            dealii::update_values | dealii::update_JxW_values);
+            dealii::update_values | dealii::update_JxW_values| dealii::update_quadrature_points);
     const unsigned int n_quad_pts = fe_values_extra.n_quadrature_points;
     const unsigned int n_dofs_cell = fe_values_extra.dofs_per_cell;
     std::array<double,nstate> soln_at_q;
 
-    double l2error = 0;
-    double l1error = 0;
+    double l2error_enthalpy = 0;
+    double l2error_entropy = 0;
+    double l2error_pressure = 0;
+    double l2error_density = 0;
 
     std::vector<dealii::types::global_dof_index> dofs_indices (n_dofs_cell);
 
@@ -265,18 +268,29 @@ if constexpr (nstate==dim+2)
             
             const double pressure = euler_physics_double.compute_pressure(soln_at_q);
             const double enthalpy_at_q = euler_physics_double.compute_specific_enthalpy(soln_at_q,pressure);
-            l2error += pow((enthalpy_at_q - euler_physics_double.enthalpy_inf),2) * fe_values_extra.JxW(iquad);
-            l1error += pow(euler_physics_double.compute_entropy_measure(soln_at_q) - euler_physics_double.entropy_inf,2) * fe_values_extra.JxW(iquad);
+            l2error_enthalpy += pow((enthalpy_at_q - euler_physics_double.enthalpy_inf),2) * fe_values_extra.JxW(iquad);
+            l2error_entropy += pow(euler_physics_double.compute_entropy_measure(soln_at_q) - euler_physics_double.entropy_inf,2) * fe_values_extra.JxW(iquad);
+            // Evaluate exact pressure and density.
+            const dealii::Point<dim> point_val = fe_values_extra.quadrature_point(iquad);
+            const double rval = point_val.norm();
+            const double density_exact = euler_physics_double.density_inf*
+               pow(1.0 + euler_physics_double.gamm1/2.0*euler_physics_double.mach_inf_sqr*(1.0-1.0/pow(rval,2)), 1.0/euler_physics_double.gamm1);
+            const double pressure_exact = pow(density_exact,euler_physics_double.gam)/euler_physics_double.gam;
+
+            l2error_pressure += pow(pressure - pressure_exact,2)*fe_values_extra.JxW(iquad);
+            l2error_density += pow(soln_at_q[0] - density_exact,2)*fe_values_extra.JxW(iquad);
         }
     } // cell loop ends
-    const double l2error_global = sqrt(dealii::Utilities::MPI::sum(l2error, MPI_COMM_WORLD));
-    const double l1error_global = sqrt(dealii::Utilities::MPI::sum(l1error, MPI_COMM_WORLD));
-    (void) l2error_global;
-    (void) l1error_global;
-    return l2error_global;
+    const double l2error_enthalpy_global = sqrt(dealii::Utilities::MPI::sum(l2error_enthalpy, MPI_COMM_WORLD));
+    const double l2error_entropy_global = sqrt(dealii::Utilities::MPI::sum(l2error_entropy, MPI_COMM_WORLD));
+    const double l2error_pressure_global = sqrt(dealii::Utilities::MPI::sum(l2error_pressure, MPI_COMM_WORLD));
+    const double l2error_density_global = sqrt(dealii::Utilities::MPI::sum(l2error_density, MPI_COMM_WORLD));
+    const std::tuple<double,double,double,double> enthalpy_entropy_pressure_density_error 
+        (std::make_tuple(l2error_enthalpy_global, l2error_entropy_global, l2error_pressure_global, l2error_density_global));
+    return enthalpy_entropy_pressure_density_error;
 }
 std::abort();
-return 0.0;
+return std::make_tuple<double,double,double,double>(0,0,0,0);
 }
 
 template <int dim, int nstate>
@@ -284,92 +298,23 @@ int AnisotropicMeshAdaptationCases<dim, nstate> :: run_test () const
 {
     int output_val = 0;
     const Parameters::AllParameters param = *(TestsBase::all_parameters);
-    const bool run_mesh_optimizer = param.optimization_param.max_design_cycles > 0;
     const bool run_fixedfraction_mesh_adaptation = param.mesh_adaptation_param.total_mesh_adaptation_cycles > 0;
     
     std::unique_ptr<FlowSolver::FlowSolver<dim,nstate>> flow_solver = FlowSolver::FlowSolverFactory<dim,nstate>::select_flow_case(&param, parameter_handler);
-    
     flow_solver->run();
     output_vtk_files(flow_solver->dg, output_val++);
     //return 0;
     flow_solver->use_polynomial_ramping = false;
 
-    std::vector<double> functional_error_vector;
-    std::vector<double> enthalpy_error_vector;
-    std::vector<unsigned int> n_cycle_vector;
-    std::vector<unsigned int> n_dofs_vector;
-
-    const double functional_error_initial = evaluate_functional_error(flow_solver->dg);
-    //pcout<<"Functional error initial = "<<std::setprecision(16)<<functional_error_initial<<std::endl; // can be deleted later.
-    const double enthalpy_error_initial = evaluate_enthalpy_error(flow_solver->dg);
-    functional_error_vector.push_back(functional_error_initial);
-    enthalpy_error_vector.push_back(enthalpy_error_initial);
-    n_dofs_vector.push_back(flow_solver->dg->n_dofs());
-    unsigned int current_cycle = 0;
-    n_cycle_vector.push_back(current_cycle++);
-    dealii::ConvergenceTable convergence_table_functional;
-    dealii::ConvergenceTable convergence_table_enthalpy;
-    if(run_mesh_optimizer)
-    {
-    // Run q1 optimizer.
-        flow_solver->dg->freeze_artificial_dissipation=true;
-        flow_solver->dg->set_p_degree_and_interpolate_solution(1);
-        dealii::TrilinosWrappers::SparseMatrix regularization_matrix_poisson_q1;
-        evaluate_regularization_matrix(regularization_matrix_poisson_q1, flow_solver->dg);
-   //     output_vtk_files(flow_solver->dg, output_val++);
-        //for(unsigned int i=0; i<2; ++i)
-        //{
-            Parameters::AllParameters param_q1 = param;
-            //param_q1.optimization_param.regularization_parameter = 5.0;
-            //param_q1.optimization_param.regularization_scaling = 1.1;
-            param_q1.optimization_param.max_design_cycles = 3;
-            
-            std::unique_ptr<MeshOptimizer<dim,nstate>> mesh_optimizer_q1 = 
-                            std::make_unique<MeshOptimizer<dim,nstate>> (flow_solver->dg, &param_q1, true);
-            mesh_optimizer_q1->run_full_space_optimizer(regularization_matrix_poisson_q1, true);
-            flow_solver->run();
-            if(flow_solver->dg->get_residual_l2norm() > 1.0e-10)
-            {
-                std::cout<<"Residual from q1 optimization has not converged. Aborting..."<<std::endl;
-                std::abort();
-            }
-            
-            increase_grid_degree_and_interpolate_solution(flow_solver->dg);
-            dealii::TrilinosWrappers::SparseMatrix regularization_matrix_poisson_q2;
-            evaluate_regularization_matrix(regularization_matrix_poisson_q2, flow_solver->dg);
-            
-            std::unique_ptr<MeshOptimizer<dim,nstate>> mesh_optimizer_q2 = std::make_unique<MeshOptimizer<dim,nstate>> (flow_solver->dg,&param, true);
-            mesh_optimizer_q2->run_full_space_optimizer(regularization_matrix_poisson_q2, true);
-            
-            mesh_optimizer_q2->run_full_space_optimizer(regularization_matrix_poisson_q2, false);
-            
-
-            const double functional_error = evaluate_functional_error(flow_solver->dg);
-            const double enthalpy_error = evaluate_enthalpy_error(flow_solver->dg);
-            functional_error_vector.push_back(functional_error);
-            enthalpy_error_vector.push_back(enthalpy_error);
-            n_dofs_vector.push_back(flow_solver->dg->n_dofs());
-            n_cycle_vector.push_back(current_cycle++);
-
-            convergence_table_functional.add_value("cells", flow_solver->dg->triangulation->n_global_active_cells());
-            convergence_table_functional.add_value("functional_error",functional_error);
-            convergence_table_enthalpy.add_value("cells", flow_solver->dg->triangulation->n_global_active_cells());
-            convergence_table_enthalpy.add_value("enthalpy_error",enthalpy_error);
-
-     //       increase_grid_degree_and_interpolate_solution(flow_solver->dg);
-     //       output_vtk_files(flow_solver->dg, output_val++);
-            /*      
-            auto mesh_adaptation_param2 = param.mesh_adaptation_param;
-            mesh_adaptation_param2.use_goal_oriented_mesh_adaptation = false;
-            mesh_adaptation_param2.refine_fraction = 1.0;
-            std::unique_ptr<MeshAdaptation<dim,double>> meshadaptation =
-            std::make_unique<MeshAdaptation<dim,double>>(flow_solver->dg, &(mesh_adaptation_param2));
-            meshadaptation->adapt_mesh();
-            flow_solver->run();
-            */
-        //}
-    }
-
+    dealii::ConvergenceTable convergence_table;
+    std::tuple<double,double,double,double> enthalpy_entropy_pressure_density_error = 
+        evaluate_enthalpy_entropy_pressure_density_error(flow_solver->dg);
+    convergence_table.add_value("n_cells", flow_solver->dg->triangulation->n_global_active_cells());
+    convergence_table.add_value("enthalpy_error",std::get<0>(enthalpy_entropy_pressure_density_error));
+    convergence_table.add_value("entropy_error",std::get<1>(enthalpy_entropy_pressure_density_error));
+    convergence_table.add_value("pressure_error",std::get<2>(enthalpy_entropy_pressure_density_error));
+    convergence_table.add_value("density_error",std::get<3>(enthalpy_entropy_pressure_density_error));
+    
     if(run_fixedfraction_mesh_adaptation)
     {
         const unsigned int n_adaptation_cycles = param.mesh_adaptation_param.total_mesh_adaptation_cycles;
@@ -382,74 +327,31 @@ int AnisotropicMeshAdaptationCases<dim, nstate> :: run_test () const
             meshadaptation->adapt_mesh();
             flow_solver->run();
 
-            const double functional_error = evaluate_functional_error(flow_solver->dg);
-            const double enthalpy_error = evaluate_enthalpy_error(flow_solver->dg);
-            functional_error_vector.push_back(functional_error);
-            enthalpy_error_vector.push_back(enthalpy_error);
-            n_dofs_vector.push_back(flow_solver->dg->n_dofs());
-            n_cycle_vector.push_back(current_cycle++);
-
-            convergence_table_functional.add_value("cells", flow_solver->dg->triangulation->n_global_active_cells());
-            convergence_table_functional.add_value("functional_error",functional_error);
-            convergence_table_enthalpy.add_value("cells", flow_solver->dg->triangulation->n_global_active_cells());
-            convergence_table_enthalpy.add_value("enthalpy_error",enthalpy_error);
+            enthalpy_entropy_pressure_density_error = evaluate_enthalpy_entropy_pressure_density_error(flow_solver->dg);
+            convergence_table.add_value("n_cells", flow_solver->dg->triangulation->n_global_active_cells());
+            convergence_table.add_value("enthalpy_error",std::get<0>(enthalpy_entropy_pressure_density_error));
+            convergence_table.add_value("entropy_error",std::get<1>(enthalpy_entropy_pressure_density_error));
+            convergence_table.add_value("pressure_error",std::get<2>(enthalpy_entropy_pressure_density_error));
+            convergence_table.add_value("density_error",std::get<3>(enthalpy_entropy_pressure_density_error));
+            output_vtk_files(flow_solver->dg, output_val++);
         }
     }
 
-    output_vtk_files(flow_solver->dg, output_val++);
-
-    // output error vals
-    pcout<<"\n cycles = [";
-    for(long unsigned int i=0; i<n_cycle_vector.size(); ++i)
-    {
-        if(i!=0) {pcout<<", ";}
-        pcout<<n_cycle_vector[i];
-    }
-    pcout<<"];"<<std::endl;
-
-    pcout<<"\n n_dofs = [";
-    for(long unsigned int i=0; i<n_dofs_vector.size(); ++i)
-    {
-        if(i!=0) {pcout<<", ";}
-        pcout<<n_dofs_vector[i];
-    }
-    pcout<<"];"<<std::endl;
-
-    std::string functional_type = "functional_error";
-    pcout<<"\n "<<functional_type<<" = ["<<std::setprecision(16);
-    for(long unsigned int i=0; i<functional_error_vector.size(); ++i)
-    {
-        if(i!=0) {pcout<<", ";}
-        pcout<<functional_error_vector[i];
-    }
-    pcout<<"];"<<std::endl;
-    
-    std::string errortype = "enthalpy_error";
-    pcout<<"\n "<<errortype<<" = ["<<std::setprecision(16);
-    for(long unsigned int i=0; i<enthalpy_error_vector.size(); ++i)
-    {
-        if(i!=0) {pcout<<", ";}
-        pcout<<enthalpy_error_vector[i];
-    }
-    pcout<<"];"<<std::endl;
-
-    convergence_table_functional.evaluate_convergence_rates("functional_error", "cells", dealii::ConvergenceTable::reduction_rate_log2, dim);
-    convergence_table_functional.set_scientific("functional_error", true);
-    convergence_table_enthalpy.evaluate_convergence_rates("enthalpy_error", "cells", dealii::ConvergenceTable::reduction_rate_log2, dim);
-    convergence_table_enthalpy.set_scientific("enthalpy_error", true);
+    convergence_table.evaluate_convergence_rates("enthalpy_error", "n_cells", dealii::ConvergenceTable::reduction_rate_log2, dim);
+    convergence_table.evaluate_convergence_rates("entropy_error", "n_cells", dealii::ConvergenceTable::reduction_rate_log2, dim);
+    convergence_table.evaluate_convergence_rates("pressure_error", "n_cells", dealii::ConvergenceTable::reduction_rate_log2, dim);
+    convergence_table.evaluate_convergence_rates("density_error", "n_cells", dealii::ConvergenceTable::reduction_rate_log2, dim);
+    convergence_table.set_scientific("enthalpy_error", true);
+    convergence_table.set_scientific("entropy_error", true);
+    convergence_table.set_scientific("pressure_error", true);
+    convergence_table.set_scientific("density_error", true);
 
     pcout << std::endl << std::endl << std::endl << std::endl;
     pcout << " ********************************************" << std::endl;
-    pcout << " Convergence summary for functional error" << std::endl;
+    pcout << " Convergence summary for errors" << std::endl;
     pcout << " ********************************************" << std::endl;
-    if(pcout.is_active()) {convergence_table_functional.write_text(pcout.get_stream());}
+    if(pcout.is_active()) {convergence_table.write_text(pcout.get_stream());}
     
-    pcout << std::endl << std::endl << std::endl << std::endl;
-    pcout << " ********************************************" << std::endl;
-    pcout << " Convergence summary for enthalpy error" << std::endl;
-    pcout << " ********************************************" << std::endl;
-    if(pcout.is_active()) {convergence_table_enthalpy.write_text(pcout.get_stream());}
-
 return 0;
 }
 

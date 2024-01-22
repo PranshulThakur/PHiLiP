@@ -1400,6 +1400,24 @@ void Euler<dim,nstate,real>
 
 template <int dim, int nstate, typename real>
 void Euler<dim,nstate,real>
+::boundary_slipwallinflow (
+        const dealii::Tensor<1,dim,real> &normal_int,
+        std::array<real,nstate> &soln_bc) const
+{
+    dealii::Tensor<1,dim,real> velocities_bc;
+    velocities_bc[0] = normal_int[1];
+    velocities_bc[1] = -normal_int[0];
+    const real velocity_bc_sqr = 1.0;
+    soln_bc[0] = density_inf;
+    for(int d=0; d<dim; ++d)
+    {
+        soln_bc[1+d] = density_inf*velocities_bc[d];
+    }
+    soln_bc[nstate-1] = pressure_inf/gamm1 + 0.5*density_inf*velocity_bc_sqr; 
+}
+
+template <int dim, int nstate, typename real>
+void Euler<dim,nstate,real>
 ::boundary_face_values (
    const int boundary_type,
    const dealii::Point<dim, real> &pos,
@@ -1449,6 +1467,10 @@ void Euler<dim,nstate,real>
     else if (boundary_type == 1008) {
         // Supersonic outflow boundary condition
         boundary_supersonic_outflow (soln_int, soln_bc);
+    } 
+    else if (boundary_type == 1009) {
+        // Specified boundary condition along slip wall.
+        boundary_slipwallinflow (normal_int, soln_bc);
     } 
     else {
         this->pcout << "Invalid boundary_type: " << boundary_type << std::endl;

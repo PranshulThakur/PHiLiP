@@ -424,6 +424,11 @@ protected:
        const std::array<dealii::Tensor<1,dim,real>,nstate> &soln_grad_int,
        std::array<real,nstate> &soln_bc,
        std::array<dealii::Tensor<1,dim,real>,nstate> &soln_grad_bc) const;
+    
+    /// Supersonic inflow
+    void boundary_slipwallinflow (
+        const dealii::Tensor<1,dim,real> &normal_int,
+        std::array<real,nstate> &soln_bc) const;
 
     /// Simple farfield boundary conditions based on freestream values
     void boundary_farfield (

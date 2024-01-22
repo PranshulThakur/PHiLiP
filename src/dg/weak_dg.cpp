@@ -1330,10 +1330,12 @@ void DGWeak<dim,nstate,real,MeshType>::assemble_boundary_term(
     }
 
     // Assuming cylindrical wall boundary centered at (0,0).
-    const unsigned int boundary_id_slipwall = 1001;
-    if(boundary_id == boundary_id_slipwall)
+    if(boundary_id == 1001 || boundary_id == 1009)
     {
-        const double radius = 1.0;
+        double radius = 1.0;
+        if(boundary_id == 1009) {radius = 1.0;}
+        else if(boundary_id == 1001) {radius = 1.384;}
+
         for (unsigned int iquad=0; iquad<n_quad_pts; ++iquad) 
         {
             dealii::Tensor<2,dim,real2> cofactor_J;
