@@ -419,6 +419,7 @@ protected:
     /// Riemann-based farfield boundary conditions based on freestream values.
     /// Reference: ? (ask Doug)
     void boundary_riemann (
+       const dealii::Point<dim, real> &pos,
        const dealii::Tensor<1,dim,real> &normal_int,
        const std::array<real,nstate> &soln_int,
        const std::array<dealii::Tensor<1,dim,real>,nstate> &soln_grad_int,

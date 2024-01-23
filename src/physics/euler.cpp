@@ -34,8 +34,8 @@ Euler<dim,nstate,real>::Euler (
     , side_slip_angle(side_slip_angle)
     //, sound_inf(1.0)
     //, pressure_inf(1.0)
-    , sound_inf(1.0/(mach_inf))
-    , pressure_inf(1.0/(gam*mach_inf_sqr))
+    , sound_inf(1.0)
+    , pressure_inf(1.0/gam)
     , entropy_inf(pressure_inf*pow(density_inf,-gam))
     , two_point_num_flux_type(two_point_num_flux_type_input)
     //, internal_energy_inf(1.0/(gam*(gam-1.0)*mach_inf_sqr)) 
@@ -55,10 +55,10 @@ Euler<dim,nstate,real>::Euler (
     if(dim==1) {
         velocities_inf[0] = 1.0;
     } else if(dim==2) {
-        //velocities_inf[0] = mach_inf*cos(angle_of_attack);
-        //velocities_inf[1] = mach_inf*sin(angle_of_attack); // Maybe minus?? -- Clarify with Doug
-        velocities_inf[0] = cos(angle_of_attack);
-        velocities_inf[1] = sin(angle_of_attack); 
+        velocities_inf[0] = mach_inf*cos(angle_of_attack);
+        velocities_inf[1] = mach_inf*sin(angle_of_attack); // Maybe minus?? -- Clarify with Doug
+        //velocities_inf[0] = cos(angle_of_attack);
+        //velocities_inf[1] = sin(angle_of_attack); 
     } else if (dim==3) {
         velocities_inf[0] = cos(angle_of_attack)*cos(side_slip_angle);
         velocities_inf[1] = sin(angle_of_attack)*cos(side_slip_angle);
@@ -67,8 +67,8 @@ Euler<dim,nstate,real>::Euler (
 
     assert(std::abs(velocities_inf.norm() - 1.0) < 1e-14);
 
-    //const double velocity_inf_sqr = mach_inf_sqr;
-    const double velocity_inf_sqr = 1.0;
+    const double velocity_inf_sqr = mach_inf_sqr;
+    //const double velocity_inf_sqr = 1.0;
     dynamic_pressure_inf = 0.5 * density_inf * velocity_inf_sqr;
 
     enthalpy_inf = gam/gamm1 * pressure_inf/density_inf + 0.5*velocity_inf_sqr;
@@ -959,18 +959,32 @@ std::array<dealii::Tensor<1,dim,real>,nstate> Euler<dim,nstate,real>
 template <int dim, int nstate, typename real>
 void Euler<dim,nstate,real>
 ::boundary_riemann (
+   const dealii::Point<dim, real> &pos,
    const dealii::Tensor<1,dim,real> &normal_int,
    const std::array<real,nstate> &soln_int,
    const std::array<dealii::Tensor<1,dim,real>,nstate> &soln_grad_int,
    std::array<real,nstate> &soln_bc,
    std::array<dealii::Tensor<1,dim,real>,nstate> &soln_grad_bc) const
 {
-    std::array<real,nstate> primitive_int = convert_conservative_to_primitive<real>(soln_int);
+    //std::array<real,nstate> primitive_int = convert_conservative_to_primitive<real>(soln_int);
     std::array<real,nstate> primitive_ext;
-    primitive_ext[0] = density_inf;
-    for (int d=0;d<dim;d++) { primitive_ext[1+d] = velocities_inf[d]; }
-    primitive_ext[nstate-1] = pressure_inf;
-
+    const real rval = sqrt(pow(pos[0],2) + pow(pos[1],2));
+    const real density_exact = density_inf*pow(1.0 + gamm1/2.0*mach_inf_sqr*(1.0-1.0/pow(rval,2)), 1.0/gamm1);
+    const real pressure_exact = pow(density_exact,gam)/gam;
+    primitive_ext[0] = density_exact;
+    //for (int d=0;d<dim;d++) { primitive_ext[1+d] = velocities_inf[d]; }
+    primitive_ext[1] = mach_inf/rval;
+    primitive_ext[2] = 0.0;
+    primitive_ext[nstate-1] = pressure_exact;
+    if(normal_int[0] == -1.0)
+    {
+        soln_bc = convert_primitive_to_conservative(primitive_ext);      
+    }
+    else
+    {
+        soln_bc = soln_int;
+    }
+/*
     const dealii::Tensor<1,dim,real> velocities_int = extract_velocities_from_primitive<real>(primitive_int);
     const dealii::Tensor<1,dim,real> velocities_ext = extract_velocities_from_primitive<real>(primitive_ext);
 
@@ -1049,9 +1063,10 @@ void Euler<dim,nstate,real>
         primitive_bc[1+d] = velocities_bc[d];
     }
     primitive_bc[nstate-1] = pressure_bc;
-
+    
     // Convert primitve to conservative
     soln_bc = convert_primitive_to_conservative(primitive_bc); 
+*/
 
     for (int istate=0; istate<nstate; ++istate) {
         soln_grad_bc[istate] = soln_grad_int[istate];
@@ -1405,9 +1420,9 @@ void Euler<dim,nstate,real>
         std::array<real,nstate> &soln_bc) const
 {
     dealii::Tensor<1,dim,real> velocities_bc;
-    velocities_bc[0] = normal_int[1];
-    velocities_bc[1] = -normal_int[0];
-    const real velocity_bc_sqr = 1.0;
+    velocities_bc[0] = -mach_inf*normal_int[1];
+    velocities_bc[1] = mach_inf*normal_int[0];
+    const real velocity_bc_sqr = mach_inf_sqr;
     soln_bc[0] = density_inf;
     for(int d=0; d<dim; ++d)
     {
@@ -1450,7 +1465,7 @@ void Euler<dim,nstate,real>
     } 
     else if (boundary_type == 1004) {
         // Riemann-based farfield boundary condition
-        boundary_riemann (normal_int, soln_int, soln_grad_int, soln_bc, soln_grad_bc);
+        boundary_riemann (pos, normal_int, soln_int, soln_grad_int, soln_bc, soln_grad_bc);
     } 
     else if (boundary_type == 1005) {
         // Simple farfield boundary condition
