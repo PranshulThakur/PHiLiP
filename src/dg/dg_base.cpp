@@ -526,11 +526,12 @@ void DGBase<dim,real,MeshType>::assemble_cell_residual_and_ad_derivatives (
     
     const dealii::FESystem<dim> &fe_metric = this->high_order_grid->fe_system;
     std::vector<adtype> local_metric_int(fe_metric.dofs_per_cell);
-    
+    /*
     if (compute_dRdW || compute_dRdX || compute_d2R) 
     {
         tape.setActive();
     }
+    */
     for (unsigned int idof = 0; idof < n_metric_dofs_cell; ++idof) 
     {
         const real val = this->high_order_grid->volume_nodes[current_metric_dofs_indices[idof]];
@@ -548,7 +549,7 @@ void DGBase<dim,real,MeshType>::assemble_cell_residual_and_ad_derivatives (
 
     // Compute metric Jacobians of current cell here.
 
-    Position tape_position_metric_jacobian_int = tape.getPosition();
+    //Position tape_position_metric_jacobian_int = tape.getPosition();
     
     
     assemble_volume_codi_taped_derivatives_ad<adtype>(
@@ -589,8 +590,8 @@ void DGBase<dim,real,MeshType>::assemble_cell_residual_and_ad_derivatives (
 
             const unsigned int boundary_id = current_face->boundary_id();
             
-            tape.reset(tape_position_metric_jacobian_int);
-            tape.clearAdjoints();
+            //tape.reset(tape_position_metric_jacobian_int);
+            //tape.clearAdjoints();
             assemble_boundary_codi_taped_derivatives_ad<adtype>(
                 current_cell,
                 current_cell_index,
@@ -657,8 +658,8 @@ void DGBase<dim,real,MeshType>::assemble_cell_residual_and_ad_derivatives (
                                                                            store_vol_flux_nodes,
                                                                            store_surf_flux_nodes);
 
-                tape.reset(tape_position_metric_jacobian_int);
-                tape.clearAdjoints();
+                //tape.reset(tape_position_metric_jacobian_int);
+                //tape.clearAdjoints();
                 const dealii::FESystem<dim,dim> &neighbor_fe_ref = fe_collection[i_fele_n];
                 assemble_face_codi_taped_derivatives_ad<adtype>(
                     current_cell,
@@ -755,8 +756,8 @@ void DGBase<dim,real,MeshType>::assemble_cell_residual_and_ad_derivatives (
                                                                store_vol_flux_nodes,
                                                                store_surf_flux_nodes);
 
-            tape.reset(tape_position_metric_jacobian_int);
-            tape.clearAdjoints();
+            //tape.reset(tape_position_metric_jacobian_int);
+            //tape.clearAdjoints();
             const dealii::FESystem<dim,dim> &neighbor_fe_ref = fe_collection[i_fele_n];
             assemble_face_codi_taped_derivatives_ad<adtype>(
                 current_cell,
@@ -842,8 +843,8 @@ void DGBase<dim,real,MeshType>::assemble_cell_residual_and_ad_derivatives (
                                                                store_vol_flux_nodes,
                                                                store_surf_flux_nodes);
 
-            tape.reset(tape_position_metric_jacobian_int);
-            tape.clearAdjoints();
+            //tape.reset(tape_position_metric_jacobian_int);
+            //tape.clearAdjoints();
             const dealii::FESystem<dim,dim> &neighbor_fe_ref = fe_collection[i_fele_n];
             assemble_face_codi_taped_derivatives_ad<adtype>(
                 current_cell,
@@ -891,12 +892,12 @@ void DGBase<dim,real,MeshType>::assemble_cell_residual_and_ad_derivatives (
             // but will be evaluated when we visit the other cell.
         }
     } // end of face loop
-    
+    /*
     if(compute_dRdW || compute_dRdX || compute_d2R)
     {
         tape.setPassive();
     }
-
+    */
     if(compute_auxiliary_right_hand_side) {
         // Add local contribution from current cell to global vector
         for (unsigned int i=0; i<n_dofs_curr_cell; ++i) {
@@ -963,9 +964,16 @@ void DGBase<dim,real,MeshType>::assemble_volume_codi_taped_derivatives_ad(
     using TH = codi_TapeHelper<adtype>;
     TH th;
     typename adtype::TapeType &tape =  adtype::getGlobalTape(); 
-    if (compute_dRdX || compute_d2R) {
-        for (unsigned int idof = 0; idof < n_metric_dofs; ++idof) {
-            th.getinputValues().push_back(local_metric_int[idof].getGradientData());
+    if (compute_dRdW || compute_dRdX || compute_d2R) {
+        th.startRecording();
+    }
+    for (unsigned int idof = 0; idof < n_metric_dofs; ++idof) 
+    {
+        if (compute_dRdX || compute_d2R) {
+            //th.getinputValues().push_back(local_metric_int[idof].getGradientData());
+            th.registerInput(local_metric_int[idof]);
+        } else {
+            tape.deactivateValue(local_metric_int[idof]);
         }
     } 
     
@@ -1007,6 +1015,10 @@ void DGBase<dim,real,MeshType>::assemble_volume_codi_taped_derivatives_ad(
         th.registerOutput(dual_dot_residual);
     }
     
+    if (compute_dRdW || compute_dRdX || compute_d2R) {
+        th.stopRecording();
+    }
+
     for (unsigned int itest=0; itest<n_soln_dofs; ++itest) {
         local_rhs_cell(itest) += getValue<adtype>(rhs[itest]);
         AssertIsFinite(local_rhs_cell(itest));
@@ -1086,6 +1098,9 @@ void DGBase<dim,real,MeshType>::assemble_volume_codi_taped_derivatives_ad(
 
     for (unsigned int idof = 0; idof < n_soln_dofs; ++idof) {
         tape.deactivateValue(local_solution[idof]);
+    }
+    for (unsigned int idof = 0; idof < n_metric_dofs; ++idof) {
+        tape.deactivateValue(local_metric_int[idof]);
     }
     
 }
@@ -1136,9 +1151,15 @@ void DGBase<dim,real,MeshType>::assemble_boundary_codi_taped_derivatives_ad(
     using TH = codi_TapeHelper<adtype>;
     TH th;
     typename adtype::TapeType &tape =  adtype::getGlobalTape();
-    if (compute_dRdX || compute_d2R) {
-        for (unsigned int idof = 0; idof < n_metric_dofs; ++idof) {
-            th.getinputValues().push_back(local_metric[idof].getGradientData());
+    if (compute_dRdW || compute_dRdX || compute_d2R) {
+        th.startRecording();
+    }
+    for (unsigned int idof = 0; idof < n_metric_dofs; ++idof) 
+    {
+        if (compute_dRdX || compute_d2R) {
+            th.registerInput(local_metric[idof]);
+        } else {
+            tape.deactivateValue(local_metric[idof]);
         }
     } 
     
@@ -1181,6 +1202,9 @@ void DGBase<dim,real,MeshType>::assemble_boundary_codi_taped_derivatives_ad(
         }
     } else if (compute_d2R) {
         th.registerOutput(dual_dot_residual);
+    }
+    if (compute_dRdW || compute_dRdX || compute_d2R) {
+        th.stopRecording();
     }
 
     for (unsigned int itest=0; itest<n_soln_dofs; ++itest) {
@@ -1262,6 +1286,9 @@ void DGBase<dim,real,MeshType>::assemble_boundary_codi_taped_derivatives_ad(
     }
     for (unsigned int idof = 0; idof < n_soln_dofs; ++idof) {
         tape.deactivateValue(local_solution[idof]);
+    }
+    for (unsigned int idof = 0; idof < n_metric_dofs; ++idof) {
+        tape.deactivateValue(local_metric[idof]);
     }
 
 }
@@ -1339,9 +1366,15 @@ void DGBase<dim,real,MeshType>::assemble_face_codi_taped_derivatives_ad(
     TH th;
     typename adtype::TapeType &tape =  adtype::getGlobalTape();
     
-    if (compute_dRdX || compute_d2R) {
-        for (unsigned int idof = 0; idof < n_metric_dofs; ++idof) {
-            th.getinputValues().push_back(metric_int[idof].getGradientData());
+    if (compute_dRdW || compute_dRdX || compute_d2R) {
+        th.startRecording();
+    }
+    for (unsigned int idof = 0; idof < n_metric_dofs; ++idof) 
+    {
+        if (compute_dRdX || compute_d2R) {
+            th.registerInput(metric_int[idof]);
+        } else {
+            tape.deactivateValue(metric_int[idof]);
         }
     } 
 
@@ -1424,6 +1457,9 @@ void DGBase<dim,real,MeshType>::assemble_face_codi_taped_derivatives_ad(
         }
     } else if (compute_d2R) {
         th.registerOutput(dual_dot_residual);
+    }
+    if (compute_dRdW || compute_dRdX || compute_d2R) {
+        th.stopRecording();
     }
     
     for (unsigned int itest_int=0; itest_int<n_soln_dofs_int; ++itest_int) {
@@ -1661,6 +1697,9 @@ void DGBase<dim,real,MeshType>::assemble_face_codi_taped_derivatives_ad(
     }
     for (unsigned int idof = 0; idof < n_metric_dofs; ++idof) {
         tape.deactivateValue(metric_ext[idof]);
+    }
+    for (unsigned int idof = 0; idof < n_metric_dofs; ++idof) {
+        tape.deactivateValue(metric_int[idof]);
     }
 }
 
