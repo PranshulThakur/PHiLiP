@@ -9,6 +9,7 @@
 #include "mesh/mesh_adaptation/mesh_adaptation.h"
 #include <deal.II/grid/grid_in.h>
 #include <deal.II/base/convergence_table.h>
+#include <deal.II/base/timer.h>
 
 namespace PHiLiP {
 namespace Tests {
@@ -328,18 +329,23 @@ int AnisotropicMeshAdaptationCases<dim, nstate> :: run_test () const
     
     std::unique_ptr<FlowSolver::FlowSolver<dim,nstate>> flow_solver = FlowSolver::FlowSolverFactory<dim,nstate>::select_flow_case(&param, parameter_handler);
     
+    dealii::Timer timer(this->mpi_communicator, true);    
     flow_solver->run();
 
     std::vector<double> functional_error_vector;
     std::vector<unsigned int> n_cycle_vector;
     std::vector<unsigned int> n_dofs_vector;
+    std::vector<double> elapsed_time_vector;
 
     const double functional_error_initial = evaluate_functional_error(flow_solver->dg);
+    timer.stop();
     functional_error_vector.push_back(functional_error_initial);
     n_dofs_vector.push_back(flow_solver->dg->n_dofs());
+    elapsed_time_vector.push_back(timer.wall_time());
     unsigned int current_cycle = 0;
     n_cycle_vector.push_back(current_cycle++);
     dealii::ConvergenceTable convergence_table;
+    timer.reset();
 
     if(run_mesh_optimizer)
     {
@@ -350,19 +356,23 @@ int AnisotropicMeshAdaptationCases<dim, nstate> :: run_test () const
         {
             std::unique_ptr<MeshOptimizer<dim,nstate>> mesh_optimizer = 
                                                 std::make_unique<MeshOptimizer<dim,nstate>> (flow_solver->dg, &param2, mesh_weight, true);
+            timer.start();
             mesh_optimizer->run_full_space_optimizer();
+            timer.stop();
             mesh_weight = 0.0;
             param2.optimization_param.max_design_cycles = 16;
         }
     
         const double functional_error = evaluate_functional_error(flow_solver->dg);
         functional_error_vector.push_back(functional_error);
+        elapsed_time_vector.push_back(timer.wall_time());
         n_dofs_vector.push_back(flow_solver->dg->n_dofs());
         n_cycle_vector.push_back(current_cycle++);
         pcout<<"Current cycle = "<<(current_cycle-1)<<";  Functional error = "<<functional_error<<std::endl;
         
         convergence_table.add_value("cells", flow_solver->dg->triangulation->n_global_active_cells());
         convergence_table.add_value("functional_error",functional_error);
+        timer.reset();
     }
 
     if(run_fixedfraction_mesh_adaptation)
@@ -374,17 +384,21 @@ int AnisotropicMeshAdaptationCases<dim, nstate> :: run_test () const
 
         for(unsigned int icycle = 0; icycle < n_adaptation_cycles; ++icycle)
         {
+            timer.start();
             meshadaptation->adapt_mesh();
             flow_solver->run();
+            timer.stop();
 
             const double functional_error = evaluate_functional_error(flow_solver->dg);
             functional_error_vector.push_back(functional_error);
+            elapsed_time_vector.push_back(timer.wall_time());
             n_dofs_vector.push_back(flow_solver->dg->n_dofs());
             n_cycle_vector.push_back(current_cycle++);
             pcout<<"Current cycle = "<<(current_cycle-1)<<";  Functional error = "<<functional_error<<std::endl;
             
             convergence_table.add_value("cells", flow_solver->dg->triangulation->n_global_active_cells());
             convergence_table.add_value("functional_error",functional_error);
+            timer.reset();
         }
     }
 
@@ -394,25 +408,33 @@ int AnisotropicMeshAdaptationCases<dim, nstate> :: run_test () const
     pcout<<"\n cycles = [";
     for(long unsigned int i=0; i<n_cycle_vector.size(); ++i)
     {
-        if(i!=0) {pcout<<", ";}
         pcout<<n_cycle_vector[i];
+        if(i!=(n_cycle_vector.size()-1)) {pcout<<", ";}
     }
     pcout<<"];"<<std::endl;
 
     pcout<<"\n n_dofs = [";
     for(long unsigned int i=0; i<n_dofs_vector.size(); ++i)
     {
-        if(i!=0) {pcout<<", ";}
         pcout<<n_dofs_vector[i];
+        if(i!=(n_cycle_vector.size()-1)) {pcout<<", ";}
     }
     pcout<<"];"<<std::endl;
 
     std::string functional_type = "functional_error";
-    pcout<<"\n "<<functional_type<<" = ["<<std::setprecision(16);
+    pcout<<"\n "<<functional_type<<" = [";
     for(long unsigned int i=0; i<functional_error_vector.size(); ++i)
     {
-        if(i!=0) {pcout<<", ";}
         pcout<<functional_error_vector[i];
+        if(i!=(n_cycle_vector.size()-1)) {pcout<<", ";}
+    }
+    pcout<<"];"<<std::endl;
+
+    pcout<<"\n elapsed_time = [";
+    for(long unsigned int i=0; i<elapsed_time_vector.size(); ++i)
+    {
+        pcout<<elapsed_time_vector[i];
+        if(i!=(n_cycle_vector.size()-1)) {pcout<<", ";}
     }
     pcout<<"];"<<std::endl;
 
