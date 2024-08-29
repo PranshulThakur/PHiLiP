@@ -53,7 +53,7 @@ subsection optimization
     set line_search_curvature = Strong Wolfe Conditions
     set reduced_space_descent_method = Newton-Krylov
     set full_space_preconditioner = P2A
-    set mesh_weight_factor = 1.0e-3 #5.0e-6
+    set mesh_weight_factor = 1.0e-4 # Use smooth upwinding flux.
 
     set regularization_parameter = 1.0
     set regularization_scaling = 2.0
@@ -69,7 +69,7 @@ subsection functional
    set normLp = 2.0
 
    # boundaries to be used
-   set boundary_vector = [1, 2]
+   set boundary_vector = [1]
    set use_all_boundaries = false
 end
 
