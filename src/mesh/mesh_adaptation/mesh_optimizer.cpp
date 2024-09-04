@@ -134,7 +134,8 @@ Teuchos::ParameterList MeshOptimizer<dim,nstate>::get_parlist()
     {
         parlist.sublist("Full Space").set("Preconditioner", all_parameters->optimization_param.full_space_preconditioner);
         parlist.sublist("Full Space").set("Linear iteration Limit", all_parameters->optimization_param.linear_iteration_limit);
-        parlist.sublist("Full Space").set("regularization_parameter", all_parameters->optimization_param.regularization_parameter);
+        parlist.sublist("Full Space").set("regularization_parameter_control", all_parameters->optimization_param.regularization_parameter_control);
+        parlist.sublist("Full Space").set("regularization_parameter_sim", all_parameters->optimization_param.regularization_parameter_sim);
         parlist.sublist("Full Space").set("regularization_scaling", all_parameters->optimization_param.regularization_scaling);
         parlist.sublist("Full Space").set("regularization_tol_low", all_parameters->optimization_param.regularization_tol_low);
         parlist.sublist("Full Space").set("regularization_tol_high", all_parameters->optimization_param.regularization_tol_high);
@@ -160,7 +161,7 @@ Teuchos::ParameterList MeshOptimizer<dim,nstate>::get_parlist()
 }
 
 template<int dim, int nstate>
-void MeshOptimizer<dim,nstate>::run_full_space_optimizer()
+void MeshOptimizer<dim,nstate>::run_full_space_optimizer(const dealii::TrilinosWrappers::SparseMatrix &regularization_matrix_poisson)
 {
     //==============================================================================================================================
     // Setup vector_ptrs
@@ -181,10 +182,16 @@ void MeshOptimizer<dim,nstate>::run_full_space_optimizer()
     auto flow_constraints_rol_ptr  = ROL::makePtr<FlowConstraints<dim>>(dg, design_parameterization); // Constraint of Residual = 0
 
     const double timing_start = MPI_Wtime();
+    dealii::TrilinosWrappers::SparseMatrix regularization_matrix;
+    form_regularization_marix(
+        regularization_matrix,
+        regularization_matrix_poisson, 
+        objective_function_rol_ptr->dXvdXp);
     
     // Full space Newton
+    *rcp_outstream << "n_design_variables = "<< design_variables.size() << std::endl;
     *rcp_outstream << "Starting Full Space mesh optimization..."<<std::endl;
-    auto full_space_step = ROL::makePtr<ROL::FullSpace_BirosGhattas<double>>(parlist);
+    auto full_space_step = ROL::makePtr<ROL::FullSpace_BirosGhattas<double>>(parlist,regularization_matrix);
     auto status_test = ROL::makePtr<ROL::StatusTest<double>>(parlist);
     const bool printHeader = true;
     ROL::Algorithm<double> algorithm(full_space_step, status_test, printHeader);
@@ -255,6 +262,18 @@ void MeshOptimizer<dim,nstate>::run_reduced_space_optimizer()
     *rcp_outstream << "n_design_variables = "<< design_variables.size() << std::endl;
     filebuffer.close();
 }
+
+template<int dim, int nstate>
+void MeshOptimizer<dim,nstate>::form_regularization_marix(
+    dealii::TrilinosWrappers::SparseMatrix &regularization_matrix,
+    const dealii::TrilinosWrappers::SparseMatrix &regularization_matrix_poisson,
+    const dealii::TrilinosWrappers::SparseMatrix &dXvdXp) const
+{
+    dealii::TrilinosWrappers::SparseMatrix C;
+    regularization_matrix_poisson.mmult(C,dXvdXp);
+    dXvdXp.Tmmult(regularization_matrix, C);
+}
+
 
 template class MeshOptimizer <PHILIP_DIM, 1>;
 template class MeshOptimizer <PHILIP_DIM, 2>;

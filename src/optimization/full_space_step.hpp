@@ -100,6 +100,7 @@ private:
 
     /// Number of the output file. Mesh and solution are output in update(), after updating the variables.   
     unsigned int output_count = 2000;
+    const dealii::TrilinosWrappers::SparseMatrix &regularization_matrix;
 public:
   
     using Step<Real>::initialize; ///< See base class.
@@ -117,6 +118,7 @@ public:
     */
     FullSpace_BirosGhattas(
         ROL::ParameterList &parlist,
+        const dealii::TrilinosWrappers::SparseMatrix &regularization_matrix_ = dealii::TrilinosWrappers::SparseMatrix(),
         const ROL::Ptr<LineSearch<Real> > &lineSearch = ROL::nullPtr,
         const ROL::Ptr<Secant<Real> > &secant = ROL::nullPtr);
 
@@ -129,18 +131,6 @@ public:
         const Vector<Real> &objective_gradient,
         Constraint<Real> &equal_constraints) const;
 
-    /** Evaluates the initial Lagrange multipler by solving the augmented system.
-     *  Note that we could simplify this by simply solving for the adjoint the typical
-     *  manner. Using this simply because it was used by a previous ROL algorithm.
-     *  Has a higher initial cost than solving the adjoint directly.
-     */
-    void computeInitialLagrangeMultiplier(
-        Vector<Real> &lagrange_mult,
-        const Vector<Real> &design_variables,
-        const Vector<Real> &objective_gradient,
-        Constraint<Real> &equal_constraints) const;
-
-  
     /// Initialize with objective and equality constraints.
     /** Simply calls the more general initialize with null bounded constraints.
      */
@@ -284,10 +274,23 @@ public:
 private:
     dealii::ConditionalOStream pcout; ///< Parallel std::cout that only outputs on mpi_rank==0
     unsigned int linear_iteration_limit; ///< Linear iteration limit
-    Real regularization_parameter; ///< Factor multiplied by identity to be added to the control hessian.
-    Real regularization_scaling; ///< Scaling of regularization parameter depending on control variable's search direction.
-    Real regularization_tol_low; ///< Tolerance below which regularization parameter is decreased.
-    Real regularization_tol_high; ///< Control search direction tolerance above which the regularization parameter is increased.
+
+    const bool use_lagrange_multiplier;
+    
+    Real regularization_parameter_control; ///< Factor multiplied by identity to be added to the control hessian.
+    Real regularization_scaling_control; ///< Scaling of regularization parameter depending on control variable's search direction.
+    Real regularization_tol_low_control; ///< Tolerance below which regularization parameter is decreased.
+    Real regularization_tol_high_control; ///< Control search direction tolerance above which the regularization parameter is increased.
+    
+    Real regularization_parameter_sim; ///< Factor multiplied by identity to be added to the control hessian.
+    Real regularization_scaling_sim;
+    Real regularization_tol_low_sim;
+    Real regularization_tol_high_sim;
+    
+    Real regularization_parameter_adj; ///< Factor multiplied by identity to be added to the control hessian.
+    Real regularization_scaling_adj;
+    Real regularization_tol_low_adj;
+    Real regularization_tol_high_adj;
 
 }; // class FullSpace_BirosGhattas
 

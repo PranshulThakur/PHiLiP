@@ -19,7 +19,7 @@ public:
 // Member functions
     /// Constructor.
     MeshOptimizer(std::shared_ptr<DGBase<dim,double>> dg_input,
-                  const Parameters::AllParameters *const parameters_input,
+                  const Parameters::AllParameters *const parameters_input, 
                   const double weight_on_mesh_distortion,
                   const bool _use_full_space_method);
     
@@ -27,13 +27,18 @@ public:
     ~MeshOptimizer(){}
     
     /// Runs full-space optimizer.
-    void run_full_space_optimizer();
+    void run_full_space_optimizer(const dealii::TrilinosWrappers::SparseMatrix &regularization_matrix_poisson);
 
-    /// Runs reduced-space optimizer.
-    void run_reduced_space_optimizer();
+    void form_regularization_marix(
+        dealii::TrilinosWrappers::SparseMatrix &regularization_matrix,
+        const dealii::TrilinosWrappers::SparseMatrix &regularization_matrix_poisson,
+        const dealii::TrilinosWrappers::SparseMatrix &dXvdXp) const;
 
     /// Gets parlist according to optimization_param.
     Teuchos::ParameterList get_parlist();
+
+    /// Runs reduced-space optimizer.
+    void run_reduced_space_optimizer();
 
     /// Assings objective function and design parameterization.
     void initialize_objfunc_and_design_parameterization();
