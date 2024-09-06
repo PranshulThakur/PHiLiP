@@ -45,6 +45,9 @@ public:
     /// Move nodes to the curve.
     void move_nodes_to_shock(std::shared_ptr<DGBase<dim,double>> dg) const;
 
+    /// Find optimal fixed-fraction fraction.
+    double find_optimal_fixedfraction_fraction() const;
+
 }; 
 
 } // Tests namespace
