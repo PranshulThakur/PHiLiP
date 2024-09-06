@@ -35,6 +35,9 @@ public:
     
     /// Outputs vtk files with primal and adjoint solutions.
     double output_vtk_files(std::shared_ptr<DGBase<dim,double>> dg) const;
+
+    /// Find optimal fixed-fraction fraction.
+    double find_optimal_fixedfraction_fraction() const;
 }; 
 
 } // Tests namespace
