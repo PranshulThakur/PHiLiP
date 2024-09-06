@@ -108,6 +108,52 @@ void MeshOptimizer<dim,nstate>::initialize_output_stream()
     else if (mpi_rank == 1) {rcp_outstream = ROL::makePtrFromRef(std::cout);} // processor #1 outputs on screen.
     else rcp_outstream = ROL::makePtrFromRef(null_stream);
 }
+
+template<int dim, int nstate>
+void MeshOptimizer<dim,nstate>::check_derivatives()
+{
+    //==============================================================================================================================
+    // Setup vector_ptrs
+    const bool has_ownership = false;
+    VectorAdaptor state_variables_rol(Teuchos::rcp(&state_variables, has_ownership));
+    VectorAdaptor design_variables_rol(Teuchos::rcp(&design_variables, has_ownership));
+    VectorAdaptor dual_variables_rol(Teuchos::rcp(&dual_variables, has_ownership));
+
+    ROL::Ptr<ROL::Vector<double>> state_variables_rol_ptr = ROL::makePtr<VectorAdaptor>(state_variables_rol);
+    ROL::Ptr<ROL::Vector<double>> design_variables_rol_ptr = ROL::makePtr<VectorAdaptor>(design_variables_rol);
+    ROL::Ptr<ROL::Vector<double>> dual_variables_rol_ptr = ROL::makePtr<VectorAdaptor>(dual_variables_rol);
+    auto state_design_rol_ptr = ROL::makePtr<ROL::Vector_SimOpt<double>>(state_variables_rol_ptr, design_variables_rol_ptr);
+    //==============================================================================================================================
+    auto objective_function_rol_ptr = ROL::makePtr<ROLObjectiveSimOpt<dim,nstate>>(*objective_function, design_parameterization);
+    
+    std::vector<double> steps;
+    for (int i = -6; i > -7; i--) {
+        steps.push_back(std::pow(10,i));
+    }
+
+    const auto direction = state_design_rol_ptr->clone();
+    
+    double norm_Hv = 0.0;
+    double norm_fd = 0.0;
+    double norm_error = 0.0;
+    for(int i=0; i<direction->dimension(); ++i)
+    {
+       const std::vector<std::vector<double> > hvCheck =
+                    objective_function_rol_ptr->checkHessVec(*state_design_rol_ptr, *(direction->basis(i)), steps, true, *rcp_outstream); 
+        norm_Hv += pow(hvCheck[0][1],2);
+        norm_fd += pow(hvCheck[0][2],2);
+        norm_error += pow(hvCheck[0][3],2);
+    }
+
+    norm_Hv = sqrt(norm_Hv);
+    norm_fd = sqrt(norm_fd);
+    norm_error = sqrt(norm_error);
+    const double relative_error = norm_error/norm_fd;
+
+    std::cout<<"norm_Hv = "<<norm_Hv<<'\n'<<"norm_fd = "<<norm_fd<<'\n'<<"norm_error = "<<norm_error<<'\n';
+    std::cout<<"Absolute error = "<<norm_error<<'\n'<<"Relative error = "<<relative_error<<'\n';
+
+}
     
 template<int dim, int nstate>
 Teuchos::ParameterList MeshOptimizer<dim,nstate>::get_parlist()

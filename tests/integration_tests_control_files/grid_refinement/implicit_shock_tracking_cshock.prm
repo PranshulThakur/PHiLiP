@@ -85,6 +85,6 @@ subsection flow_solver
   set max_poly_degree_for_adaptation = 2
   subsection grid
     set number_of_mesh_refinements = 3
-    set input_mesh_filename = ../../meshes/squaremesh
+    set input_mesh_filename = ../../meshes/squaremesh_2
   end
 end
