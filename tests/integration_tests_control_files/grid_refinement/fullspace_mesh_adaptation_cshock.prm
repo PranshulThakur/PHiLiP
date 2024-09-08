@@ -8,7 +8,7 @@ set dimension = 2
 set pde_type  = advection_vector     
 set test_type = anisotropic_mesh_adaptation
 
-#set overintegration = 4
+set overintegration = 3
 
 subsection linear solver
 #set linear_solver_type = direct
@@ -94,6 +94,6 @@ subsection flow_solver
   set max_poly_degree_for_adaptation = 3
   subsection grid
     set number_of_mesh_refinements = 3
-    set input_mesh_filename = ../../meshes/squaremesh
+    set input_mesh_filename = ../../meshes/squaremesh_2
   end
 end
