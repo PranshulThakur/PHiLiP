@@ -365,6 +365,8 @@ std::array<double,nstate> AnisotropicMeshAdaptationCases<dim,nstate> :: evaluate
 template <int dim, int nstate>
 int AnisotropicMeshAdaptationCases<dim, nstate> :: run_test () const
 {
+    find_optimal_fixedfraction_fraction();
+/*
     const Parameters::AllParameters param = *(TestsBase::all_parameters);
     const bool run_mesh_optimizer = true;
     const bool run_fixedfraction_mesh_adaptation = false;
@@ -489,7 +491,7 @@ int AnisotropicMeshAdaptationCases<dim, nstate> :: run_test () const
     pcout << " Convergence summary" << std::endl;
     pcout << " ********************************************" << std::endl;
     if(pcout.is_active()) {convergence_table.write_text(pcout.get_stream());}
-
+*/
     return 0;
 }
 
