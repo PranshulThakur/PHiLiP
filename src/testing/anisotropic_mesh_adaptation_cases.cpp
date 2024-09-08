@@ -26,36 +26,45 @@ template <int dim, int nstate>
 double AnisotropicMeshAdaptationCases<dim,nstate> :: find_optimal_fixedfraction_fraction() const
 {
     const Parameters::AllParameters param = *(TestsBase::all_parameters);
-    
-    std::array<std::vector<double>,33> functional_error_ff;
-    std::array<std::vector<unsigned int>,33> n_dofs_ff;
-    for(int i=0; i<33; ++i)
+    const int n_fractions = 33;
+    const int offsetval = 3;
+    const unsigned int ndofs_max = 7000;
+    std::array<std::vector<double>,n_fractions> functional_error_ff;
+    std::array<double,n_fractions> functional_error_slope_ff;
+    std::array<std::vector<unsigned int>,n_fractions> n_dofs_ff;
+    double functional_error_current = 0;
+    unsigned int ndofs_current = 1;
+    for(int i=0; i<n_fractions; ++i)
     {
-        const double refine_fraction = (i+3.0)/100.0;
+        const double refine_fraction = (i+offsetval)/100.0;
         std::unique_ptr<FlowSolver::FlowSolver<dim,nstate>> flow_solver2 = 
                     FlowSolver::FlowSolverFactory<dim,nstate>::select_flow_case(&param, parameter_handler);
         flow_solver2->run();
+        const unsigned int ndofs_initial = flow_solver2->dg->n_dofs();
+        const double functional_error_initial = evaluate_functional_error(flow_solver2->dg);
         Parameters::MeshAdaptationParam mesh_adaptation_param2 = param.mesh_adaptation_param;
         mesh_adaptation_param2.refine_fraction = refine_fraction; 
         std::unique_ptr<MeshAdaptation<dim,double>> meshadaptation =
                 std::make_unique<MeshAdaptation<dim,double>>(flow_solver2->dg, &(mesh_adaptation_param2));
-        unsigned int ndofs_current = flow_solver2->dg->n_dofs();
-        while(ndofs_current < 7000)
+        ndofs_current = flow_solver2->dg->n_dofs();
+        while(ndofs_current < ndofs_max)
         {
             meshadaptation->adapt_mesh();
             flow_solver2->run();
             ndofs_current = flow_solver2->dg->n_dofs();
             std::cout<<"NDOFS_CURRENT = "<<ndofs_current<<std::endl;
 
-            const double functional_error = evaluate_functional_error(flow_solver2->dg);
-            functional_error_ff[i].push_back(functional_error);
-            n_dofs_ff[i].push_back(flow_solver2->dg->n_dofs());    
+            functional_error_current = evaluate_functional_error(flow_solver2->dg);
+            functional_error_ff[i].push_back(functional_error_current);
+            n_dofs_ff[i].push_back(ndofs_current);    
         } 
+        const double functional_error_slope = (functional_error_current - functional_error_initial)/(ndofs_current - ndofs_initial);
+        functional_error_slope_ff[i] = functional_error_slope;
     }
         
-    for(int i=0; i<33; ++i)
+    for(int i=0; i<n_fractions; ++i)
     {
-        const int refine_fraction = (i+3);
+        const int refine_fraction = (i+offsetval);
         // Print values.
         pcout<<"==============================================================================================="<<std::endl;
         pcout<<"Fixed-fraction = "<<refine_fraction<<" %"<<std::endl;
@@ -80,57 +89,18 @@ double AnisotropicMeshAdaptationCases<dim,nstate> :: find_optimal_fixedfraction_
     // Find best fixed-fraction
     double refinefraction_min = 999.0;
     double value_min = 9999.0;
-    for(int i=0; i<33; ++i)
+    for(int i=0; i<n_fractions; ++i)
     {
-        const unsigned int vector_size = functional_error_ff[i].size();
-        const double value_current = functional_error_ff[i][vector_size-1];
+        const double value_current = functional_error_slope_ff[i];
         if(value_current < value_min)
         {
             value_min = value_current;
-            refinefraction_min = (i+3.0)/100.0;
+            refinefraction_min = (i+offsetval);
         }
     }
-    pcout<<"Optimal fixed-fraction is "<<refinefraction_min<<std::endl;
+    pcout<<"Optimal fixed-fraction percentage is "<<refinefraction_min<<std::endl;
     return refinefraction_min;
 }
-
-template <int dim, int nstate>
-void AnisotropicMeshAdaptationCases<dim,nstate> :: move_nodes_to_shock(std::shared_ptr<DGBase<dim,double>> dg) const
-{
-    const dealii::IndexSet &volume_range = dg->high_order_grid->volume_nodes.get_partitioner()->locally_owned_range();
-    const unsigned int n_vol_nodes = dg->high_order_grid->volume_nodes.size();
-
-    for (unsigned int i = 0; i<n_vol_nodes; ++i)
-    {
-        if(! volume_range.is_element(i)) {continue;}
-
-        if(i % dim == 0)
-        {
-            const double x = dg->high_order_grid->volume_nodes(i);
-
-            const double y = dg->high_order_grid->volume_nodes(i+1);
-
-            const double x_curve = -0.4*pow(y,2) + 0.4*y + 0.375;
-
-            const double a1 = 0.1875, a2 = 28125, a3 = 0.4875;
-
-            if(x == 0.375)
-            {
-                dg->high_order_grid->volume_nodes(i) = x_curve;
-            }
-            else if (x == a3)
-            {
-                dg->high_order_grid->volume_nodes(i) = (0.6 + x_curve)/2.0;
-            }
-            else if (x==a2)
-            {
-                dg->high_order_grid->volume_nodes(i) = (a1 + x_curve)/2.0;
-            }
-        }
-    } // ivol for loop ends
-    dg->high_order_grid->volume_nodes.update_ghost_values();
-}
-
 
 template <int dim, int nstate>
 void AnisotropicMeshAdaptationCases<dim,nstate> :: verify_fe_values_shape_hessian(const DGBase<dim, double> &dg) const
