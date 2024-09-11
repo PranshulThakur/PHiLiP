@@ -174,8 +174,8 @@ template <int dim, int nstate>
 double AnisotropicMeshAdaptationCases<dim,nstate> :: evaluate_functional_error(std::shared_ptr<DGBase<dim,double>> dg) const
 {
 
-    //const double functional_exact = 0.1512447195285363; // with heaviside
-    const double functional_exact = 0.1792480962990282; // without heaviside
+    const double functional_exact = 0.1512447195285363; // with heaviside
+    //const double functional_exact = 0.1792480962990282; // without heaviside
     std::shared_ptr< Functional<dim, nstate, double> > functional
                                 = FunctionalFactory<dim,nstate,double>::create_Functional(dg->all_parameters->functional_param, dg);
     const double functional_val = functional->evaluate_functional();
