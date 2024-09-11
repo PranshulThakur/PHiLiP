@@ -105,6 +105,8 @@ public:
      *  DGBase cannot use nstate as a compile-time known.  */
     const unsigned int max_grid_degree;
 
+    bool use_smooth_upwind_flux = false;
+
     /// Principal constructor that will call delegated constructor.
     /** Will initialize mapping, fe_dg, all_parameters, volume_quadrature, and face_quadrature
      *  from DGBase. The it will new some FEValues that will be used to retrieve the

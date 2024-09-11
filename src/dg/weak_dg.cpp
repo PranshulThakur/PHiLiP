@@ -145,7 +145,8 @@ std::array<real2, nstate> evaluate_advection_flux_dot_n(
     const std::array<real2,nstate> &soln_ext,
     const dealii::Tensor<1,dim,real2> &normal_int,
     const dealii::Tensor<1,dim,real2> &beta_vec,
-    const dealii::Tensor<1,dim,real2> &velocity_field)
+    const dealii::Tensor<1,dim,real2> &velocity_field,
+    const bool use_smooth_upwind_flux)
 {
     real2 beta_dot_n = 0;
     real2 velvec_dot_n = 0;
@@ -175,13 +176,15 @@ std::array<real2, nstate> evaluate_advection_flux_dot_n(
         conv_flux_dot_n[1] = velvec_dot_n*soln_ext[1];
     }
 
-/*
-    const double a_valh = 10;
-    real2 heaviside_0 = 1.0/( 1.0 + exp(-2.0*a_valh*beta_dot_n));
-    real2 heaviside_1 = 1.0/( 1.0 + exp(-2.0*a_valh*velvec_dot_n));
-    conv_flux_dot_n[0] = beta_dot_n*(soln_int[0]*heaviside_0 + soln_ext[0]*(1.0 - heaviside_0));  
-    conv_flux_dot_n[1] = velvec_dot_n*(soln_int[1]*heaviside_1 + soln_ext[1]*(1.0 - heaviside_1));  
-*/
+    if(use_smooth_upwind_flux)
+    {
+        const double a_valh = 10;
+        real2 heaviside_0 = 1.0/( 1.0 + exp(-2.0*a_valh*beta_dot_n));
+        real2 heaviside_1 = 1.0/( 1.0 + exp(-2.0*a_valh*velvec_dot_n));
+        conv_flux_dot_n[0] = beta_dot_n*(soln_int[0]*heaviside_0 + soln_ext[0]*(1.0 - heaviside_0));  
+        conv_flux_dot_n[1] = velvec_dot_n*(soln_int[1]*heaviside_1 + soln_ext[1]*(1.0 - heaviside_1));  
+    }
+
    return conv_flux_dot_n;
 }
 
@@ -1532,7 +1535,7 @@ void DGWeak<dim,nstate,real,MeshType>::assemble_boundary_term(
         // Losing 2p+1 OOA on functionals for all PDEs.
         //conv_num_flux_dot_n[iquad] = conv_num_flux.evaluate_flux(soln_int[iquad], soln_ext[iquad], normal_int);
         conv_num_flux_dot_n[iquad] = conv_num_flux.evaluate_flux(soln_ext[iquad], soln_ext[iquad], normal_int);
-        conv_num_flux_dot_n[iquad] = evaluate_advection_flux_dot_n<dim,nstate,real2>(soln_ext[iquad], soln_ext[iquad], normal_int, beta_vec[iquad], velocity_field);
+        conv_num_flux_dot_n[iquad] = evaluate_advection_flux_dot_n<dim,nstate,real2>(soln_ext[iquad], soln_ext[iquad], normal_int, beta_vec[iquad], velocity_field, this->use_smooth_upwind_flux);
         
         // Notice that the flux uses the solution given by the Dirichlet or Neumann boundary condition
         diss_soln_num_flux[iquad] = diss_num_flux.evaluate_solution_flux(soln_ext[iquad], soln_ext[iquad], normal_int);
@@ -2612,7 +2615,7 @@ void DGWeak<dim,nstate,real,MeshType>::assemble_face_term(
         // Evaluate physical convective flux, physical dissipative flux, and source term
         conv_num_flux_dot_n = conv_num_flux.evaluate_flux(soln_int[iquad], soln_ext[iquad], phys_unit_normal_int[iquad]);
         conv_num_flux_dot_n = evaluate_advection_flux_dot_n<dim,nstate,real2>(
-                        soln_int[iquad], soln_ext[iquad], phys_unit_normal_int[iquad], beta_vec[iquad], velocity_field);
+                        soln_int[iquad], soln_ext[iquad], phys_unit_normal_int[iquad], beta_vec[iquad], velocity_field, this->use_smooth_upwind_flux);
         diss_soln_num_flux = diss_num_flux.evaluate_solution_flux(soln_int[iquad], soln_ext[iquad], phys_unit_normal_int[iquad]);
 
         ADArrayTensor1 diss_soln_jump_int, diss_soln_jump_ext;

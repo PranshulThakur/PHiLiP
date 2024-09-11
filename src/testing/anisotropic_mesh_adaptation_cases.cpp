@@ -431,7 +431,7 @@ int AnisotropicMeshAdaptationCases<dim, nstate> :: run_test () const
     const bool run_fixedfraction_mesh_adaptation = false;
     
     std::unique_ptr<FlowSolver::FlowSolver<dim,nstate>> flow_solver = FlowSolver::FlowSolverFactory<dim,nstate>::select_flow_case(&param, parameter_handler);
-    
+    flow_solver->dg->use_smooth_upwind_flux = param.mesh_adaptation_param.use_goal_oriented_mesh_adaptation ? false : true; 
     dealii::Timer timer(this->mpi_communicator, true);    
     flow_solver->run();
 
@@ -457,16 +457,15 @@ int AnisotropicMeshAdaptationCases<dim, nstate> :: run_test () const
         double mesh_weight = param.optimization_param.mesh_weight_factor;
         Parameters::AllParameters param2 = *(TestsBase::all_parameters);
         timer.start();
-        for(unsigned int i=0; i<1; ++i)
+        for(unsigned int i=0; i<2; ++i)
         {
             std::unique_ptr<MeshOptimizer<dim,nstate>> mesh_optimizer = 
                                                 std::make_unique<MeshOptimizer<dim,nstate>> (flow_solver->dg, &param2, mesh_weight, true);
             dealii::TrilinosWrappers::SparseMatrix regularization_matrix_poisson;
             evaluate_regularization_matrix(regularization_matrix_poisson, flow_solver->dg);
             mesh_optimizer->run_full_space_optimizer(regularization_matrix_poisson);
-            //mesh_weight = 0.0;
-            //increase_grid_degree_and_interpolate_solution(flow_solver->dg); 
-            //param2.optimization_param.max_design_cycles = 16;
+            increase_grid_degree_and_interpolate_solution(flow_solver->dg); 
+            param2.optimization_param.max_design_cycles = 70;
         }
         timer.stop();
     
