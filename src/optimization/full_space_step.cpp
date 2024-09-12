@@ -234,13 +234,14 @@ void FullSpace_BirosGhattas<Real>::initialize(
 
     // I don't have to initialize with merit function since it does nothing
     // with it. But might as well be consistent.
+    ROL::Ptr<Vector<Real>> design_variables_cloned = design_variables.clone();
     penalty_value_ = 1.0;
     merit_function_ = ROL::makePtr<ROL::AugmentedLagrangian<Real>> (
             makePtrFromRef<Objective<Real>>(objective),
             makePtrFromRef<Constraint<Real>>(equal_constraints),
             lagrange_mult,
             penalty_value_,
-            design_variables,
+            *design_variables_cloned,
             equal_constraints_values,
             parlist_);
 
