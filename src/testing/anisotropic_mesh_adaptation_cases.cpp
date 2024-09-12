@@ -188,11 +188,9 @@ double AnisotropicMeshAdaptationCases<dim,nstate> :: evaluate_abs_dwr_error(std:
 template <int dim, int nstate>
 int AnisotropicMeshAdaptationCases<dim, nstate> :: run_test () const
 {
-    find_optimal_fixedfraction_fraction();
-/*
     const Parameters::AllParameters param = *(TestsBase::all_parameters);
-    const bool run_mesh_optimizer = true;
-    const bool run_fixedfraction_mesh_adaptation = false;
+    const bool run_fixedfraction_mesh_adaptation = param.mesh_adaptation_param.total_mesh_adaptation_cycles > 0;
+    const bool run_mesh_optimizer = !run_fixedfraction_mesh_adaptation;
     
     std::unique_ptr<FlowSolver::FlowSolver<dim,nstate>> flow_solver = FlowSolver::FlowSolverFactory<dim,nstate>::select_flow_case(&param, parameter_handler);
 
@@ -291,7 +289,7 @@ int AnisotropicMeshAdaptationCases<dim, nstate> :: run_test () const
         if(i!=(n_cycle_vector.size()-1)) {pcout<<", ";}
     }
     pcout<<"];"<<std::endl;
-*/
+
 return 0;
 }
 

@@ -187,10 +187,31 @@ add_test(
 )
 
 # Anisotropic mesh adaptation tests
-configure_file(anisotropic_mesh_adaptation_sshock.prm anisotropic_mesh_adaptation_sshock.prm  COPYONLY)
+configure_file(fullspace_goal_oriented_shock_tracking.prm fullspace_goal_oriented_shock_tracking.prm  COPYONLY)
 add_test(
-  NAME ANISOTROPIC_MESH_ADAPTATION_SSHOCK
-  COMMAND mpirun -n ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_2D -i ${CMAKE_CURRENT_BINARY_DIR}/anisotropic_mesh_adaptation_sshock.prm
+  NAME FULLSPACE_GOALORIENTED_SHOCKTRACKING
+  COMMAND mpirun -n ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_2D -i ${CMAKE_CURRENT_BINARY_DIR}/fullspace_goal_oriented_shock_tracking.prm
+  WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
+)
+
+configure_file(implicit_shock_tracking.prm implicit_shock_tracking.prm  COPYONLY)
+add_test(
+  NAME IMPLICIT_SHOCKTRACKING
+  COMMAND mpirun -n ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_2D -i ${CMAKE_CURRENT_BINARY_DIR}/implicit_shock_tracking.prm
+  WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
+)
+
+configure_file(fixedfraction_shocktracking.prm fixedfraction_shocktracking.prm  COPYONLY)
+add_test(
+  NAME FIXEDFRACTION_SHOCKTRACKING
+  COMMAND mpirun -n ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_2D -i ${CMAKE_CURRENT_BINARY_DIR}/fixedfraction_shocktracking.prm
+  WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
+)
+
+configure_file(uniformrefinement_shocktracking.prm uniformrefinement_shocktracking.prm  COPYONLY)
+add_test(
+  NAME UNIFORMREFINEMENT_SHOCKTRACKING
+  COMMAND mpirun -n ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_2D -i ${CMAKE_CURRENT_BINARY_DIR}/uniformrefinement_shocktracking.prm
   WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
 )
 

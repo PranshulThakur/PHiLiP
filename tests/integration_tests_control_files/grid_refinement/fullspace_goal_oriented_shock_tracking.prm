@@ -1,0 +1,107 @@
+# Listing of Parameters
+# ---------------------
+# Number of dimensions
+set dimension = 2
+
+# The PDE we want to solve. Choices are
+# <advection|diffusion|convection_diffusion>.
+set pde_type  = advection      
+set test_type = anisotropic_mesh_adaptation
+
+set flux_nodes_type = GL
+
+set overintegration = 1
+#set sipg_penalty_factor = 20.0
+
+subsection linear solver
+#set linear_solver_type = direct
+  subsection gmres options
+    set linear_residual_tolerance = 1e-13
+    set max_iterations = 500
+    set restart_number = 50
+    set ilut_fill = 1
+    set ilut_atol = 1.0e-5
+    # set ilut_drop = 1e-4
+  end 
+end
+
+subsection mesh adaptation
+   set total_mesh_adaptation_cycles = 0
+   set use_goal_oriented_mesh_adaptation = true
+   set mesh_adaptation_type = h_adaptation
+   subsection fixed-fraction
+     set refine_fraction = 0.04
+   end
+end
+
+subsection optimization
+    set optimization_type = full_space
+    set use_coarse_residual = false
+    set use_fine_solution = false
+
+    set gradient_tolerance = 1.0e-10 #1e-11
+    set max_design_cycles = 35
+    set linear_iteration_limit = 200
+    set initial_step_size = 1.0
+    set functional_evaluation_limit = 30
+    set line_search_method = Backtracking
+    set line_search_curvature = Strong Wolfe Conditions
+    set reduced_space_descent_method = Newton-Krylov
+    set full_space_preconditioner = P2A
+    set mesh_weight_factor = 0.0
+
+    set regularization_parameter = 0.01 #0.05 for residual_based
+    set regularization_scaling = 2.0
+    set regularization_tol_low = 1.0e-2
+    set regularization_tol_high = 1.0e-1
+end
+
+subsection ODE solver
+  #output solution
+  #set output_solution_every_x_steps = 1
+
+  # Maximum nonlinear solver iterations
+  set nonlinear_max_iterations            = 500
+
+  # Nonlinear solver residual tolerance
+  set nonlinear_steady_residual_tolerance = 1e-12
+
+  # Print every print_iteration_modulo iterations of the nonlinear solver
+  set print_iteration_modulo              = 1
+
+  # Explicit or implicit solverChoices are <explicit|implicit>.
+  set ode_solver_type                     = implicit
+end
+
+subsection functional
+  # functional choice
+  set functional_type = normLp_boundary
+
+   # exponent
+   set normLp = 1.0
+
+   # boundaries to be used
+   set boundary_vector = [0, 3]
+   set use_all_boundaries = false
+end
+
+subsection manufactured solution convergence study
+  set use_manufactured_source_term = false
+  #set manufactured_solution_type   = s_shock_solution
+
+  # setting the advection vector
+  set advection_0 = -0.3
+  set advection_1 = 1.0 # -pi/e
+end
+
+subsection flow_solver
+  set flow_case_type = non_periodic_cube_flow
+  set steady_state = true
+  set steady_state_polynomial_ramping = false
+  set poly_degree = 0
+  set max_poly_degree_for_adaptation = 1
+  subsection grid
+    set number_of_mesh_refinements = 3
+    set grid_degree = 1
+  end
+end
