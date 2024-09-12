@@ -54,6 +54,8 @@ public:
     /// Smart pointer to DGBase
     std::shared_ptr<DGBase<dim,real,MeshType>> dg;
 
+    bool overintegrate_functional = false;
+
 protected:
     /// Physics that should correspond to the one in DGBase
     std::shared_ptr<Physics::PhysicsBase<dim,nstate,FadFadType>> physics_fad_fad;

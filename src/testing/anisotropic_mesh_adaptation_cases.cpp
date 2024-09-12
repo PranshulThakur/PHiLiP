@@ -238,6 +238,7 @@ double AnisotropicMeshAdaptationCases<dim,nstate> :: evaluate_functional_error(s
     const double functional_exact = 0.1512447195285363; 
     std::shared_ptr< Functional<dim, nstate, double> > functional
                                 = FunctionalFactory<dim,nstate,double>::create_Functional(dg->all_parameters->functional_param, dg);
+    functional->overintegrate_functional = true;
     const double functional_val = functional->evaluate_functional();
     const double error_val = abs(functional_exact - functional_val);
     return error_val;

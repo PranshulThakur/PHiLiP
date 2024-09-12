@@ -588,12 +588,16 @@ real2 Functional<dim,nstate,real,MeshType>::evaluate_boundary_cell_functional(
     const unsigned int face_number,
     const dealii::Quadrature<dim-1> &fquadrature) const
 {
-    const unsigned int n_face_quad_pts = fquadrature.size();
+    const unsigned int overintegration = 20;
+    const unsigned int integration_strength = 2+1+overintegration;
+    dealii::QGauss<dim-1> face_quad_Gauss_Legendre (integration_strength);
+    const dealii::Quadrature<dim-1> fquadrature_overintegrated = face_quad_Gauss_Legendre;
+    const unsigned int n_face_quad_pts = overintegrate_functional ? fquadrature_overintegrated.size() : fquadrature.size();
     const unsigned int n_soln_dofs_cell = soln_coeff.size();
     const unsigned int n_metric_dofs_cell = coords_coeff.size();
 
     const dealii::Quadrature<dim> face_quadrature = dealii::QProjector<dim>::project_to_face( dealii::ReferenceCell::get_hypercube(dim),
-                                                                                              fquadrature,
+                                                                                             overintegrate_functional ? fquadrature_overintegrated : fquadrature,
                                                                                               face_number);
     const dealii::Tensor<1,dim,real> surface_unit_normal = dealii::GeometryInfo<dim>::unit_normal_vector[face_number];
 
