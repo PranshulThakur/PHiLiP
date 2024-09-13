@@ -100,6 +100,8 @@ void SpecificNodesParameterization<dim> :: compute_control_index_to_vol_index()
 
     control_index_range.set_size(n_control_nodes);
     control_index_range.add_range(lower_index, higher_index);
+    control_ghost_range.set_size(n_control_nodes);
+    control_ghost_range.add_range(0, n_control_nodes);
     
     //=========== Set control_index_to_vol_index ================================================================
     control_index_to_vol_index.reinit(control_index_range, this->mpi_communicator); // No need of ghosts. To be verified later.
@@ -120,8 +122,6 @@ void SpecificNodesParameterization<dim> :: compute_control_index_to_vol_index()
 template<int dim>
 void SpecificNodesParameterization<dim> :: initialize_design_variables(VectorType &design_var)
 {
-    control_ghost_range.set_size(n_control_nodes);
-    control_ghost_range.add_range(0, n_control_nodes);
     design_var.reinit(control_index_range, control_ghost_range, this->mpi_communicator);
 
     for(unsigned int i_control=0; i_control<n_control_nodes; ++i_control)
