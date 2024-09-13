@@ -18,9 +18,9 @@ void SlidingBoundaryParameterization<dim> :: compute_innersliding_vol_index_to_v
 {
     const unsigned int n_vol_nodes = this->high_order_grid->volume_nodes.size();
     const unsigned int n_surf_nodes = this->high_order_grid->surface_nodes.size();
-    const unsigned int n_corner_nodes = 2^dim * dim;
+    const unsigned int n_corner_nodes = pow(2,dim) * dim;
     const unsigned int n_surface_without_corner_nodes = n_surf_nodes - n_corner_nodes;
-    n_innersliding_nodes = n_vol_nodes - n_surf_nodes + n_surface_without_corner_nodes * (dim-1)/dim;
+    n_innersliding_nodes = n_vol_nodes - n_surf_nodes + n_surface_without_corner_nodes * (dim-1)/dim - 1;
 
     dealii::LinearAlgebra::distributed::Vector<int> is_a_fixed_node;
     is_a_fixed_node.reinit(this->high_order_grid->volume_nodes); // Copies parallel layout, without values. Initializes to 0 by default.
