@@ -200,3 +200,40 @@ add_test(
   WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
 )
 
+configure_file(fixedfraction_10_shocktracking.prm fixedfraction_10_shocktracking.prm  COPYONLY)
+add_test(
+  NAME FIXEDFRACTION_10_SHOCKTRACKING
+  COMMAND mpirun -n ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_2D -i ${CMAKE_CURRENT_BINARY_DIR}/fixedfraction_10_shocktracking.prm
+  WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
+)
+configure_file(fixedfraction_20_shocktracking.prm fixedfraction_20_shocktracking.prm  COPYONLY)
+add_test(
+  NAME FIXEDFRACTION_20_SHOCKTRACKING
+  COMMAND mpirun -n ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_2D -i ${CMAKE_CURRENT_BINARY_DIR}/fixedfraction_20_shocktracking.prm
+  WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
+)
+configure_file(fixedfraction_30_shocktracking.prm fixedfraction_30_shocktracking.prm  COPYONLY)
+add_test(
+  NAME FIXEDFRACTION_30_SHOCKTRACKING
+  COMMAND mpirun -n ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_2D -i ${CMAKE_CURRENT_BINARY_DIR}/fixedfraction_30_shocktracking.prm
+  WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
+)
+
+configure_file(uniformrefinement1_shocktracking.prm uniformrefinement1_shocktracking.prm  COPYONLY)
+add_test(
+  NAME UNIFORMREFINEMENT1_SHOCKTRACKING
+  COMMAND mpirun -n ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_2D -i ${CMAKE_CURRENT_BINARY_DIR}/uniformrefinement1_shocktracking.prm
+  WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
+)
+configure_file(uniformrefinement2_shocktracking.prm uniformrefinement2_shocktracking.prm  COPYONLY)
+add_test(
+  NAME UNIFORMREFINEMENT2_SHOCKTRACKING
+  COMMAND mpirun -n ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_2D -i ${CMAKE_CURRENT_BINARY_DIR}/uniformrefinement2_shocktracking.prm
+  WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
+)
+configure_file(uniformrefinement3_shocktracking.prm uniformrefinement3_shocktracking.prm  COPYONLY)
+add_test(
+  NAME UNIFORMREFINEMENT3_SHOCKTRACKING
+  COMMAND mpirun -n ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_2D -i ${CMAKE_CURRENT_BINARY_DIR}/uniformrefinement3_shocktracking.prm
+  WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
+)
