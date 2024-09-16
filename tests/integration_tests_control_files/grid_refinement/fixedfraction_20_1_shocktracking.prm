@@ -23,11 +23,11 @@ subsection linear solver
 end
 
 subsection mesh adaptation
-   set total_mesh_adaptation_cycles = 0
+   set total_mesh_adaptation_cycles = 1
    set use_goal_oriented_mesh_adaptation = true
    set mesh_adaptation_type = h_adaptation
    subsection fixed-fraction
-     set refine_fraction = 0.1
+     set refine_fraction = 0.2
    end
 end
 
@@ -81,10 +81,6 @@ subsection functional
    # boundaries to be used
    set boundary_vector = [1]
    set use_all_boundaries = false
-end
-
-subsection mesh adaptation
-    set use_goal_oriented_mesh_adaptation = true
 end
 
 subsection flow_solver

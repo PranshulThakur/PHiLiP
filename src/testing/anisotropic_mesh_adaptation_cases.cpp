@@ -223,12 +223,12 @@ template <int dim, int nstate>
 double AnisotropicMeshAdaptationCases<dim,nstate> :: output_vtk_files(std::shared_ptr<DGBase<dim,double>> dg) const
 {
     dg->output_results_vtk(98765);
-
-    std::unique_ptr<DualWeightedResidualError<dim, nstate , double>> dwr_error_val = std::make_unique<DualWeightedResidualError<dim, nstate , double>>(dg);
-    const double abs_dwr_error = dwr_error_val->total_dual_weighted_residual_error();
-    return abs_dwr_error;
-
     return 0;
+    //std::unique_ptr<DualWeightedResidualError<dim, nstate , double>> dwr_error_val = std::make_unique<DualWeightedResidualError<dim, nstate , double>>(dg);
+    //const double abs_dwr_error = dwr_error_val->total_dual_weighted_residual_error();
+    //return abs_dwr_error;
+
+    //return 0;
 }
 
 template <int dim, int nstate>
@@ -457,15 +457,15 @@ int AnisotropicMeshAdaptationCases<dim, nstate> :: run_test () const
         double mesh_weight = param.optimization_param.mesh_weight_factor;
         Parameters::AllParameters param2 = *(TestsBase::all_parameters);
         timer.start();
-        for(unsigned int i=0; i<2; ++i)
+        for(unsigned int i=0; i<1; ++i)
         {
             std::unique_ptr<MeshOptimizer<dim,nstate>> mesh_optimizer = 
                                                 std::make_unique<MeshOptimizer<dim,nstate>> (flow_solver->dg, &param2, mesh_weight, true);
             dealii::TrilinosWrappers::SparseMatrix regularization_matrix_poisson;
             evaluate_regularization_matrix(regularization_matrix_poisson, flow_solver->dg);
             mesh_optimizer->run_full_space_optimizer(regularization_matrix_poisson);
-            increase_grid_degree_and_interpolate_solution(flow_solver->dg); 
-            param2.optimization_param.max_design_cycles = 70;
+            //increase_grid_degree_and_interpolate_solution(flow_solver->dg); 
+            //param2.optimization_param.max_design_cycles = 70;
         }
         timer.stop();
     
