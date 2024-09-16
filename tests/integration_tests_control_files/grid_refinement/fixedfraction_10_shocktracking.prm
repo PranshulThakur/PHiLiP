@@ -26,11 +26,11 @@ subsection linear solver
 end
 
 subsection mesh adaptation
-   set total_mesh_adaptation_cycles = 40
+   set total_mesh_adaptation_cycles = 17
    set use_goal_oriented_mesh_adaptation = true
    set mesh_adaptation_type = h_adaptation
    subsection fixed-fraction
-     set refine_fraction = 0.04
+     set refine_fraction = 0.1
    end
 end
 
