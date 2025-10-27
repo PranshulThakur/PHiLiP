@@ -115,6 +115,17 @@ public:
         const std::array<real,nstate> &solution,
         const std::array<dealii::Tensor<1,dim,real>,nstate> &solution_gradient,
         const dealii::types::global_dof_index cell_index) const = 0;
+   
+   virtual std::array<dealii::Tensor<1,dim,real>,nstate> 
+   dissipative_flux_entropy_based (
+        const std::array<real,nstate> &entropy_var,
+        const std::array<real,nstate> &conservative_soln_from_entropy_var,
+        const std::array<dealii::Tensor<1,dim,real>,nstate> &entropy_var_gradient) const
+    {
+        // Does nothing.
+        std::cout<<"Not implemented for this PDE. Aborting.."<<std::endl;
+        std::abort();
+    }
 
     /// Artificial dissipative fluxes that will be differentiated ONCE in space.
     /** Stems from the Persson2006 paper on subcell shock capturing */

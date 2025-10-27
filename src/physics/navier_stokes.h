@@ -259,6 +259,12 @@ public:
     dissipative_flux (
         const std::array<real,nstate> &conservative_soln,
         const std::array<dealii::Tensor<1,dim,real>,nstate> &solution_gradient) const override;
+   
+   std::array<dealii::Tensor<1,dim,real>,nstate> 
+   dissipative_flux_entropy_based (
+        const std::array<real,nstate> &entropy_var,
+        const std::array<real,nstate> &conservative_soln_from_entropy_var,
+        const std::array<dealii::Tensor<1,dim,real>,nstate> &entropy_var_gradient) const override;
 
     /** Gradient of the scaled nondimensionalized viscosity coefficient
      *  Reference: Masatsuka 2018 "I do like CFD", p.148, eq.(4.14.14 and 4.14.17)

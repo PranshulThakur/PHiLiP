@@ -536,6 +536,178 @@ std::array<dealii::Tensor<1,dim,real>,nstate> NavierStokes<dim,nstate,real>
 }
 
 template <int dim, int nstate, typename real>
+std::array<dealii::Tensor<1,dim,real>,nstate> NavierStokes<dim,nstate,real>
+::dissipative_flux_entropy_based (
+    const std::array<real,nstate> &entropy_var,
+    const std::array<real,nstate> &conservative_soln_from_entropy_var,
+    const std::array<dealii::Tensor<1,dim,real>,nstate> &entropy_var_gradient) const
+{
+    const std::array<real,nstate> primitive_soln = this->template convert_conservative_to_primitive<real>(conservative_soln_from_entropy_var);
+    //const real scaled_viscosity_coefficient = compute_scaled_viscosity_coefficient<real>(primitive_soln); // \mu
+    //const real scaled_2nd_viscosity_coefficient = (-2.0/3.0)*scaled_viscosity_coefficient; // \lambda from Stokes' hypothesis
+    const real mu = compute_scaled_viscosity_coefficient<real>(primitive_soln); // \mu
+    const real lambda = (-2.0/3.0)*mu; // \lambda from Stokes' hypothesis
+    std::array<std::array<dealii::Tensor<2,dim,real>,nstate,nstate> K;  // entropy-based diffusion tensor. Defaults to zero. Indexed as K[s1][s2][d1][d2].
+
+    if constexpr(dim==3)
+    {
+        const real e1 = entropy_var[1]*entropy_var[4];
+        const real e2 = entropy_var[2]*entropy_var[4];
+        const real e3 = entropy_var[3]*entropy_var[4];
+        const real d1 = -entropy_var[1]*entropy_var[2];
+        const real d2 = -entropy_var[1]*entropy_var[3];
+        const real d3 = -entropy_var[2]*entropy_var[3];
+
+        // K11
+        K[1][1][0][0] = -(lambda+2.0*mu)*pow(entropy_var[4],2); 
+        K[4][1][0][0] = (lambda+2.0*mu)*e1;
+
+        K[2][2][0][0] = -mu*pow(entropy_var[4],2);
+        K[4][2][0][0] = mu*e2;
+
+        K[3][3][0][0] = -mu*pow(entropy_var[4],2);
+        K[4][3][0][0] = mu*e3;
+
+        K[1][4][0][0] = (lambda+2.0*mu)*e1;
+        K[2][4][0][0] = mu*e2;
+        K[3][4][0][0] = mu*e3;
+        K[4][4][0][0] = -(  (lambda+2.0*mu)*pow(entropy_var[1],2) + mu*(pow(entropy_var[2],2)+pow(entropy_var[3],2)) 
+                            - this->gam*mu*entropy_var[4]/prandtl_number   );
+        
+        // K12
+        K[2][1][0][1] = -mu*pow(entropy_var[4],2);
+        K[4][1][0][1] = mu*e2;
+        K[1][2][0][1] = -lambda*pow(entropy_var[4],2);
+        K[4][2][0][1] = lambda*e1;
+        K[1][4][0][1] = lambda*e2;
+        K[2][4][0][1] = mu*e1;
+        K[4][4][0][1] = (lambda+mu)*d1;
+        
+        // K13
+        K[3][1][0][2] = -mu*pow(entropy_var[4],2);
+        K[4][1][0][2] = mu*e3;
+        K[1][3][0][2] = -lambda*pow(entropy_var[4],2);
+        K[4][3][0][2] = lambda*e1;
+        K[1][4][0][2] = lambda*e3;
+        K[3][4][0][2] = mu*e1;
+        K[4][4][0][2] = (lambda+mu)*d2;
+
+        // K22
+        K[1][1][1][1] = -mu*pow(entropy_var[4],2);
+        K[4][1][1][1] = mu*e1;
+        K[2][2][1][1] = -(lambda + 2.0*mu)*pow(entropy_var[4],2);
+        K[4][2][1][1] = (lambda+2.0*mu)*e2;
+        K[3][3][1][1] = -mu*pow(entropy_var[4],2);
+        K[4][3][1][1] = mu*e3;
+        K[1][4][1][1] = mu*e1;
+        K[2][4][1][1] = (lambda+2.0*mu)*e2;
+        K[3][4][1][1] = mu*e3;
+        K[4][4][1][1] = -(  (lambda+2.0*mu)*pow(entropy_var[2],2) + mu*(pow(entropy_var[1],2)+pow(entropy_var[3],2)) 
+                            - this->gam*mu*entropy_var[4]/prandtl_number   );
+
+
+        // K23
+        K[3][2][1][2] = -mu*pow(entropy_var[4],2);
+        K[4][2][1][2] = mu*e3;
+        K[2][3][1][2] = -lambda*pow(entropy_var[4],2);
+        K[4][3][1][2] = lambda*e2;
+        K[2][4][1][2] = lambda*e3;
+        K[3][4][1][2] = mu*e2;
+        K[4][4][1][2] = (lambda+mu)*d3;
+
+        // K33
+        K[1][1][2][2] = -mu*pow(entropy_var[4],2);
+        K[4][1][2][2] = mu*e1;
+        K[2][2][2][2] = -mu*pow(entropy_var[4],2);
+        K[4][2][2][2] = mu*e2;
+        K[3][3][2][2] = -(lambda+2.0*mu)*pow(entropy_var[4],2);
+        K[4][3][2][2] = (lambda+2.0*mu)*e3;
+        K[1][4][2][2] = mu*e1;
+        K[2][4][2][2] = mu*e2;
+        K[3][4][2][2] = (lambda+2.0*mu)*e3;
+        K[4][4][2][2] =  -(  (lambda+2.0*mu)*pow(entropy_var[3],2) + mu*(pow(entropy_var[1],2)+pow(entropy_var[2],2)) 
+                            - this->gam*mu*entropy_var[4]/prandtl_number   );
+        for(unsigned int s1 = 0; s1<nstate; ++s1)
+        ({
+            for(unsigned int s1 = 0; s1<nstate; ++s1)
+                K[s1][s2] /= pow(entropy_var[4],3);
+        }
+    }
+    else if constexpr(dim==2)
+    {
+        // K11
+        K[1][1][0][0] = -(lambda+2.0*mu)*pow(entropy_var[3],2);
+        K[3][1][0][0] = (lambda + 2.0*mu)*entropy_var[1]*entropy_var[3];
+        K[2][2][0][0] = -mu*pow(entropy_var[3],2);
+        K[3][2][0][0] = mu*entropy_var[2]*entropy_var[3];
+        K[1][3][0][0] = (lambda + 2.0*mu)*entropy_var[1]*entropy_var[3];
+        K[2][3][0][0] = mu*entropy_var[2]*entropy_var[3];
+        K[3][3][0][0] = -( (lambda+2.0*mu)*pow(entropy_var[1],2) + mu*pow(entropy_var[2],2) - this->gam*mu*entropy_var[3]/prandtl_number );
+
+        // K12
+        K[2][1][0][1] = -mu*pow(entropy_var[3],2);
+        K[3][1][0][1] = mu*entropy_var[2]*entropy_var[3];
+        K[1][2][0][1] = -lambda*pow(entropy_var[3],2);
+        K[3][2][0][1] = lambda*entropy_var[1]*entropy_var[3];
+        K[1][3][0][1] = lambda*entropy_var[2]*entropy_var[3];
+        K[2][3][0][1] = mu*entropy_var[1]*entropy_var[3];
+        K[3][3][0][1] = (lambda+mu)*(-entropy_var[1]*entropy_var[2]);
+
+        // K22
+        K[1][1][1][1] = -mu*pow(entropy_var[3],2);
+        K[3][1][1][1] = mu*entropy_var[1]*entropy_var[3];
+        K[2][2][1][1] = -(lambda+2.0*mu)*pow(entropy_var[3],2);
+        K[3][2][1][1] = (lambda+2.0*mu)*entropy_var[2]*entropy_var[3];
+        K[1][3][1][1] = mu*entropy_var[1]*entropy_var[3];
+        K[2][3][1][1] = (lambda+2.0*mu)*entropy_var[2]*entropy_var[3];
+        K[3][3][1][1] =  -( (lambda+2.0*mu)*pow(entropy_var[2],2) + mu*pow(entropy_var[1],2) - this->gam*mu*entropy_var[3]/prandtl_number );
+        
+        for(unsigned int s1 = 0; s1<nstate; ++s1)
+        {
+            for(unsigned int s1 = 0; s1<nstate; ++s1)
+                K[s1][s2] /= pow(entropy_var[3],3);
+        }
+    }
+    else
+    {
+        std::cout<<"Not yet implemented for dim=1: NavierStokes<dim,nstate,real>::dissipative_flux_entropy_based()"<<std::endl;
+        std::abort();
+    }
+    // Fill up remaining tensors by symmetry: K21, K31, K32
+    for(unsigned int d1 =1; d1<dim; ++d1)
+    {
+        for(unsigned int d2 =0; d2<d1; ++d2)
+        { 
+            for(unsigned int s1 =0; s1<nstate; ++s1)
+            {
+                for(unsigned int s2=0; s2<nstate; ++s2)
+                {
+                    K[s1][s2][d1][d2] = K[s2][s1][d2][d1];
+                }
+            }
+        }
+    }
+
+    // Compute viscous flux
+    std::array<dealii::Tensor<1,dim,real>,nstate> viscous flux; // initialized to zero by default
+    for(unsigned int d1 =0; d1<dim; ++d1)
+    {
+        for(unsigned int d2 =0; d2<dim; ++d2)
+        {   
+            for(unsigned int s1 =0; s1<nstate; ++s1)
+            {
+                for(unsigned int s2=0; s2<nstate; ++s2)
+                {
+                    viscous_flux[s1][d1] = K[s1][s2][d1][d2]*entropy_var_gradient[s2][d2];
+                }
+            }
+        }
+    }
+
+    return viscous_flux;
+}
+
+template <int dim, int nstate, typename real>
 dealii::Tensor<1,dim,real> NavierStokes<dim,nstate,real>
 ::compute_scaled_viscosity_gradient (
     const std::array<real,nstate> &primitive_soln,
