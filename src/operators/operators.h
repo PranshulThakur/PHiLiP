@@ -1124,6 +1124,13 @@ public:
         const dealii::Tensor<1,dim,std::vector<real>> &phys,
         const dealii::Tensor<2,dim,std::vector<real>> &metric_cofactor,
         dealii::Tensor<1,dim,std::vector<real>> &ref);
+    
+    /// Transform reference gradient to physical gradient.
+    void transform_reference_to_physical_grad_vector(
+        const dealii::Tensor<1,dim,std::vector<real>> &ref,
+        const dealii::Tensor<2,dim,std::vector<real>> &metric_cofactor,
+        const std::vector<real> &jac_det,
+        dealii::Tensor<1,dim,std::vector<real>> &phys);
 
     ///Given a reference tensor, return the physical tensor.
     void transform_reference_unit_normal_to_physical_unit_normal(

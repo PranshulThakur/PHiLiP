@@ -2274,6 +2274,28 @@ void metric_operators<real,dim,n_faces>::transform_physical_to_reference_vector(
 }
 
 template <typename real, int dim, int n_faces>  
+void metric_operators<real,dim,n_faces>::transform_reference_to_physical_grad_vector(
+    const dealii::Tensor<1,dim,std::vector<real>> &ref,
+    const dealii::Tensor<2,dim,std::vector<real>> &metric_cofactor,
+    const std::vector<real> &jac_det,
+    dealii::Tensor<1,dim,std::vector<real>> &phys)
+{
+    assert(ref[0].size() == metric_cofactor[0][0].size());
+    const unsigned int n_quad_pts = ref[0].size();
+    for(int idim=0; idim<dim; idim++)
+    {
+        phys[idim].resize(n_quad_pts); // set to 0 by default.
+        for(unsigned int iquad=0; iquad<n_quad_pts; ++iquad)
+        {
+            for(int idim2=0; idim2<dim; idim2++)
+            {
+                phys[idim][iquad] += metric_cofactor[idim][idim2][iquad] * ref[idim2][iquad]/jac_det[iquad];
+            }
+        }
+    }
+}
+
+template <typename real, int dim, int n_faces>  
 void metric_operators<real,dim,n_faces>::transform_reference_unit_normal_to_physical_unit_normal(
     const unsigned int n_quad_pts,
     const dealii::Tensor<1,dim,real> &ref,

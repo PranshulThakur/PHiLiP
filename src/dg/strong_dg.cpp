@@ -2673,6 +2673,200 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_face_term_strong(
     }
 }
 
+/*******************************************************
+ *
+ *                   ENTROPY STABLE BR2
+ *
+ *******************************************************/
+// Computes \int_k G^h(dw/dx_d)*Kdd2ss2*Td2s2 d\Omega, where T can be quad values of G^h(\nabla entropy_var) or a lift polynomial of size nstate x dim.
+template <int dim, int nstate, typename real, typename MeshType>
+template <typename adtype>
+void DGStrong<dim,nstate,real,MeshType>::entropystable_br2_compute_gradbasis_K_T_vol_integral(
+    const unsigned int                                                 poly_degree,
+    OPERATOR::basis_functions<dim,2*dim>                               &soln_basis,
+    OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper,
+    const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
+    const std::array<dealii::Tensor<1,dim,std::vector<real>>,nstate>   &T,
+    std::vector<adtype>                                                &integral_val)
+{
+    const unsigned int n_quad_pts  = this->volume_quadrature_collection[poly_degree].size();
+    const unsigned int n_dofs_cell = this->fe_collection[poly_degree].dofs_per_cell;
+    const unsigned int n_shape_fns = n_dofs_cell / nstate; 
+    const unsigned int n_quad_pts_1D  = this->oneD_quadrature_collection[poly_degree].size();
+
+    // Form L = K*T
+    std::array<dealii::Tensor<1,dim,std::vector<real>>,nstate>   L;
+    for(unsigned int s=0;s<nstate; ++s)
+    {
+        for(unsigned int d=0; d<dim; ++d)
+        {
+            L[s][d].resize(n_quad_pts);
+        }
+    }
+
+    for(unsigned int iquad=0; iquad<n_quad_pts; ++iquad)
+    {
+        std::array<dealii::Tensor<1,dim,real>,nstate> T_at_q;
+        for(unsigned int s=0; s<nstate; ++s)
+        {
+            for(unsigned int d=0; d<dim; ++d)
+            {
+                T_at_q[s][d] = T[s][d][iquad];
+            }
+        }
+        
+        std::array<dealii::Tensor<1,dim,real>,nstate> L_at_q =  pde_physics.dissipative_flux_entropy_based (
+        entropy_var_at_q[iquad],
+        conservative_soln_from_entropy_var_at_q[iquad],
+        T_at_q);
+        
+        for(unsigned int s=0; s<nstate; ++s)
+        {
+            for(unsigned int d=0; d<dim; ++d)
+            {
+                L[s][d][iquad] = L_at_q[s][d];
+            }
+        }       
+    }
+    
+    // Form M = cof(J)^T*L
+    std::array<dealii::Tensor<1,dim,std::vector<real>>,nstate>   M;
+    for(unsigned int s=0; s<nstate; ++s)
+    {
+        metric_oper.transform_physical_to_reference_vector(
+            L[s],
+            metric_oper.metric_cofactor_vol,
+            M[s]);
+    }
+
+    integral_val.resize(n_dofs_cell);
+    std::vector<adtype> integral_val_1state(n_shape_fns);
+
+    for(unsigned int s=0; s<nstate; ++s)
+    {
+        
+        soln_basis.inner_product(
+        M[s][0],
+        const std::vector<double> &weight_vect,
+        integral_val_1state,
+        soln_basis.oneD_grad_operator,
+        soln_basis.oneD_vol_operator,
+        soln_basis.oneD_vol_operator,
+        false);
+        
+        if(dim>=2)
+        {
+            soln_basis.inner_product(
+            M[s][1],
+            const std::vector<double> &weight_vect,
+            integral_val_1state,
+            soln_basis.oneD_vol_operator,
+            soln_basis.oneD_grad_operator,
+            soln_basis.oneD_vol_operator,
+            true);
+        }
+
+        if(dim>=3)
+        {
+            soln_basis.inner_product(
+            M[s][2],
+            const std::vector<double> &weight_vect,
+            integral_val_1state,
+            soln_basis.oneD_vol_operator,
+            soln_basis.oneD_vol_operator,
+            soln_basis.oneD_grad_operator,
+            true);
+        }
+        
+        // Put values in integral_val vector.
+        const unsigned int start_index = s*n_shape_fns;
+        for(unsigned int i_basis=0; i_basis<n_shape_fns; ++i_basis)
+        {
+            integral_val[start_index + i_basis] = integral_val_1state[i_basis];
+        }
+    }
+
+}
+
+
+template <int dim, int nstate, typename real, typename MeshType>
+template <typename adtype>
+void DGStrong<dim,nstate,real,MeshType>::compute_physical_entropy_var_grad(
+    const std::array<std::vector<adtype>,nstate>                       &entropy_var_coeff,
+    const unsigned int                                                 poly_degree,
+    OPERATOR::basis_functions<dim,2*dim>                               &soln_basis,
+    OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper,
+    std::array<dealii::Tensor<1,dim,std::vector<real>>,nstate>         &entropy_var_phys_grad)
+{
+    const unsigned int n_quad_pts  = this->volume_quadrature_collection[poly_degree].size();
+    // Entropy grad wrt reference coordinates
+    std::array<dealii::Tensor<1,dim,std::vector<real>>,nstate> &entropy_var_ref_grad;
+    for(unsigned int s=0; s<nstate; ++s)
+    {
+        for(unsigned int d=0; d<dim; ++d)
+        {
+            entropy_var_ref_grad[s][d].resize(n_quad_pts);
+        }
+        soln_basis.gradient_matrix_vector_mult_1D(entropy_var_coeff[s]
+                                                  entropy_var_ref_grad[s],
+                                                  soln_basis.oneD_vol_operator,
+                                                  soln_basis.oneD_grad_operator);
+    }
+    
+    // Entropy grad wrt physical coordinates
+    for(unsigned int s=0; s<nstate; ++s)
+    {
+        metric_oper.transform_reference_to_physical_grad_vector(entropy_var_ref_grad[s],
+                                                                metric_oper.metric_cofactor_vol,
+                                                                metric_oper.det_Jac_vol,
+                                                                entropy_var_phys_grad[s]);
+    }
+}
+
+compute_lift_operator();
+
+interpolate_to_face();
+
+compute_face_integral();
+
+template <int dim, int nstate, typename real, typename MeshType>
+template <typename adtype>
+void DGStrong<dim,nstate,real,MeshType>::assemble_volume_term_entropystable_br2(
+    const std::array<std::vector<adtype>,nstate>                       &entropy_var_coeff,
+    const unsigned int                                                 poly_degree,
+    OPERATOR::basis_functions<dim,2*dim>                               &soln_basis,
+    OPERATOR::basis_functions<dim,2*dim>                               &flux_basis,
+    OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper,
+    const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
+    std::vector<adtype>                                                &local_rhs_int_cell)
+{
+    const unsigned int n_quad_pts  = this->volume_quadrature_collection[poly_degree].size();
+    const unsigned int n_dofs_cell = this->fe_collection[poly_degree].dofs_per_cell;
+    const unsigned int n_shape_fns = n_dofs_cell / nstate; 
+    const unsigned int n_quad_pts_1D  = this->oneD_quadrature_collection[poly_degree].size();
+    
+    // Entropy grad wrt physical coordinates
+    std::array<dealii::Tensor<1,dim,std::vector<real>>,nstate> &entropy_var_phys_grad;
+    compute_physical_entropy_var_grad(
+       entropy_var_coeff,
+       oly_degree,
+       soln_basis,
+       metric_oper,
+       entropy_var_phys_grad);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /*******************************************************
  *
