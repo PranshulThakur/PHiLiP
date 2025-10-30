@@ -539,9 +539,9 @@ template <int dim, int nstate, typename real>
 std::array<dealii::Tensor<1,dim,real>,nstate> NavierStokes<dim,nstate,real>
 ::dissipative_flux_entropy_based (
     const std::array<real,nstate> &entropy_var,
-    const std::array<real,nstate> &conservative_soln_from_entropy_var,
     const std::array<dealii::Tensor<1,dim,real>,nstate> &entropy_var_gradient) const
 {
+    const std::array<real,nstate> conservative_soln_from_entropy_var = this->compute_conservative_variables_from_entropy_variables (entropy_var);
     const std::array<real,nstate> primitive_soln = this->template convert_conservative_to_primitive<real>(conservative_soln_from_entropy_var);
     //const real scaled_viscosity_coefficient = compute_scaled_viscosity_coefficient<real>(primitive_soln); // \mu
     //const real scaled_2nd_viscosity_coefficient = (-2.0/3.0)*scaled_viscosity_coefficient; // \lambda from Stokes' hypothesis
