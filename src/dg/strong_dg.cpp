@@ -2678,56 +2678,74 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_face_term_strong(
  *                   ENTROPY STABLE BR2
  *
  *******************************************************/
+template <int dim, int nstate, typename real, typename MeshType>
+template <typename adtype>
+void DGStrong<dim,nstate,real,MeshType>::apply_K_matrix(
+    const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_quads,
+    const unsigned int                                                 n_quad_pts,
+    const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
+    const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>   &T_in,
+    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>         &T_out)
+{
+    //Resize
+    for(unsigned int s=0; s<nstate; ++s)
+    {
+        for(unsigned int d=0; d<dim; ++d)
+        {
+            T_out[s][d].resize(n_quad_pts);
+        }
+    }
+
+    for(unsigned int q = 0; q<n_quad_pts; ++q)
+    {
+        std::array<dealii::Tensor<1,dim,adtype>,nstate> T_in_at_q;
+        std::array<adtype,nstate> entropy_var_at_q;
+        for(unsigned int s=0; s<nstate; ++s)
+        {
+            for(unsigned int d=0; d<dim; ++d)
+            {
+                T_in_at_q[s][d] = T_in[s][d][q];
+            }
+            entropy_var_at_q[s] = entropy_var_at_quads[s][q];
+        }
+        std::array<dealii::Tensor<1,dim,adtype>,nstate> T_out_at_q = pde_physics.dissipative_flux_entropy_based(entropy_var_at_q, T_in_at_q);
+        for(unsigned int s=0; s<nstate; ++s)
+        {
+            for(unsigned int d=0; d<dim; ++d)
+            {
+                T_out[s][d][q] = T_out_at_q[s][d];
+            }
+        }
+    }
+}
+
+
+
+
 // Computes \int_k G^h(dw/dx_d)*Kdd2ss2*Td2s2 d\Omega, where T is the quad values of G^h(\nabla entropy_var) or a lift polynomial of size nstate x dim.
 template <int dim, int nstate, typename real, typename MeshType>
 template <typename adtype>
 void DGStrong<dim,nstate,real,MeshType>::entropystable_br2_compute_gradbasis_K_T_vol_integral(
-    const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_q,
+    const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_quads,
     const unsigned int                                                 n_quad_pts,
     const unsigned int                                                 n_dofs_cell,
     OPERATOR::basis_functions<dim,2*dim>                               &soln_basis,
     OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper,
+    const std::vector<double>                                          &weight_vect,
     const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
     const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>   &T,
     std::vector<adtype>                                                &integral_val)
 {
     const unsigned int n_shape_fns = n_dofs_cell / nstate; 
-
+    
     // Form L = K*T
     std::array<dealii::Tensor<1,dim,std::vector<real>>,nstate>   L;
-    for(unsigned int s=0;s<nstate; ++s)
-    {
-        for(unsigned int d=0; d<dim; ++d)
-        {
-            L[s][d].resize(n_quad_pts);
-        }
-    }
-
-    for(unsigned int iquad=0; iquad<n_quad_pts; ++iquad)
-    {
-        std::array<dealii::Tensor<1,dim,adtype>,nstate> T_at_q;
-        std::array<adtype,nstate> entropy_var_iquad;
-        for(unsigned int s=0; s<nstate; ++s)
-        {
-            for(unsigned int d=0; d<dim; ++d)
-            {
-                T_at_q[s][d] = T[s][d][iquad];
-            }
-            entropy_var_iquad[s] = entropy_var_at_q[s][iquad];
-        }
-        
-        std::array<dealii::Tensor<1,dim,real>,nstate> L_at_q =  pde_physics.dissipative_flux_entropy_based (
-        entropy_var_iquad,
-        T_at_q);
-        
-        for(unsigned int s=0; s<nstate; ++s)
-        {
-            for(unsigned int d=0; d<dim; ++d)
-            {
-                L[s][d][iquad] = L_at_q[s][d];
-            }
-        }       
-    }
+    apply_K_matrix(
+    entropy_var_at_quads,
+    n_quad_pts,
+    pde_physics,
+    T,
+    L)
     
     // Form M = cof(J)^T*L
     std::array<dealii::Tensor<1,dim,std::vector<real>>,nstate>   M;
@@ -2739,6 +2757,7 @@ void DGStrong<dim,nstate,real,MeshType>::entropystable_br2_compute_gradbasis_K_T
             M[s]);
     }
 
+    // Compute \int_k nabla basis * K*T d\Omega
     integral_val.resize(n_dofs_cell);
     std::vector<adtype> integral_val_1state(n_shape_fns);
 
@@ -2747,7 +2766,7 @@ void DGStrong<dim,nstate,real,MeshType>::entropystable_br2_compute_gradbasis_K_T
         
         soln_basis.inner_product(
         M[s][0],
-        const std::vector<double> &weight_vect,
+        weight_vect,
         integral_val_1state,
         soln_basis.oneD_grad_operator,
         soln_basis.oneD_vol_operator,
@@ -2758,7 +2777,7 @@ void DGStrong<dim,nstate,real,MeshType>::entropystable_br2_compute_gradbasis_K_T
         {
             soln_basis.inner_product(
             M[s][1],
-            const std::vector<double> &weight_vect,
+            weight_vect,
             integral_val_1state,
             soln_basis.oneD_vol_operator,
             soln_basis.oneD_grad_operator,
@@ -2770,7 +2789,7 @@ void DGStrong<dim,nstate,real,MeshType>::entropystable_br2_compute_gradbasis_K_T
         {
             soln_basis.inner_product(
             M[s][2],
-            const std::vector<double> &weight_vect,
+            weight_vect,
             integral_val_1state,
             soln_basis.oneD_vol_operator,
             soln_basis.oneD_vol_operator,
@@ -2931,6 +2950,7 @@ void DGStrong<dim,nstate,real,MeshType>::interpolate_to_face(
 template <int dim, int nstate, typename real, typename MeshType>
 template <typename adtype>
 void DGStrong<dim,nstate,real,MeshType>::assemble_volume_term_entropystable_br2(
+    const unsigned int                                                 poly_degree,
     const std::array<std::vector<adtype>,nstate>                       &entropy_var_coeff,
     const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_q,
     const unsigned int                                                  n_quad_pts,  
@@ -2941,6 +2961,7 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_volume_term_entropystable_br2(
     const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
     std::vector<adtype>                                                &vol_term)
 {
+    const std::vector<double> &weight_vect = this->volume_quadrature_collection[poly_degree].get_weights();
     // Entropy grad wrt physical coordinates
     std::array<dealii::Tensor<1,dim,std::vector<real>>,nstate> &entropy_var_phys_grad;
     compute_physical_grad_entropy_var(
@@ -2956,6 +2977,7 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_volume_term_entropystable_br2(
     n_dofs_cell,
     soln_basis,
     metric_oper,
+    weight_vect,
     pde_physics,
     entropy_var_phys_grad,
     vol_term);
@@ -3043,6 +3065,7 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_face_term_entropystable_br2(
     }
     
     std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> re_int;
+    const bool is_interior_face = true;
     compute_lift_polynomial(
     iface_int,
     entropy_var_jump_at_face,
@@ -3051,7 +3074,7 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_face_term_entropystable_br2(
     flux_basis_int,
     n_face_quad_pts,
     n_vol_quad_pts_int,
-    true,
+    is_interior_face,
     re_int);
     
     std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> re_ext;
@@ -3063,23 +3086,19 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_face_term_entropystable_br2(
     flux_basis_ext,
     n_face_quad_pts,
     n_vol_quad_pts_ext,
-    true,
+    is_interior_face,
     re_ext);
 
     const double br2_factor = 2.0*dim + 0.1; // n_faces = 2*dim. br2_factor > n_faces for entropy stability.
 
     std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> tensor_int;
     std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> tensor_ext;
-    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> K_tensor_int;
-    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> K_tensor_ext;
     for(unsigned int s=0; s<nstate; ++s)
     {
         for(unsigned int d=0; d<dim; ++d)
         {
             tensor_int[s][d].resize(n_vol_quad_pts_int);
             tensor_ext[s][d].resize(n_vol_quad_pts_ext);
-            K_tensor_int[s][d].resize(n_vol_quad_pts_int);
-            K_tensor_ext[s][d].resize(n_vol_quad_pts_ext);
         }
     }
     
@@ -3105,52 +3124,21 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_face_term_entropystable_br2(
         }       
     }
 
-    // Multiply with K matrix
-    for(unsigned int q=0; q<n_vol_quad_pts_int; ++q)
-    {
-        std::array<dealii::Tensor<1,dim,adtype>,nstate> tensor_int_at_q;
-        std::array<dealii::Tensor<1,dim,adtype>,nstate> K_tensor_int_at_q;
-        std::array<adtype,nstate> entropy_var;
-        for(unsigned int s=0; s<nstate; ++s)
-        {
-            for(unsigned int d=0; d<dim; ++d)
-            {
-                tensor_int_at_q[s][d] = tensor_int[s][d][q];
-            }
-            entropy_var[s] = entropy_var_at_vol_int[s][q];
-        }
-        K_tensor_int_at_q = pde_physics.dissipative_flux_entropy_based (entropy_var, tensor_int_at_q);
-        for(unsigned int s=0; s<nstate; ++s)
-        {
-            for(unsigned int d=0; d<dim; ++d)
-            {
-                K_tensor_int[s][d][q] = K_tensor_int_at_q[s][d];
-            }
-        }
-    }
+    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> K_tensor_int;
+    apply_K_matrix(
+    entropy_var_at_vol_int,
+    n_vol_quad_pts_int,
+    pde_physics,
+    tensor_int,
+    K_tensor_int);
     
-    for(unsigned int q=0; q<n_vol_quad_pts_ext; ++q)
-    {
-        std::array<dealii::Tensor<1,dim,adtype>,nstate> tensor_ext_at_q;
-        std::array<dealii::Tensor<1,dim,adtype>,nstate> K_tensor_ext_at_q;
-        std::array<adtype,nstate> entropy_var;
-        for(unsigned int s=0; s<nstate; ++s)
-        {
-            for(unsigned int d=0; d<dim; ++d)
-            {
-                tensor_ext_at_q[s][d] = tensor_ext[s][d][q];
-            }
-            entropy_var[s] = entropy_var_at_vol_ext[s][q];
-        }
-        K_tensor_ext_at_q = pde_physics.dissipative_flux_entropy_based (entropy_var, tensor_ext_at_q);
-        for(unsigned int s=0; s<nstate; ++s)
-        {
-            for(unsigned int d=0; d<dim; ++d)
-            {
-                K_tensor_ext[s][d][q] = K_tensor_ext_at_q[s][d];
-            }
-        }
-    }
+    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> K_tensor_ext;
+    apply_K_matrix(
+    entropy_var_at_vol_ext,
+    n_vol_quad_pts_ext,
+    pde_physics,
+    tensor_ext,
+    K_tensor_ext);
 
     std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> sigma_at_face_int;
     std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> sigma_at_face_ext;
@@ -3213,6 +3201,7 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_face_term_entropystable_br2(
     n_dofs_cell_int,
     soln_basis_int,
     metric_oper_int,
+    vol_quad_weights_int,
     pde_physics,
     re_int,
     int_face_integral_k);
@@ -3223,6 +3212,7 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_face_term_entropystable_br2(
     n_dofs_cell_ext,
     soln_basis_ext,
     metric_oper_ext,
+    vol_quad_weights_ext,
     pde_physics,
     re_ext,
     ext_face_integral_k);
@@ -3239,7 +3229,144 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_face_term_entropystable_br2(
 }
 
 
+template <int dim, int nstate, typename real, typename MeshType>
+template <typename adtype>
+void DGStrong<dim,nstate,real,MeshType>::assemble_boundary_term_entropystable_br2(
+    const unsigned int                                                 iface,
+    const unsigned int                                                 poly_degree,
+    const std::array<std::vector<adtype>,nstate>                       &entropy_var_coeff,
+    const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_vol_quads,
+    const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_surf_quads,
+    const unsigned int                                                  n_vol_quad_pts,  
+    const unsigned int                                                  n_face_quad_pts,  
+    const unsigned int                                                  n_dofs_cell, 
+    const OPERATOR::basis_functions<dim,2*dim>                               &soln_basis,
+    const OPERATOR::basis_functions<dim,2*dim>                               &flux_basis,
+    const OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper,
+    const std::vector<dealii::Tensor<1,dim,adtype>>                    &unit_phys_normal,
+    const std::vector<adtype>                                          &JxW_face,
+    const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
+    std::vector<adtype>                                                &boundary_term)
+{
+    const std::vector<double> &vol_quad_weights = this->volume_quadrature_collection[poly_degree].get_weights();
+    const std::vector<adtype> JxW_vol(n_vol_quad_pts);
+    for(unsigned int iquad=0; iquad<n_vol_quad_pts; ++iquad)
+    {
+        JxW_vol[iquad] = metric_oper.det_Jac_vol[iquad]*vol_quad_weights[iquad];
+    }
 
+    
+    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>       entropy_var_phys_grad_at_vol;
+    compute_physical_grad_entropy_var(
+    entropy_var_coeff,
+    soln_basis,
+    metric_oper,
+    n_vol_quad_pts, 
+    entropy_var_phys_grad_at_vol)
+   
+    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>       K_nabla_v_at_vol;
+    apply_K_matrix(
+    entropy_var_at_vol_quads,
+    n_vol_quad_pts,
+    pde_physics,
+    entropy_var_phys_grad_at_vol,
+    K_nabla_v_at_vol);
+    
+    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>       poly_K_nabla_v_at_face;
+
+    interpolate_to_face(
+    iface,
+    K_nabla_v_at_vol,
+    flux_basis,
+    n_face_quad_pts,
+    poly_K_nabla_v_at_face);
+
+    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>      jump_entropy_var_face;
+    std::array<std::vector<adtype>,nstate> sigma_gamma_dot_n_face;
+    for(unsigned int s=0; s<nstate; ++s)
+    {
+        for(unsigned int d=0; d<dim; ++d)
+        {
+            jump_entropy_var_face[s][d].resize(n_face_quad_pts);
+        }
+        sigma_gamma_dot_n_face[s].resize(n_face_quad_pts); // 0 by default
+    }
+
+    for(unsigned int q =0; q<n_face_quad_pts; ++q)
+    {
+        std::array<adtype,nstate> v_int_at_q;
+        std::array<dealii::Tensor<1,dim,adtype>,nstate> poly_sigma_at_q;
+        for(unsigned int s=0; s<nstate; ++s)
+        {
+            for(unsigned int d=0; d<dim; ++d)
+            {
+                poly_sigma_at_q[s][d] = poly_K_nabla_v_at_face[s][d][q];
+            }
+            v_int_at_q[s] = entropy_var_at_surf_quads[s][q];
+        }
+        
+        std::array<adtype,nstate> v_bc_at_q;
+        std::array<dealii::Tensor<1,dim,adtype>,nstate> sigma_bc_at_q;
+
+        pde_physics.boundary_face_values_entropy_var(v_int_at_q, poly_sigma_at_q, v_bc_at_q, sigma_bc_at_q, unit_phys_normal[q]);
+
+        for(unsigned int s=0; s<nstate; ++s)
+        {
+            for(unsigned int d=0; d<dim; ++d)
+            {
+                sigma_gamma_dot_n_face[s][q] += sigma_bc_at_q[s][d]*unit_phys_normal[q][d]
+            }
+        }
+
+        for(unsigned int s=0; s<nstate; ++s)
+        {
+            for(unsigned int d=0; d<dim; ++d)
+            {
+                jump_entropy_var_face[s][d][q] = (v_bc_at_q[s] - v_int_at_q[s])*unit_phys_normal[q][d];
+            }
+        }
+    }
+
+    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>      re_jump;
+    const bool is_interior_face = false;
+    compute_lift_polynomial(
+    iface,
+    jump_entropy_var_face,
+    JxW_face,
+    JxW_vol,
+    flux_basis,
+    n_face_quad_pts,
+    n_vol_quad_pts,
+    is_interior_face,
+    re_jump);
+
+    std::vector<adtype> integral_k;
+    std::vector<adtype> integral_e;
+    evaluate_face_integral(
+    iface,
+    sigma_gamma_dot_n_face,
+    JxW_face,
+    soln_basis,
+    n_dofs_cell,
+    integral_e);
+
+    entropystable_br2_compute_gradbasis_K_T_vol_integral(
+    entropy_var_at_vol_quads,
+    n_vol_quad_pts,
+    n_dofs_cell,
+    soln_basis,
+    metric_oper,
+    vol_quad_weights,
+    pde_physics,
+    re_jump,
+    integral_k);
+
+    boundary_term.resize(n_dofs_cell);
+    for(unsigned int idof=0; idof<n_dofs_cell; ++idof)
+    {
+        boundary_term[idof] = integral_k[idof] - integral_e[idof];
+    }
+}
 
 
 

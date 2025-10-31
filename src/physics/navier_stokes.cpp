@@ -706,6 +706,28 @@ std::array<dealii::Tensor<1,dim,real>,nstate> NavierStokes<dim,nstate,real>
 
     return viscous_flux;
 }
+    
+template <int dim, int nstate, typename real>
+void NavierStokes<dim,nstate,real>
+::boundary_face_values_entropy_var(
+    const std::array<real,nstate> & v_int_at_q, 
+    const std::array<dealii::Tensor<1,dim,real>,nstate> &poly_sigma_at_q, 
+    const std::array<real,nstate> & v_bc_at_q, 
+    const std::array<dealii::Tensor<1,dim,real>,nstate>sigma_bc_at_q, 
+    const dealii::Tensor<1,dim,real> &unit_phys_normal,
+    const unsigned int boundary_id) const
+{
+    if(boundary_id==1001)//wall boundary
+    {
+        for(unsigned int s=0; s<nstate; ++s)
+        {
+            for(unsigned int d=0; d<dim; ++d)
+            {
+            }
+        }
+    }
+    
+}
 
 template <int dim, int nstate, typename real>
 dealii::Tensor<1,dim,real> NavierStokes<dim,nstate,real>

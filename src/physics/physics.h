@@ -119,8 +119,20 @@ public:
    virtual std::array<dealii::Tensor<1,dim,real>,nstate> 
    dissipative_flux_entropy_based (
         const std::array<real,nstate> &entropy_var,
-        const std::array<real,nstate> &conservative_soln_from_entropy_var,
         const std::array<dealii::Tensor<1,dim,real>,nstate> &entropy_var_gradient) const
+    {
+        // Does nothing.
+        std::cout<<"Not implemented for this PDE. Aborting.."<<std::endl;
+        std::abort();
+    }
+    
+    virtual void boundary_face_values_entropy_var(
+        const std::array<real,nstate> & v_int_at_q, 
+        const std::array<dealii::Tensor<1,dim,real>,nstate> &poly_sigma_at_q, 
+        const std::array<real,nstate> & v_bc_at_q, 
+        const std::array<dealii::Tensor<1,dim,real>,nstate>sigma_bc_at_q, 
+        const dealii::Tensor<1,dim,real> &unit_phys_normal
+        const unsigned int boundary_id) const
     {
         // Does nothing.
         std::cout<<"Not implemented for this PDE. Aborting.."<<std::endl;
