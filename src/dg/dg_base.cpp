@@ -515,6 +515,7 @@ void DGBase<dim,real,MeshType>::assemble_cell_residual_and_ad_derivatives (
                                                                  store_surf_flux_nodes);
 
     //flag to terminate if strong form and implicit
+    /*
     if((this->all_parameters->use_weak_form==false) 
        && (this->all_parameters->ode_solver_param.ode_solver_type
                     == Parameters::ODESolverParam::ODESolverEnum::implicit_solver)
@@ -523,6 +524,7 @@ void DGBase<dim,real,MeshType>::assemble_cell_residual_and_ad_derivatives (
         pcout<<"ERROR: Implicit does not currently work for strong form with Auxiliary Equation. The added terms dR/dq * dq/du needs to be added. Aborting..."<<std::endl;
         std::abort();
     }
+    */
 
     std::array<std::vector<adtype>,dim> mapping_support_points;
     
@@ -918,6 +920,7 @@ void DGBase<dim,real,MeshType>::assemble_volume_codi_taped_derivatives_ad(
     build_volume_metric_operators(poly_degree, grid_degree, local_metric_coeff_int, metric_oper, mapping_basis, mapping_support_points);
  
     dealii::Tensor<1,dim,std::vector<double>> local_aux_solution;
+/*
     for(unsigned int idim=0; idim<dim; idim++){
         local_aux_solution[idim].resize(n_soln_dofs);
         for (unsigned int idof = 0; idof < n_soln_dofs; ++idof) {
@@ -926,15 +929,17 @@ void DGBase<dim,real,MeshType>::assemble_volume_codi_taped_derivatives_ad(
             }
         }
     }
-
+*/
     double dual_dot_residual = 0.0;
     std::vector<double> rhs(n_soln_dofs); //set to zero by default
     dealii::Tensor<1,dim,std::vector<double>> rhs_aux;
+    /*
     if(compute_auxiliary_right_hand_side){
         for(int idim=0; idim<dim; idim++){
             rhs_aux[idim].resize(n_soln_dofs);
         }
     }
+    */
     assemble_volume_term_and_build_operators_ad(
         cell,
         current_cell_index,
@@ -1063,10 +1068,12 @@ typename std::enable_if<!std::is_same<adtype, double>::value,void>::type
     for(unsigned int idim=0; idim<dim; idim++){
         local_aux_solution[idim].resize(n_soln_dofs);
         for (unsigned int idof = 0; idof < n_soln_dofs; ++idof) {
+        /*
             if(this->use_auxiliary_eq){//only if use auxiliary equation has the auxiliary solution initialized
                 const real val = this->auxiliary_solution[idim](soln_dofs_indices[idof]);
                 local_aux_solution[idim][idof] = val;
             }
+            */
             tape.deactivateValue(local_aux_solution[idim][idof]);
             /* 
             if ((compute_dRdW || compute_d2R) && this->use_auxiliary_eq) {
@@ -1081,11 +1088,13 @@ typename std::enable_if<!std::is_same<adtype, double>::value,void>::type
     adtype dual_dot_residual = 0.0;
     std::vector<adtype> rhs(n_soln_dofs); //set to zero by default
     dealii::Tensor<1,dim,std::vector<adtype>> rhs_aux;
+    /*
     if(compute_auxiliary_right_hand_side){
         for(int idim=0; idim<dim; idim++){
             rhs_aux[idim].resize(n_soln_dofs);
         }
     }
+    */
     assemble_volume_term_and_build_operators_ad(
         cell,
         current_cell_index,
@@ -1318,10 +1327,12 @@ typename std::enable_if<!std::is_same<adtype, double>::value,void>::type
     for(int idim=0; idim<dim; idim++){
         local_aux_solution[idim].resize(n_soln_dofs);
         for (unsigned int idof = 0; idof < n_soln_dofs; ++idof) {
+        /*
             if(this->use_auxiliary_eq){
                 const real val = this->auxiliary_solution[idim](soln_dofs_indices[idof]);
                 local_aux_solution[idim][idof] = val;
             }
+        */
             tape.deactivateValue(local_aux_solution[idim][idof]);
             /*
             if ((compute_dRdW || compute_d2R) && this->use_auxiliary_eq) {
@@ -1485,10 +1496,11 @@ typename std::enable_if<!std::is_same<adtype, double>::value,void>::type
 
     for (unsigned int idof = 0; idof < n_soln_dofs; ++idof) {
         tape.deactivateValue(local_solution[idof]);
-    
+   /* 
         for(int idim=0; idim<dim; idim++){
             tape.deactivateValue(local_aux_solution[idim][idof]);
         }
+    */
     }
     for (unsigned int idof = 0; idof < n_metric_dofs; ++idof) {
         tape.deactivateValue(local_metric_coeff[idof]);
@@ -1538,6 +1550,7 @@ void DGBase<dim,real,MeshType>::assemble_boundary_codi_taped_derivatives_ad(
     }
 
     dealii::Tensor<1,dim,std::vector<double>> local_aux_solution;
+    /*
     for(int idim=0; idim<dim; idim++){
         local_aux_solution[idim].resize(n_soln_dofs);
         for (unsigned int idof = 0; idof < n_soln_dofs; ++idof) {
@@ -1546,6 +1559,7 @@ void DGBase<dim,real,MeshType>::assemble_boundary_codi_taped_derivatives_ad(
             } 
         }
     }
+    */
 
     std::vector<real> local_dual(n_soln_dofs);
     for (unsigned int itest=0; itest<n_soln_dofs; ++itest) {
@@ -1728,10 +1742,12 @@ typename std::enable_if<!std::is_same<adtype, double>::value,void>::type
         aux_soln_coeff_int[idim].resize(n_soln_dofs_int);
         aux_soln_coeff_ext[idim].resize(n_soln_dofs_ext);
         for (unsigned int idof = 0; idof < n_soln_dofs_int; ++idof) {
+        /*
             if(this->use_auxiliary_eq){
                 const real val = this->auxiliary_solution[idim](soln_dofs_indices_int[idof]);
                 aux_soln_coeff_int[idim][idof] = val;
             }
+        */
             tape.deactivateValue(aux_soln_coeff_int[idim][idof]);
             /*
             if  ((compute_dRdW || compute_d2R) && this->use_auxiliary_eq) {
@@ -1742,10 +1758,12 @@ typename std::enable_if<!std::is_same<adtype, double>::value,void>::type
             */
         }
         for (unsigned int idof = 0; idof < n_soln_dofs_ext; ++idof) {
+        /*
             if(this->use_auxiliary_eq){
                 const real val = this->auxiliary_solution[idim](soln_dofs_indices_ext[idof]);
                 aux_soln_coeff_ext[idim][idof] = val;
             }
+        */
             tape.deactivateValue(aux_soln_coeff_ext[idim][idof]);
             /*
             if ((compute_dRdW || compute_d2R) && this->use_auxiliary_eq) {
@@ -2098,7 +2116,7 @@ typename std::enable_if<!std::is_same<adtype, double>::value,void>::type
     for (unsigned int idof = 0; idof < n_metric_dofs; ++idof) {
         tape.deactivateValue(metric_coeff_ext[idof]);
     }
-    
+   /* 
     for(int idim=0; idim<dim; idim++){
         for (unsigned int idof = 0; idof < n_soln_dofs_int; ++idof) {
             tape.deactivateValue(aux_soln_coeff_int[idim][idof]);
@@ -2107,6 +2125,7 @@ typename std::enable_if<!std::is_same<adtype, double>::value,void>::type
             tape.deactivateValue(aux_soln_coeff_ext[idim][idof]);
         }
     }
+    */
 }
 
 // Double version
@@ -2183,6 +2202,7 @@ void DGBase<dim,real,MeshType>::assemble_face_codi_taped_derivatives_ad(
     
     dealii::Tensor<1,dim,std::vector<double>> aux_soln_coeff_int;
     dealii::Tensor<1,dim,std::vector<double>> aux_soln_coeff_ext;
+    /*
     for(int idim=0; idim<dim; idim++){
         aux_soln_coeff_int[idim].resize(n_soln_dofs_int);
         aux_soln_coeff_ext[idim].resize(n_soln_dofs_ext);
@@ -2195,6 +2215,7 @@ void DGBase<dim,real,MeshType>::assemble_face_codi_taped_derivatives_ad(
             }
         }
     }
+    */
 
     std::vector<double> dual_int(n_soln_dofs_int);
     std::vector<double> dual_ext(n_soln_dofs_ext);
@@ -2751,7 +2772,7 @@ void DGBase<dim,real,MeshType>::assemble_residual (const bool compute_dRdW, cons
         if(all_parameters->pde_type == Parameters::AllParameters::PartialDifferentialEquation::physics_model) update_model_variables();
 
         // assembles and solves for auxiliary variable if necessary.
-        assemble_auxiliary_residual(compute_dRdW, compute_dRdX, compute_d2R);
+        // assemble_auxiliary_residual(compute_dRdW, compute_dRdX, compute_d2R); auxiliary commented out
 
         dealii::Timer timer;
         if(all_parameters->store_residual_cpu_time){
@@ -2893,7 +2914,7 @@ void DGBase<dim,real,MeshType>::assemble_residual (const bool compute_dRdW, cons
         int error_transpose = epetra_rowmatrixtransposer_dRdW->CreateTranspose( make_data_contiguous, output_matrix);
         if (error_transpose) {
             std::cout << "Failed to create dRdW transpose... Aborting" << std::endl;
-            //std::abort();
+            std::abort();
         }
         bool copy_values = true;
         system_matrix_transpose.reinit(*output_matrix, copy_values);
