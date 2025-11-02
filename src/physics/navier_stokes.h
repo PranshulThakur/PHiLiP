@@ -267,12 +267,13 @@ public:
         const std::array<dealii::Tensor<1,dim,real>,nstate> &entropy_var_gradient) const override;
     
     void boundary_face_values_entropy_var(
-        const std::array<real,nstate> & v_int_at_q, 
-        const std::array<dealii::Tensor<1,dim,real>,nstate> &poly_sigma_at_q, 
-        const std::array<real,nstate> & v_bc_at_q, 
-        const std::array<dealii::Tensor<1,dim,real>,nstate>sigma_bc_at_q, 
-        const dealii::Tensor<1,dim,real> &unit_phys_normal,
-        const unsigned int boundary_id) const override;
+            const std::array<real,nstate> & v_int_at_q, 
+            const std::array<dealii::Tensor<1,dim,real>,nstate> &poly_sigma_at_q, 
+            const std::array<dealii::Tensor<1,dim,real>,nstate> &grad_entropy_var_int_at_q, 
+            std::array<real,nstate> & v_bc_at_q, 
+            std::array<dealii::Tensor<1,dim,real>,nstate>sigma_bc_at_q, 
+            const dealii::Tensor<1,dim,real> &unit_phys_normal,
+            const unsigned int boundary_id) const override;
 
     /** Gradient of the scaled nondimensionalized viscosity coefficient
      *  Reference: Masatsuka 2018 "I do like CFD", p.148, eq.(4.14.14 and 4.14.17)

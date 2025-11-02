@@ -712,21 +712,54 @@ void NavierStokes<dim,nstate,real>
 ::boundary_face_values_entropy_var(
     const std::array<real,nstate> & v_int_at_q, 
     const std::array<dealii::Tensor<1,dim,real>,nstate> &poly_sigma_at_q, 
-    const std::array<real,nstate> & v_bc_at_q, 
-    const std::array<dealii::Tensor<1,dim,real>,nstate>sigma_bc_at_q, 
+    const std::array<dealii::Tensor<1,dim,real>,nstate> &grad_entropy_var_int_at_q, 
+    std::array<real,nstate> & v_bc_at_q, 
+    std::array<dealii::Tensor<1,dim,real>,nstate>sigma_bc_at_q, 
     const dealii::Tensor<1,dim,real> &unit_phys_normal,
     const unsigned int boundary_id) const
 {
-    if(boundary_id==1001)//wall boundary
+    // Note: Computes v_bc as the actual entropy var at the boundary, without assuming averaging.
+    if(boundary_id==1001)//Adiabatic wall boundary
     {
-        for(unsigned int s=0; s<nstate; ++s)
+        for(unsigned int s=0; s<nstate-1; ++s)
         {
             for(unsigned int d=0; d<dim; ++d)
             {
+                sigma_bc_at_q[s][d] = poly_sigma_at_q[s][d];
             }
         }
+
+        for(unsigned int d=0; d<dim; ++d)
+        {
+            sigma_bc_at_q[nstate-1][d] = 0.0;
+        }
+
+        v_bc_at_q[0] = v_int_at_q[0];
+        for(unsigned int i=1; i<=dim; ++i)
+        {
+            v_bc_at_q[i] = 0.0;
+        }
+        v_bc_at_q[nstate-1] = v_int_at_q[nstate-1];
     }
-    
+    else
+    {
+        // Note: Assumes gradient is just the interior gradient. Gradient information is only used for the wall BC above.
+        const std::array<real,nstate> soln_int = this->compute_conservative_variables_from_entropy_variables (v_int_at_q);
+        std::array<real,nstate> soln_bc;
+        const dealii::Point<dim, real> pos_dummy,
+        const std::array<dealii::Tensor<1,dim,real>,nstate> soln_grad_int_dummy, soln_grad_bc_dummy;
+        this->boundary_face_values (
+           boundary_id,
+           pos_dummy,
+           unit_phys_normal,
+           soln_int,
+           soln_grad_int_dummy,
+           soln_bc,
+           soln_grad_bc_dummy);
+
+        v_bc_at_q = this->compute_entropy_variables(soln_bc);
+        sigma_bc_at_q = dissipative_flux_entropy_based (v_bc_at_q, grad_entropy_var_int_at_q);
+    }
 }
 
 template <int dim, int nstate, typename real>

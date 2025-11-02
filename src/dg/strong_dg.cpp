@@ -3233,6 +3233,7 @@ template <int dim, int nstate, typename real, typename MeshType>
 template <typename adtype>
 void DGStrong<dim,nstate,real,MeshType>::assemble_boundary_term_entropystable_br2(
     const unsigned int                                                 iface,
+    const unsigned int                                                 boundary_id,
     const unsigned int                                                 poly_degree,
     const std::array<std::vector<adtype>,nstate>                       &entropy_var_coeff,
     const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_vol_quads,
@@ -3273,13 +3274,20 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_boundary_term_entropystable_br
     K_nabla_v_at_vol);
     
     std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>       poly_K_nabla_v_at_face;
-
     interpolate_to_face(
     iface,
     K_nabla_v_at_vol,
     flux_basis,
     n_face_quad_pts,
     poly_K_nabla_v_at_face);
+    
+    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>       entropy_var_phys_grad_at_face; // Using the vol entropy grad's projection to polynomial here instead of actually computing phys grad at face quadratures. This should be consistent and should yield correct solutions under mesh refinement.
+    interpolate_to_face(
+    iface,
+    entropy_var_phys_grad_at_vol,
+    flux_basis,
+    n_face_quad_pts,
+    entropy_var_phys_grad_at_face);
 
     std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>      jump_entropy_var_face;
     std::array<std::vector<adtype>,nstate> sigma_gamma_dot_n_face;
@@ -3296,11 +3304,13 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_boundary_term_entropystable_br
     {
         std::array<adtype,nstate> v_int_at_q;
         std::array<dealii::Tensor<1,dim,adtype>,nstate> poly_sigma_at_q;
+        std::array<dealii::Tensor<1,dim,adtype>,nstate> entropy_var_phys_grad_face_q;
         for(unsigned int s=0; s<nstate; ++s)
         {
             for(unsigned int d=0; d<dim; ++d)
             {
                 poly_sigma_at_q[s][d] = poly_K_nabla_v_at_face[s][d][q];
+                entropy_var_phys_grad_face_q[s][d] = entropy_var_phys_grad_at_face[s][d][q];
             }
             v_int_at_q[s] = entropy_var_at_surf_quads[s][q];
         }
@@ -3308,7 +3318,13 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_boundary_term_entropystable_br
         std::array<adtype,nstate> v_bc_at_q;
         std::array<dealii::Tensor<1,dim,adtype>,nstate> sigma_bc_at_q;
 
-        pde_physics.boundary_face_values_entropy_var(v_int_at_q, poly_sigma_at_q, v_bc_at_q, sigma_bc_at_q, unit_phys_normal[q]);
+        pde_physics.boundary_face_values_entropy_var(v_int_at_q, 
+                                                     poly_sigma_at_q, 
+                                                     entropy_var_phys_grad_face_q, 
+                                                     v_bc_at_q, 
+                                                     sigma_bc_at_q, 
+                                                     unit_phys_normal[q],
+                                                     boundary_id);
 
         for(unsigned int s=0; s<nstate; ++s)
         {
@@ -3367,16 +3383,6 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_boundary_term_entropystable_br
         boundary_term[idof] = integral_k[idof] - integral_e[idof];
     }
 }
-
-
-
-
-
-
-
-
-
-
 
 /*******************************************************
  *
