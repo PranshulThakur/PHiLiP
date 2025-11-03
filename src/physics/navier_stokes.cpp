@@ -714,7 +714,7 @@ void NavierStokes<dim,nstate,real>
     const std::array<dealii::Tensor<1,dim,real>,nstate> &poly_sigma_at_q, 
     const std::array<dealii::Tensor<1,dim,real>,nstate> &grad_entropy_var_int_at_q, 
     std::array<real,nstate> & v_bc_at_q, 
-    std::array<dealii::Tensor<1,dim,real>,nstate>sigma_bc_at_q, 
+    std::array<dealii::Tensor<1,dim,real>,nstate> &sigma_bc_at_q, 
     const dealii::Tensor<1,dim,real> &unit_phys_normal,
     const unsigned int boundary_id) const
 {

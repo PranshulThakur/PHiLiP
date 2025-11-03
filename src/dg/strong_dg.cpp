@@ -380,6 +380,12 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_face_term_and_build_operators_
             mapping_support_points_neigh,
             mapping_basis,
             this->all_parameters->use_invariant_curl_form);
+
+        const bool check_same_coords = true;
+        if(check_same_coords)
+        {
+            check_same_coords_face_strong(mapping_support_points, mapping_support_points_neigh, mapping_basis, iface, neighbor_iface, poly_degree_int);
+        }
     }
 
     const unsigned int n_dofs_int = this->fe_collection[poly_degree_int].dofs_per_cell;
@@ -2823,7 +2829,7 @@ void DGStrong<dim,nstate,real,MeshType>::apply_K_matrix(
     const unsigned int                                                 n_quad_pts,
     const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
     const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>   &T_in,
-    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>         &T_out)
+    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>         &T_out) const
 {
     //Resize
     for(unsigned int s=0; s<nstate; ++s)
@@ -2858,8 +2864,6 @@ void DGStrong<dim,nstate,real,MeshType>::apply_K_matrix(
 }
 
 
-
-
 // Computes \int_k G^h(dw/dx_d)*Kdd2ss2*Td2s2 d\Omega, where T is the quad values of G^h(\nabla entropy_var) or a lift polynomial of size nstate x dim.
 template <int dim, int nstate, typename real, typename MeshType>
 template <typename adtype>
@@ -2872,7 +2876,7 @@ void DGStrong<dim,nstate,real,MeshType>::entropystable_br2_compute_gradbasis_K_T
     const std::vector<double>                                          &weight_vect,
     const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
     const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>   &T,
-    std::vector<adtype>                                                &integral_val)
+    std::vector<adtype>                                                &integral_val) const
 {
     const unsigned int n_shape_fns = n_dofs_cell / nstate; 
     
@@ -2953,7 +2957,7 @@ void DGStrong<dim,nstate,real,MeshType>::compute_physical_grad_entropy_var(
     OPERATOR::basis_functions<dim,2*dim>                               &soln_basis,
     OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper,
     const unsigned int                                                 n_quad_pts, 
-    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>       &entropy_var_phys_grad)
+    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>       &entropy_var_phys_grad) const
 {
     // Entropy grad wrt reference coordinates
     std::array<dealii::Tensor<1,dim,std::vector<real>>,nstate> &entropy_var_ref_grad;
@@ -2990,7 +2994,7 @@ void DGStrong<dim,nstate,real,MeshType>::compute_lift_polynomial(
     const unsigned int n_face_quad_pts,
     const unsigned int n_vol_quad_pts,
     const bool is_interior_face,
-    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &re_out_vol)
+    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &re_out_vol) const
 {
     const unsigned int n_shape_fns_flux = n_vol_quad_pts; // collocated
     for(unsigned int s=0; s<nstate; ++s)
@@ -3034,7 +3038,7 @@ void DGStrong<dim,nstate,real,MeshType>::evaluate_face_integral(
     const std::vector<adtype> &JxW_face,
     const OPERATOR::basis_functions<dim,2*dim> &soln_basis,
     const unsigned int n_dofs_cell,
-    std::vector<adtype> &integral_val)
+    std::vector<adtype> &integral_val) const
 {
     const unsigned int n_shape_fns = n_dofs_cell/nstate;
     integral_val.resize(n_dofs_cell);
@@ -3062,7 +3066,7 @@ void DGStrong<dim,nstate,real,MeshType>::interpolate_to_face(
     const std::array<dealii::Tensor<1,dim,std::vector<real>>,nstate> &T_at_vol,
     const OPERATOR::basis_functions<dim,2*dim> &flux_basis,
     const unsigned int n_face_quad_pts,
-    std::array<dealii::Tensor<1,dim,std::vector<real>>,nstate> &T_at_face)
+    std::array<dealii::Tensor<1,dim,std::vector<real>>,nstate> &T_at_face) const
 {
     for(unsigned int s=0; s<nstate; ++s)
     {
@@ -3097,7 +3101,7 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_volume_term_entropystable_br2(
     const OPERATOR::basis_functions<dim,2*dim>                               &flux_basis,
     const OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper,
     const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
-    std::vector<adtype>                                                &vol_term)
+    std::vector<adtype>                                                &vol_term) const
 {
     const std::vector<double> &weight_vect = this->volume_quadrature_collection[poly_degree].get_weights();
     // Entropy grad wrt physical coordinates
@@ -3149,7 +3153,7 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_face_term_entropystable_br2(
     const OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper_ext,
     const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
     std::vector<adtype>                                                &face_term_int,
-    std::vector<adtype>                                                &face_term_ext)
+    std::vector<adtype>                                                &face_term_ext) const
 {
     face_term_int.resize(n_dofs_cell_int);
     face_term_ext.resize(n_dofs_cell_ext);
@@ -3385,7 +3389,7 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_boundary_term_entropystable_br
     const std::vector<dealii::Tensor<1,dim,adtype>>                    &unit_phys_normal,
     const std::vector<adtype>                                          &JxW_face,
     const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
-    std::vector<adtype>                                                &boundary_term)
+    std::vector<adtype>                                                &boundary_term) const
 {
     const std::vector<double> &vol_quad_weights = this->volume_quadrature_collection[poly_degree].get_weights();
     const std::vector<adtype> JxW_vol(n_vol_quad_pts);
@@ -3522,12 +3526,63 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_boundary_term_entropystable_br
     }
 }
 
+
+template <int dim, int nstate, typename real, typename MeshType>
+template <typename adtype>
+void DGStrong<dim,nstate,real,MeshType>::check_same_coords_face_strong(
+    const std::array<std::vector<adtype>,dim> &mapping_support_points_int, 
+    const std::array<std::vector<adtype>,dim> &mapping_support_points_ext, 
+    const OPERATOR::mapping_shape_functions<dim,2*dim>  &mapping_basis,
+    const unsigned int iface_int, 
+    const unsigned int iface_ext, 
+    const unsigned int poly_degree_int) const
+{
+    const unsigned int n_face_quad_pts = this->face_quadrature_collection[poly_degree_int].size();
+
+    std::array<std::vector<adtype>,dim> x_face_int;
+    std::array<std::vector<adtype>,dim> x_face_ext;
+
+    for(unsigned int d=0; d<dim; ++d)
+    {
+        x_face_int[d].resize(n_face_quad_pts);
+        x_face_ext[d].resize(n_face_quad_pts);
+    }
+
+    for(unsigned int d=0; d<dim; ++d)
+    {
+        mapping_basis.matrix_vector_mult_surface_1D(iface_int, 
+                                                    mapping_support_points_int[d], 
+                                                    x_face_int[d], 
+                                                    mapping_basis.mapping_shape_functions_flux_nodes.oneD_surf_operator, 
+                                                    mapping_basis.mapping_shape_functions_flux_nodes.oneD_vol_operator);
+        
+        mapping_basis.matrix_vector_mult_surface_1D(iface_ext, 
+                                                    mapping_support_points_ext[d], 
+                                                    x_face_ext[d], 
+                                                    mapping_basis.mapping_shape_functions_flux_nodes.oneD_surf_operator, 
+                                                    mapping_basis.mapping_shape_functions_flux_nodes.oneD_vol_operator);
+    }
+
+    for(unsigned int iquad = 0; iquad<n_face_quad_pts; ++iquad)
+    {
+        for(unsigned int d=0; d<dim; ++d)
+        {
+            if( abs(x_face_int[d][iquad] - x_face_ext[d][iquad]) > 1.0e-12)
+            {
+                std::cout<<"x_face_int[d][iquad] = "<<x_face_int[d][iquad]<<std::endl;
+                std::cout<<"x_face_ext[d][iquad] = "<<x_face_ext[d][iquad]<<std::endl;
+                std::cout<<"Coords are not the same for strong DG. Aborting..."<<std::endl;
+                std::abort();
+            }
+        }
+    }
+}
+
 /*******************************************************
  *
  *                     EXPLICIT
  *
  *******************************************************/
-
 template <int dim, int nstate, typename real, typename MeshType>
 void DGStrong<dim,nstate,real,MeshType>::assemble_volume_term_explicit(
     typename dealii::DoFHandler<dim>::active_cell_iterator /*cell*/,
