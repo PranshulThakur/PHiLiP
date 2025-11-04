@@ -547,7 +547,7 @@ std::array<dealii::Tensor<1,dim,real>,nstate> NavierStokes<dim,nstate,real>
     //const real scaled_2nd_viscosity_coefficient = (-2.0/3.0)*scaled_viscosity_coefficient; // \lambda from Stokes' hypothesis
     const real mu = compute_scaled_viscosity_coefficient<real>(primitive_soln); // \mu
     const real lambda = (-2.0/3.0)*mu; // \lambda from Stokes' hypothesis
-    std::array<std::array<dealii::Tensor<2,dim,real>,nstate,nstate> K;  // entropy-based diffusion tensor. Defaults to zero. Indexed as K[s1][s2][d1][d2].
+    std::array<std::array<dealii::Tensor<2,dim,real>,nstate>,nstate> K;  // entropy-based diffusion tensor. Defaults to zero. Indexed as K[s1][s2][d1][d2].
 
     if constexpr(dim==3)
     {
@@ -628,8 +628,8 @@ std::array<dealii::Tensor<1,dim,real>,nstate> NavierStokes<dim,nstate,real>
         K[4][4][2][2] =  -(  (lambda+2.0*mu)*pow(entropy_var[3],2) + mu*(pow(entropy_var[1],2)+pow(entropy_var[2],2)) 
                             - this->gam*mu*entropy_var[4]/prandtl_number   );
         for(unsigned int s1 = 0; s1<nstate; ++s1)
-        ({
-            for(unsigned int s1 = 0; s1<nstate; ++s1)
+        {
+            for(unsigned int s2 = 0; s2<nstate; ++s2)
                 K[s1][s2] /= pow(entropy_var[4],3);
         }
     }
@@ -664,7 +664,7 @@ std::array<dealii::Tensor<1,dim,real>,nstate> NavierStokes<dim,nstate,real>
         
         for(unsigned int s1 = 0; s1<nstate; ++s1)
         {
-            for(unsigned int s1 = 0; s1<nstate; ++s1)
+            for(unsigned int s2 = 0; s2<nstate; ++s2)
                 K[s1][s2] /= pow(entropy_var[3],3);
         }
     }
@@ -689,7 +689,7 @@ std::array<dealii::Tensor<1,dim,real>,nstate> NavierStokes<dim,nstate,real>
     }
 
     // Compute viscous flux
-    std::array<dealii::Tensor<1,dim,real>,nstate> viscous flux; // initialized to zero by default
+    std::array<dealii::Tensor<1,dim,real>,nstate> viscous_flux; // initialized to zero by default
     for(unsigned int d1 =0; d1<dim; ++d1)
     {
         for(unsigned int d2 =0; d2<dim; ++d2)
@@ -746,8 +746,8 @@ void NavierStokes<dim,nstate,real>
         // Note: Assumes gradient is just the interior gradient. Gradient information is only used for the wall BC above.
         const std::array<real,nstate> soln_int = this->compute_conservative_variables_from_entropy_variables (v_int_at_q);
         std::array<real,nstate> soln_bc;
-        const dealii::Point<dim, real> pos_dummy,
-        const std::array<dealii::Tensor<1,dim,real>,nstate> soln_grad_int_dummy, soln_grad_bc_dummy;
+        dealii::Point<dim, real> pos_dummy;
+        std::array<dealii::Tensor<1,dim,real>,nstate> soln_grad_int_dummy, soln_grad_bc_dummy;
         this->boundary_face_values (
            boundary_id,
            pos_dummy,
