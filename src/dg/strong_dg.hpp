@@ -959,7 +959,7 @@ protected:
         const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &phi_at_face,
         const std::vector<adtype> &JxW_face,
         const std::vector<adtype> &JxW_vol,
-        const OPERATOR::basis_functions<dim,2*dim> &flux_basis,
+        OPERATOR::basis_functions<dim,2*dim> &flux_basis,
         const unsigned int n_face_quad_pts,
         const unsigned int n_vol_quad_pts,
         const bool is_interior_face,
@@ -970,17 +970,17 @@ protected:
         const unsigned int iface,
         const std::array<std::vector<adtype>,nstate> &sigma_dot_n_at_face,
         const std::vector<adtype> &JxW_face,
-        const OPERATOR::basis_functions<dim,2*dim> &soln_basis,
+        OPERATOR::basis_functions<dim,2*dim> &soln_basis,
         const unsigned int n_dofs_cell,
         std::vector<adtype> &integral_val) const;
 
     template <typename adtype>
     void interpolate_to_face(
         const unsigned int iface,
-        const std::array<dealii::Tensor<1,dim,std::vector<real>>,nstate> &T_at_vol,
-        const OPERATOR::basis_functions<dim,2*dim> &flux_basis,
+        const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &T_at_vol,
+        OPERATOR::basis_functions<dim,2*dim> &flux_basis,
         const unsigned int n_face_quad_pts,
-        std::array<dealii::Tensor<1,dim,std::vector<real>>,nstate> &T_at_face) const;
+        std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &T_at_face) const;
 
     template <typename adtype>
     void assemble_volume_term_entropystable_br2(
@@ -989,9 +989,9 @@ protected:
         const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_q,
         const unsigned int                                                  n_quad_pts,  
         const unsigned int                                                  n_dofs_cell, 
-        const OPERATOR::basis_functions<dim,2*dim>                               &soln_basis,
-        const OPERATOR::basis_functions<dim,2*dim>                               &flux_basis,
-        const OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper,
+        OPERATOR::basis_functions<dim,2*dim>                               &soln_basis,
+        OPERATOR::basis_functions<dim,2*dim>                               &flux_basis,
+        OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper,
         const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
         std::vector<adtype>                                                &vol_term) const;
 
@@ -1014,12 +1014,12 @@ protected:
         const unsigned int                                                  n_dofs_cell_int, 
         const unsigned int                                                  n_dofs_cell_ext, 
         const unsigned int                                                  n_face_quad_pts, 
-        const OPERATOR::basis_functions<dim,2*dim>                               &soln_basis_int,
-        const OPERATOR::basis_functions<dim,2*dim>                               &soln_basis_ext,
-        const OPERATOR::basis_functions<dim,2*dim>                               &flux_basis_int,
-        const OPERATOR::basis_functions<dim,2*dim>                               &flux_basis_ext,
-        const OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper_int,
-        const OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper_ext,
+        OPERATOR::basis_functions<dim,2*dim>                               &soln_basis_int,
+        OPERATOR::basis_functions<dim,2*dim>                               &soln_basis_ext,
+        OPERATOR::basis_functions<dim,2*dim>                               &flux_basis_int,
+        OPERATOR::basis_functions<dim,2*dim>                               &flux_basis_ext,
+        OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper_int,
+        OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper_ext,
         const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
         std::vector<adtype>                                                &face_term_int,
         std::vector<adtype>                                                &face_term_ext) const;
@@ -1036,9 +1036,9 @@ protected:
         const unsigned int                                                  n_vol_quad_pts,  
         const unsigned int                                                  n_face_quad_pts,  
         const unsigned int                                                  n_dofs_cell, 
-        const OPERATOR::basis_functions<dim,2*dim>                               &soln_basis,
-        const OPERATOR::basis_functions<dim,2*dim>                               &flux_basis,
-        const OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper,
+        OPERATOR::basis_functions<dim,2*dim>                               &soln_basis,
+        OPERATOR::basis_functions<dim,2*dim>                               &flux_basis,
+        OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper,
         const std::vector<dealii::Tensor<1,dim,adtype>>                    &unit_phys_normal,
         const std::vector<adtype>                                          &JxW_face,
         const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
@@ -1048,7 +1048,7 @@ protected:
     void check_same_coords_face_strong(
         const std::array<std::vector<adtype>,dim> &mapping_support_points_int, 
         const std::array<std::vector<adtype>,dim> &mapping_support_points_ext, 
-        const OPERATOR::mapping_shape_functions<dim,2*dim>  &mapping_basis,
+        OPERATOR::mapping_shape_functions<dim,2*dim>  &mapping_basis,
         const unsigned int iface_int, 
         const unsigned int iface_ext, 
         const unsigned int poly_degree_int) const;

@@ -196,6 +196,17 @@ public:
             const dealii::FullMatrix<double> &basis_z,
             const bool adding = false,
             const double factor = 1.0);
+    
+    template <typename real>
+    void inner_product_JxW(
+            const std::vector<real> &input_vect,
+            const std::vector<real> &weight_vect,
+            std::vector<real> &output_vect,
+            const dealii::FullMatrix<double> &basis_x,
+            const dealii::FullMatrix<double> &basis_y,
+            const dealii::FullMatrix<double> &basis_z,
+            const bool adding = false,
+            const double factor = 1.0);
 
 
     ///Computes the divergence of the 2pt flux Hadamard products, then sums the rows.
@@ -300,6 +311,15 @@ public:
             const dealii::FullMatrix<double> &basis_x,
             const bool adding  = false,
             const double factor = 1.0);
+    
+    template <typename real>
+    void inner_product_1D_JxW(
+            const std::vector<real> &input_vect,
+            const std::vector<real> &weight_vect,
+            std::vector<real> &output_vect,
+            const dealii::FullMatrix<double> &basis_x,
+            const bool adding  = false,
+            const double factor = 1.0);
 
     /// Apply sum-factorization matrix vector multiplication on a surface.
     /** Often times we have to interpolate to a surface, where in multiple dimensions,
@@ -324,6 +344,17 @@ public:
             const unsigned int face_number,
             const std::vector<real> &input_vect,
             const std::vector<double> &weight_vect,
+            std::vector<real> &output_vect,
+            const std::array<dealii::FullMatrix<double>,2> &basis_surf,//only 2 faces in 1D
+            const dealii::FullMatrix<double> &basis_vol,
+            const bool adding = false,
+            const double factor = 1.0);
+    
+    template <typename real>
+    void inner_product_surface_1D_JxW(
+            const unsigned int face_number,
+            const std::vector<real> &input_vect,
+            const std::vector<real> &weight_vect,
             std::vector<real> &output_vect,
             const std::array<dealii::FullMatrix<double>,2> &basis_surf,//only 2 faces in 1D
             const dealii::FullMatrix<double> &basis_vol,

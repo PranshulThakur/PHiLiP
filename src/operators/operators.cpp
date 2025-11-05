@@ -366,6 +366,32 @@ void SumFactorizedOperators<dim,n_faces>::inner_product_surface_1D(
 
 template <int dim, int n_faces>  
 template <typename real>
+void SumFactorizedOperators<dim,n_faces>::inner_product_surface_1D_JxW(
+    const unsigned int face_number,
+    const std::vector<real> &input_vect,
+    const std::vector<real> &weight_vect,
+    std::vector<real> &output_vect,
+    const std::array<dealii::FullMatrix<double>,2> &basis_surf,
+    const dealii::FullMatrix<double> &basis_vol,
+    const bool adding,
+    const double factor)
+{
+    if(face_number == 0)
+        this->inner_product_JxW(input_vect, weight_vect, output_vect, basis_surf[0], basis_vol, basis_vol, adding, factor);
+    if(face_number == 1)
+        this->inner_product_JxW(input_vect, weight_vect, output_vect, basis_surf[1], basis_vol, basis_vol, adding, factor);
+    if(face_number == 2)
+        this->inner_product_JxW(input_vect, weight_vect, output_vect, basis_vol, basis_surf[0], basis_vol, adding, factor);
+    if(face_number == 3)
+        this->inner_product_JxW(input_vect, weight_vect, output_vect, basis_vol, basis_surf[1], basis_vol, adding, factor);
+    if(face_number == 4)
+        this->inner_product_JxW(input_vect, weight_vect, output_vect, basis_vol, basis_vol, basis_surf[0], adding, factor);
+    if(face_number == 5)
+        this->inner_product_JxW(input_vect, weight_vect, output_vect, basis_vol, basis_vol, basis_surf[1], adding, factor);
+}
+
+template <int dim, int n_faces>  
+template <typename real>
 void SumFactorizedOperators<dim,n_faces>::divergence_matrix_vector_mult_1D(
     const dealii::Tensor<1,dim,std::vector<real>> &input_vect,
     std::vector<real> &output_vect,
@@ -534,6 +560,84 @@ void SumFactorizedOperators<dim,n_faces>::inner_product_1D(
     const double factor) 
 {
     this->inner_product(input_vect, weight_vect, output_vect, basis_x, basis_x, basis_x, adding, factor);
+}
+
+template <int dim, int n_faces>  
+template <typename real>
+void SumFactorizedOperators<dim,n_faces>::inner_product_JxW(
+    const std::vector<real> &input_vect,
+    const std::vector<real> &weight_vect,
+    std::vector<real> &output_vect,
+    const dealii::FullMatrix<double> &basis_x,
+    const dealii::FullMatrix<double> &basis_y,
+    const dealii::FullMatrix<double> &basis_z,
+    const bool adding,
+    const double factor) 
+{
+    //assert that each basis matrix is of size (rows x columns)
+    const unsigned int rows_x    = basis_x.m();
+    const unsigned int rows_y    = basis_y.m();
+    const unsigned int rows_z    = basis_z.m();
+    const unsigned int columns_x = basis_x.n();
+    const unsigned int columns_y = basis_y.n();
+    const unsigned int columns_z = basis_z.n();
+    //Note the assertion has columns to output and rows to input
+    //bc we transpose the basis inputted for the inner product
+    if constexpr (dim == 1){
+        assert(rows_x    == input_vect.size());
+        assert(columns_x == output_vect.size());
+    }
+    if constexpr (dim == 2){
+        assert(rows_x * rows_y       == input_vect.size());
+        assert(columns_x * columns_y == output_vect.size());
+    }
+    if constexpr (dim == 3){
+        assert(rows_x * rows_y * rows_z          == input_vect.size());
+        assert(columns_x * columns_y * columns_z == output_vect.size());
+    }
+    assert(weight_vect.size() == input_vect.size()); 
+
+    dealii::FullMatrix<double> basis_x_trans(columns_x, rows_x);
+    dealii::FullMatrix<double> basis_y_trans(columns_y, rows_y);
+    dealii::FullMatrix<double> basis_z_trans(columns_z, rows_z);
+
+    //set as the transpose as inputed basis
+    //found an issue with Tadd for arbitrary size so I manually do it here.
+    for(unsigned int row=0; row<rows_x; row++){
+        for(unsigned int col=0; col<columns_x; col++){
+            basis_x_trans[col][row] = basis_x[row][col];
+        }
+    }
+    for(unsigned int row=0; row<rows_y; row++){
+        for(unsigned int col=0; col<columns_y; col++){
+            basis_y_trans[col][row] = basis_y[row][col];
+        }
+    }
+    for(unsigned int row=0; row<rows_z; row++){
+        for(unsigned int col=0; col<columns_z; col++){
+            basis_z_trans[col][row] = basis_z[row][col];
+        }
+    }
+
+    std::vector<real> new_input_vect(input_vect.size());
+    for(unsigned int iquad=0; iquad<input_vect.size(); iquad++){
+        new_input_vect[iquad] = input_vect[iquad] * weight_vect[iquad];
+    }
+
+    this->matrix_vector_mult(new_input_vect, output_vect, basis_x_trans, basis_y_trans, basis_z_trans, adding, factor);
+}
+
+template <int dim, int n_faces>  
+template <typename real>
+void SumFactorizedOperators<dim,n_faces>::inner_product_1D_JxW(
+    const std::vector<real> &input_vect,
+    const std::vector<real> &weight_vect,
+    std::vector<real> &output_vect,
+    const dealii::FullMatrix<double> &basis_x,
+    const bool adding,
+    const double factor) 
+{
+    this->inner_product_JxW(input_vect, weight_vect, output_vect, basis_x, basis_x, basis_x, adding, factor);
 }
 
 template <int dim, int n_faces>  
@@ -3287,6 +3391,52 @@ template void SumFactorizedOperators<PHILIP_DIM,2*PHILIP_DIM>::inner_product<Rad
             const bool adding = false,
             const double factor = 1.0);
 
+template void SumFactorizedOperators<PHILIP_DIM,2*PHILIP_DIM>::inner_product_JxW<double>(
+            const std::vector<double> &input_vect,
+            const std::vector<double> &weight_vect,
+            std::vector<double> &output_vect,
+            const dealii::FullMatrix<double> &basis_x,
+            const dealii::FullMatrix<double> &basis_y,
+            const dealii::FullMatrix<double> &basis_z,
+            const bool adding = false,
+            const double factor = 1.0);
+template void SumFactorizedOperators<PHILIP_DIM,2*PHILIP_DIM>::inner_product_JxW<FadType>(
+            const std::vector<FadType> &input_vect,
+            const std::vector<FadType> &weight_vect,
+            std::vector<FadType> &output_vect,
+            const dealii::FullMatrix<double> &basis_x,
+            const dealii::FullMatrix<double> &basis_y,
+            const dealii::FullMatrix<double> &basis_z,
+            const bool adding = false,
+            const double factor = 1.0);
+template void SumFactorizedOperators<PHILIP_DIM,2*PHILIP_DIM>::inner_product_JxW<RadType>(
+            const std::vector<RadType> &input_vect,
+            const std::vector<RadType> &weight_vect,
+            std::vector<RadType> &output_vect,
+            const dealii::FullMatrix<double> &basis_x,
+            const dealii::FullMatrix<double> &basis_y,
+            const dealii::FullMatrix<double> &basis_z,
+            const bool adding = false,
+            const double factor = 1.0);
+template void SumFactorizedOperators<PHILIP_DIM,2*PHILIP_DIM>::inner_product_JxW<FadFadType>(
+            const std::vector<FadFadType> &input_vect,
+            const std::vector<FadFadType> &weight_vect,
+            std::vector<FadFadType> &output_vect,
+            const dealii::FullMatrix<double> &basis_x,
+            const dealii::FullMatrix<double> &basis_y,
+            const dealii::FullMatrix<double> &basis_z,
+            const bool adding = false,
+            const double factor = 1.0);
+template void SumFactorizedOperators<PHILIP_DIM,2*PHILIP_DIM>::inner_product_JxW<RadFadType>(
+            const std::vector<RadFadType> &input_vect,
+            const std::vector<RadFadType> &weight_vect,
+            std::vector<RadFadType> &output_vect,
+            const dealii::FullMatrix<double> &basis_x,
+            const dealii::FullMatrix<double> &basis_y,
+            const dealii::FullMatrix<double> &basis_z,
+            const bool adding = false,
+            const double factor = 1.0);
+
 template void SumFactorizedOperators<PHILIP_DIM,2*PHILIP_DIM>::matrix_vector_mult_1D<double>(
             const std::vector<double> &input_vect,
             std::vector<double> &output_vect,
@@ -3349,6 +3499,42 @@ template void SumFactorizedOperators<PHILIP_DIM,2*PHILIP_DIM>::inner_product_1D<
 template void SumFactorizedOperators<PHILIP_DIM,2*PHILIP_DIM>::inner_product_1D<RadFadType>(
             const std::vector<RadFadType> &input_vect,
             const std::vector<double> &weight_vect,
+            std::vector<RadFadType> &output_vect,
+            const dealii::FullMatrix<double> &basis_x,
+            const bool adding  = false,
+            const double factor = 1.0);
+
+template void SumFactorizedOperators<PHILIP_DIM,2*PHILIP_DIM>::inner_product_1D_JxW<double>(
+            const std::vector<double> &input_vect,
+            const std::vector<double> &weight_vect,
+            std::vector<double> &output_vect,
+            const dealii::FullMatrix<double> &basis_x,
+            const bool adding  = false,
+            const double factor = 1.0);
+template void SumFactorizedOperators<PHILIP_DIM,2*PHILIP_DIM>::inner_product_1D_JxW<FadType>(
+            const std::vector<FadType> &input_vect,
+            const std::vector<FadType> &weight_vect,
+            std::vector<FadType> &output_vect,
+            const dealii::FullMatrix<double> &basis_x,
+            const bool adding  = false,
+            const double factor = 1.0);
+template void SumFactorizedOperators<PHILIP_DIM,2*PHILIP_DIM>::inner_product_1D_JxW<RadType>(
+            const std::vector<RadType> &input_vect,
+            const std::vector<RadType> &weight_vect,
+            std::vector<RadType> &output_vect,
+            const dealii::FullMatrix<double> &basis_x,
+            const bool adding  = false,
+            const double factor = 1.0);
+template void SumFactorizedOperators<PHILIP_DIM,2*PHILIP_DIM>::inner_product_1D_JxW<FadFadType>(
+            const std::vector<FadFadType> &input_vect,
+            const std::vector<FadFadType> &weight_vect,
+            std::vector<FadFadType> &output_vect,
+            const dealii::FullMatrix<double> &basis_x,
+            const bool adding  = false,
+            const double factor = 1.0);
+template void SumFactorizedOperators<PHILIP_DIM,2*PHILIP_DIM>::inner_product_1D_JxW<RadFadType>(
+            const std::vector<RadFadType> &input_vect,
+            const std::vector<RadFadType> &weight_vect,
             std::vector<RadFadType> &output_vect,
             const dealii::FullMatrix<double> &basis_x,
             const bool adding  = false,
@@ -3436,6 +3622,52 @@ template void SumFactorizedOperators<PHILIP_DIM,2*PHILIP_DIM>::inner_product_sur
             const unsigned int face_number,
             const std::vector<RadFadType> &input_vect,
             const std::vector<double> &weight_vect,
+            std::vector<      RadFadType> &output_vect,
+            const std::array<dealii::FullMatrix<double>,2> &basis_surf,//only 2 faces in 1D
+            const dealii::FullMatrix<double> &basis_vol,
+            const bool adding = false,
+            const double factor = 1.0);
+
+template void SumFactorizedOperators<PHILIP_DIM,2*PHILIP_DIM>::inner_product_surface_1D_JxW<double>(
+            const unsigned int face_number,
+            const std::vector<double> &input_vect,
+            const std::vector<double> &weight_vect,
+            std::vector<      double> &output_vect,
+            const std::array<dealii::FullMatrix<double>,2> &basis_surf,//only 2 faces in 1D
+            const dealii::FullMatrix<double> &basis_vol,
+            const bool adding = false,
+            const double factor = 1.0);
+template void SumFactorizedOperators<PHILIP_DIM,2*PHILIP_DIM>::inner_product_surface_1D_JxW<FadType>(
+            const unsigned int face_number,
+            const std::vector<FadType> &input_vect,
+            const std::vector<FadType> &weight_vect,
+            std::vector<      FadType> &output_vect,
+            const std::array<dealii::FullMatrix<double>,2> &basis_surf,//only 2 faces in 1D
+            const dealii::FullMatrix<double> &basis_vol,
+            const bool adding = false,
+            const double factor = 1.0);
+template void SumFactorizedOperators<PHILIP_DIM,2*PHILIP_DIM>::inner_product_surface_1D_JxW<RadType>(
+            const unsigned int face_number,
+            const std::vector<RadType> &input_vect,
+            const std::vector<RadType> &weight_vect,
+            std::vector<      RadType> &output_vect,
+            const std::array<dealii::FullMatrix<double>,2> &basis_surf,//only 2 faces in 1D
+            const dealii::FullMatrix<double> &basis_vol,
+            const bool adding = false,
+            const double factor = 1.0);
+template void SumFactorizedOperators<PHILIP_DIM,2*PHILIP_DIM>::inner_product_surface_1D_JxW<FadFadType>(
+            const unsigned int face_number,
+            const std::vector<FadFadType> &input_vect,
+            const std::vector<FadFadType> &weight_vect,
+            std::vector<      FadFadType> &output_vect,
+            const std::array<dealii::FullMatrix<double>,2> &basis_surf,//only 2 faces in 1D
+            const dealii::FullMatrix<double> &basis_vol,
+            const bool adding = false,
+            const double factor = 1.0);
+template void SumFactorizedOperators<PHILIP_DIM,2*PHILIP_DIM>::inner_product_surface_1D_JxW<RadFadType>(
+            const unsigned int face_number,
+            const std::vector<RadFadType> &input_vect,
+            const std::vector<RadFadType> &weight_vect,
             std::vector<      RadFadType> &output_vect,
             const std::array<dealii::FullMatrix<double>,2> &basis_surf,//only 2 faces in 1D
             const dealii::FullMatrix<double> &basis_vol,
