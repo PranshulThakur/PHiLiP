@@ -1440,7 +1440,6 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_volume_term_strong(
     {
         local_rhs_int_cell[idof] += (-1.0)*vol_term_br2[idof];
     }
-
 }
 
 template <int dim, int nstate, typename real, typename MeshType>
@@ -1960,6 +1959,7 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_boundary_term_strong(
     {
         local_rhs_cell[idof] += (-1.0)*boundary_term_br2[idof];
     }
+
 }
 
 
