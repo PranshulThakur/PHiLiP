@@ -180,27 +180,32 @@ int main (int argc, char * argv[])
     Parameters::AllParameters all_parameters;
     all_parameters.parse_parameters (parameter_handler);
     all_parameters.use_weak_form = false;
+    all_parameters.use_split_form = true;
+    all_parameters.use_curvilinear_split_form = true;
+    all_parameters.conv_num_flux_type = Parameters::AllParameters::ConvectiveNumericalFlux::two_point_flux;
+    //all_parameters.two_point_num_flux_type = Parameters::AllParameters::TwoPointNumericalFlux::KG;
+    all_parameters.two_point_num_flux_type = Parameters::AllParameters::TwoPointNumericalFlux::IR;
     std::vector<PDEType> pde_type {
     //    PDEType::diffusion
-         PDEType::advection
+    //     PDEType::advection
         // , PDEType::convection_diffusion
-        , PDEType::advection_vector
-        , PDEType::euler
-    //    , PDEType::navier_stokes
+    //    , PDEType::advection_vector
+    //    , PDEType::euler
+        PDEType::navier_stokes
 //#if PHILIP_DIM==3
 //        , PDEType::physics_model
 //#endif
     };
     std::vector<std::string> pde_name {
-         " PDEType::diffusion "
-        , " PDEType::advection "
+         //" PDEType::diffusion "
+      //  " PDEType::advection "
         // , " PDEType::convection_diffusion "
-        , " PDEType::advection_vector "
-        , " PDEType::euler "
-        , " PDEType::navier_stokes "
-#if PHILIP_DIM==3
-        , " PDEType::physics_model "
-#endif
+     //   , " PDEType::advection_vector "
+     //   , " PDEType::euler "
+        " PDEType::navier_stokes "
+//#if PHILIP_DIM==3
+//        , " PDEType::physics_model "
+//#endif
     };
 #if PHILIP_DIM==3
     ModelType model = ModelType::large_eddy_simulation
