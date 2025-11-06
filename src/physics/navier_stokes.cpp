@@ -704,12 +704,272 @@ std::array<dealii::Tensor<1,dim,real>,nstate> NavierStokes<dim,nstate,real>
         }
     }
 
+    (void) lambda;
     return viscous_flux;
 }
+
+template <int dim, int nstate, typename real>
+std::array<dealii::Tensor<1,dim,real>,nstate> NavierStokes<dim,nstate,real>
+::apply_d_entropy_var_d_conservative_var(
+    const std::array<dealii::Tensor<1,dim,real>,nstate> & in_vector,
+    const std::array<real,nstate> & entropy_var) const
+{
+    
+    std::array<std::array<real,nstate>,nstate> dVdU;
+    if constexpr(dim==3)
+    {
+        const real v1 = entropy_var[0];
+        const real v2 = entropy_var[1];
+        const real v3 = entropy_var[2];
+        const real v4 = entropy_var[3];
+        const real v5 = entropy_var[4];
+        const real entrops = this->gam - v1 + 0.5*(v2*v2 + v3*v3 + v4*v4)/v5;
+        const real rhoe = pow(this->gamm1/pow(-v5,this->gam),1/this->gamm1)*exp(-entrops/this->gamm1);
+
+
+        const real e1 = v2*v5;
+
+        const real e2 = v3*v5;
+
+        const real e3 = v4*v5;
+
+        const real k1 = 0.5*(v2*v2 + v3*v3 + v4*v4)/v5;
+
+        //const real k2 = k1-this->gam;
+
+        //const real k3 = k1*k1 - 2*this->gam*k1 + this->gam;
+
+        //const real c1 = this->gamm1*v5 - v2*v2;
+        //const real c2 = this->gamm1*v5 - v3*v3;
+        //const real c3 = this->gamm1*v5 - v4*v4;
+
+        const real d1 = -v2*v3;
+        const real d2 = -v2*v4;
+        const real d3 = -v3*v4;
+
+        dVdU[0][0] = k1*k1 + this->gam; dVdU[0][1] = k1*v2; dVdU[0][2] = k1*v3; dVdU[0][3] = k1*v4; dVdU[0][4] = (k1+1)*v5;
+        dVdU[1][1] = v2*v2-v5; dVdU[1][2] = -d1; dVdU[1][3] = -d2; dVdU[1][4] = e1;
+        dVdU[2][2] = v3*v3-v5; dVdU[2][3] = -d3; dVdU[2][4] = e2;
+        dVdU[3][3] = v4*v4-v5; dVdU[3][4] = e3;
+        dVdU[4][4] = v5*v5;
+        const real factor_dVdU =  -1.0/(rhoe*v5);
+
+        for(unsigned int i=0; i<nstate; ++i)
+        {
+            for(unsigned j=0; j<nstate; ++j)
+            {
+                if(i>j)
+                    dVdU[i][j] = dVdU[j][i];
+            }
+        }
+
+        for(unsigned int i=0; i<nstate; ++i)
+        {
+            for(unsigned j=0; j<nstate; ++j)
+            {
+                dVdU[i][j]*=factor_dVdU;
+            }
+        }
+    }
+    else if constexpr(dim==2)
+    {
+        const real v1 = entropy_var[0];
+        const real v2 = entropy_var[1];
+        const real v3 = entropy_var[2];
+        const real v4 = entropy_var[3];
+        const real entrops = this->gam - v1 + 0.5*(v2*v2 + v3*v3)/v4;
+        const real rhoe = pow(this->gamm1/pow(-v4,this->gam),1/this->gamm1)*exp(-entrops/this->gamm1);
+
+
+        const real e1 = v2*v4;
+
+        const real e2 = v3*v4;
+
+        const real k1 = 0.5*(v2*v2 + v3*v3)/v4;
+
+        //const real k2 = k1-this->gam;
+
+        //const real k3 = k1*k1 - 2*this->gam*k1 + this->gam;
+
+        //const real c1 = this->gamm1*v4 - v2*v2;
+        //const real c2 = this->gamm1*v4 - v3*v3;
+
+        const real d1 = -v2*v3;
+
+        dVdU[0][0] = k1*k1 + this->gam; dVdU[0][1] = k1*v2; dVdU[0][2] = k1*v3; dVdU[0][3] = (k1+1)*v4;
+        dVdU[1][1] = v2*v2-v4; dVdU[1][2] = -d1; dVdU[1][3] = e1;
+        dVdU[2][2] = v3*v3-v4; dVdU[2][3] = e2;
+        dVdU[3][3] = v4*v4;
+        const real factor_dVdU =  -1.0/(rhoe*v4);
+        for(unsigned int i=0; i<nstate; ++i)
+        {
+            for(unsigned j=0; j<nstate; ++j)
+            {
+                if(i>j)
+                    dVdU[i][j] = dVdU[j][i];
+            }
+        }
+
+        for(unsigned int i=0; i<nstate; ++i)
+        {
+            for(unsigned j=0; j<nstate; ++j)
+            {
+                dVdU[i][j]*=factor_dVdU;
+            }
+        }
+
+    }
+    else
+    {
+        std::cout<<"Not yet implemented"<<std::endl;
+        std::abort();
+    }
+
+        // Note: Assumes gradient is just the interior gradient. Gradient information is only used for the wall BC above.
+    std::array<dealii::Tensor<1,dim,real>,nstate> out_vector;
+    for(unsigned int i=0; i<nstate; ++i)
+    {
+        for(unsigned int j=0; j<nstate; ++j)
+        {
+            for(unsigned int d=0; d<dim; ++d)
+                out_vector[i][d] += dVdU[i][j]*in_vector[j][d];
+        }
+    }
+    return out_vector;
+}
+
+template <int dim, int nstate, typename real>
+std::array<dealii::Tensor<1,dim,real>,nstate> NavierStokes<dim,nstate,real>
+::apply_d_conservative_var_d_entropy_var(
+    const std::array<dealii::Tensor<1,dim,real>,nstate> & in_vector,
+    const std::array<real,nstate> & entropy_var) const
+{
+    std::array<std::array<real,nstate>,nstate> dUdV;
+    if constexpr(dim==3)
+    {
+        const real v1 = entropy_var[0];
+        const real v2 = entropy_var[1];
+        const real v3 = entropy_var[2];
+        const real v4 = entropy_var[3];
+        const real v5 = entropy_var[4];
+        const real entrops = this->gam - v1 + 0.5*(v2*v2 + v3*v3 + v4*v4)/v5;
+        const real rhoe = pow(this->gamm1/pow(-v5,this->gam),1/this->gamm1)*exp(-entrops/this->gamm1);
+
+
+        const real e1 = v2*v5;
+
+        const real e2 = v3*v5;
+
+        const real e3 = v4*v5;
+
+        const real k1 = 0.5*(v2*v2 + v3*v3 + v4*v4)/v5;
+
+        const real k2 = k1-this->gam;
+
+        const real k3 = k1*k1 - 2*this->gam*k1 + this->gam;
+
+        const real c1 = this->gamm1*v5 - v2*v2;
+        const real c2 = this->gamm1*v5 - v3*v3;
+        const real c3 = this->gamm1*v5 - v4*v4;
+
+        const real d1 = -v2*v3;
+        const real d2 = -v2*v4;
+        const real d3 = -v3*v4;
+
+        dUdV[0][0] = -v5*v5; dUdV[0][1] = e1; dUdV[0][2] = e2; dUdV[0][3] = e3; dUdV[0][4] = v5*(1-k1);
+        dUdV[1][1] = c1; dUdV[1][2] = d1; dUdV[1][3] = d2; dUdV[1][4] = v2*k2;
+        dUdV[2][2] = c2; dUdV[2][3] = d3; dUdV[2][4] = v3*k2;
+        dUdV[3][3] = c3; dUdV[3][4] = v4*k2;
+        dUdV[4][4] = -k3;
+        const real factor_dUdV = rhoe/(this->gamm1*v5);
+
+        for(unsigned int i=0; i<nstate; ++i)
+        {
+            for(unsigned j=0; j<nstate; ++j)
+            {
+                if(i>j)
+                    dUdV[i][j] = dUdV[j][i];
+            }
+        }
+        
+        for(unsigned int i=0; i<nstate; ++i)
+        {
+            for(unsigned j=0; j<nstate; ++j)
+            {
+                dUdV[i][j]*=factor_dUdV;
+            }
+        }
+
+    }
+    else if constexpr(dim==2)
+    {
+        const real v1 = entropy_var[0];
+        const real v2 = entropy_var[1];
+        const real v3 = entropy_var[2];
+        const real v4 = entropy_var[3];
+        const real entrops = this->gam - v1 + 0.5*(v2*v2 + v3*v3)/v4;
+        const real rhoe = pow(this->gamm1/pow(-v4,this->gam),1/this->gamm1)*exp(-entrops/this->gamm1);
+
+
+        const real e1 = v2*v4;
+
+        const real e2 = v3*v4;
+
+        const real k1 = 0.5*(v2*v2 + v3*v3)/v4;
+
+        const real k2 = k1-this->gam;
+
+        const real k3 = k1*k1 - 2*this->gam*k1 + this->gam;
+
+        const real c1 = this->gamm1*v4 - v2*v2;
+        const real c2 = this->gamm1*v4 - v3*v3;
+
+        const real d1 = -v2*v3;
+
+        dUdV[0][0] = -v4*v4; dUdV[0][1] = e1; dUdV[0][2] = e2; dUdV[0][3] = v4*(1-k1);
+        dUdV[1][1] = c1; dUdV[1][2] = d1; dUdV[1][3] = v2*k2;
+        dUdV[2][2] = c2; dUdV[2][3] = v3*k2;
+        dUdV[3][3] = -k3;
+        const real factor_dUdV = rhoe/(this->gamm1*v4);
+        for(unsigned int i=0; i<nstate; ++i)
+        {
+            for(unsigned j=0; j<nstate; ++j)
+            {
+                if(i>j)
+                    dUdV[i][j] = dUdV[j][i];
+            }
+        }
+        for(unsigned int i=0; i<nstate; ++i)
+        {
+            for(unsigned j=0; j<nstate; ++j)
+            {
+                dUdV[i][j]*=factor_dUdV;
+            }
+        }
+    }
+    else
+    {
+        std::cout<<"Not yet implemented"<<std::endl;
+        std::abort();
+    }
+
+    std::array<dealii::Tensor<1,dim,real>,nstate> out_vector;
+    for(unsigned int i=0; i<nstate; ++i)
+    {
+        for(unsigned int j=0; j<nstate; ++j)
+        {
+            for(unsigned int d=0; d<dim; ++d)
+                out_vector[i][d] += dUdV[i][j]*in_vector[j][d];
+        }
+    }
+    return out_vector;
+}
+
     
 template <int dim, int nstate, typename real>
 void NavierStokes<dim,nstate,real>
 ::boundary_face_values_entropy_var(
+    const dealii::Point<dim,real> &pos,
     const std::array<real,nstate> & v_int_at_q, 
     const std::array<dealii::Tensor<1,dim,real>,nstate> &poly_sigma_at_q, 
     const std::array<dealii::Tensor<1,dim,real>,nstate> &grad_entropy_var_int_at_q, 
@@ -743,22 +1003,22 @@ void NavierStokes<dim,nstate,real>
     }
     else
     {
-        // Note: Assumes gradient is just the interior gradient. Gradient information is only used for the wall BC above.
         const std::array<real,nstate> soln_int = this->compute_conservative_variables_from_entropy_variables (v_int_at_q);
+        const std::array<dealii::Tensor<1,dim,real>,nstate> soln_grad_int = apply_d_conservative_var_d_entropy_var(grad_entropy_var_int_at_q, v_int_at_q);
         std::array<real,nstate> soln_bc;
-        dealii::Point<dim, real> pos_dummy;
-        std::array<dealii::Tensor<1,dim,real>,nstate> soln_grad_int_dummy, soln_grad_bc_dummy;
+        std::array<dealii::Tensor<1,dim,real>,nstate> soln_grad_bc;
         this->boundary_face_values (
            boundary_id,
-           pos_dummy,
+           pos,
            unit_phys_normal,
            soln_int,
-           soln_grad_int_dummy,
+           soln_grad_int,
            soln_bc,
-           soln_grad_bc_dummy);
-
+           soln_grad_bc);
+        
         v_bc_at_q = this->compute_entropy_variables(soln_bc);
-        sigma_bc_at_q = dissipative_flux_entropy_based (v_bc_at_q, grad_entropy_var_int_at_q);
+        std::array<dealii::Tensor<1,dim,real>,nstate> grad_entropyvar_bc = apply_d_entropy_var_d_conservative_var(soln_grad_bc,v_bc_at_q);
+        sigma_bc_at_q = dissipative_flux_entropy_based (v_bc_at_q, grad_entropyvar_bc);
     }
 }
 

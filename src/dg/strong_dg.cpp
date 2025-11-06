@@ -1079,7 +1079,8 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_volume_term_strong(
     std::array<std::vector<adtype>,nstate> entropy_var_at_q;
     std::array<std::vector<adtype>,nstate> projected_entropy_var_at_q;
     std::array<std::vector<adtype>,nstate> entropy_var_coeffs;
-    if (this->all_parameters->use_split_form || this->all_parameters->use_curvilinear_split_form){
+    if(true){
+    //if (this->all_parameters->use_split_form || this->all_parameters->use_curvilinear_split_form){
         for(int istate=0; istate<nstate; istate++){
             entropy_var_at_q[istate].resize(n_quad_pts);
             projected_entropy_var_at_q[istate].resize(n_quad_pts);
@@ -1434,11 +1435,12 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_volume_term_strong(
     metric_oper,
     pde_physics,
     vol_term_br2);
-
+    
     for(unsigned int idof = 0; idof<n_dofs_cell; ++idof)
     {
         local_rhs_int_cell[idof] += (-1.0)*vol_term_br2[idof];
     }
+
 }
 
 template <int dim, int nstate, typename real, typename MeshType>
@@ -2815,6 +2817,7 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_face_term_strong(
     {
         local_rhs_ext_cell[idof] += (-1.0)*face_term_br2_ext[idof];
     }
+
 }
 
 /*******************************************************
@@ -3456,11 +3459,16 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_boundary_term_entropystable_br
             }
             v_int_at_q[s] = entropy_var_at_surf_quads[s][q];
         }
+        dealii::Point<dim,adtype> surf_flux_node;
+        for(int idim=0; idim<dim; idim++){
+            surf_flux_node[idim] = metric_oper.flux_nodes_surf[iface][idim][q];
+        }
         
         std::array<adtype,nstate> v_bc_at_q;
         std::array<dealii::Tensor<1,dim,adtype>,nstate> sigma_bc_at_q;
 
-        pde_physics.boundary_face_values_entropy_var(v_int_at_q, 
+        pde_physics.boundary_face_values_entropy_var(surf_flux_node,
+                                                     v_int_at_q, 
                                                      poly_sigma_at_q, 
                                                      entropy_var_phys_grad_face_q, 
                                                      v_bc_at_q, 
