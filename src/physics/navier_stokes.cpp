@@ -1022,6 +1022,27 @@ void NavierStokes<dim,nstate,real>
     {
         const std::array<real,nstate> soln_int = this->compute_conservative_variables_from_entropy_variables (v_int_at_q);
         const std::array<dealii::Tensor<1,dim,real>,nstate> soln_grad_int = apply_d_conservative_var_d_entropy_var(grad_entropy_var_int_at_q, v_int_at_q);
+        /*
+        //=============================================================================
+        // Test flux
+        std::array<dealii::Tensor<1,dim,real>,nstate> expected_dissipative_flux = dissipative_flux(soln_int, soln_grad_int);
+        real errorval = 0.0;
+        sigma_bc_at_q = dissipative_flux_entropy_based (v_int_at_q, grad_entropy_var_int_at_q);    
+        for(unsigned int s=0; s<nstate; ++s)
+        {
+            for(unsigned int d=0; d<dim; ++d)
+            {
+                errorval += pow((sigma_bc_at_q[s][d] - (-expected_dissipative_flux[s][d])),2);
+            }
+        }
+        errorval = sqrt(errorval);
+        if(errorval > 1.0e-10)
+        {
+            std::cout<<"High errorval = "<<errorval<<" . Aborting.."<<std::endl;
+            std::abort();
+        }
+        //==============================================================================
+        */
         std::array<real,nstate> soln_bc;
         std::array<dealii::Tensor<1,dim,real>,nstate> soln_grad_bc;
         this->boundary_face_values (
@@ -1035,24 +1056,7 @@ void NavierStokes<dim,nstate,real>
         
         v_bc_at_q = this->compute_entropy_variables(soln_bc);
         std::array<dealii::Tensor<1,dim,real>,nstate> grad_entropyvar_bc = apply_d_entropy_var_d_conservative_var(soln_grad_bc,v_bc_at_q);
-        sigma_bc_at_q = dissipative_flux_entropy_based (v_bc_at_q, grad_entropyvar_bc);
-        /*
-        std::array<dealii::Tensor<1,dim,real>,nstate> expected_dissipative_flux = dissipative_flux(soln_bc, soln_grad_bc);
-        real errorval = 0.0;
-        for(unsigned int s=0; s<nstate; ++s)
-        {
-            for(unsigned int d=0; d<dim; ++d)
-            {
-                errorval += pow((sigma_bc_at_q[s][d] - expected_dissipative_flux[s][d]),2);
-            }
-        }
-        errorval = sqrt(errorval);
-        if(errorval > 1.0e-5)
-        {
-            std::cout<<"High errorval = "<<errorval<<" . Aborting.."<<std::endl;
-            std::abort();
-        }
-        */
+        sigma_bc_at_q = dissipative_flux_entropy_based (v_bc_at_q, grad_entropyvar_bc);    
     }
 }
 

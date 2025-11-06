@@ -14,8 +14,6 @@ void ImplicitODESolver<dim,real,MeshType>::step_in_time (real dt, const bool pse
 {
     const bool compute_dRdW = true;
     this->dg->assemble_residual(compute_dRdW);
-    std::cout<<"Frobenius norm = "<<this->dg->system_matrix.frobenius_norm()<<std::endl;
-    std::cout<<"linfinity norm = "<<this->dg->system_matrix.linfty_norm()<<std::endl;
     this->current_time += dt;
     // Solve (M/dt - dRdW) dw = R
     // w = w + dw
