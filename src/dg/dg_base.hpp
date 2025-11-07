@@ -449,6 +449,9 @@ public:
      */
     dealii::Vector<double> cell_volume;
 
+    bool compute_only_convective_residual = false;
+    bool compute_only_dissipative_residual = false;
+
     /// Time it takes for the maximum wavespeed to cross the cell domain.
     /** Uses evaluate_CFL() which would be defined in the subclasses.
      *  This is because DGBase isn't templated on nstate and therefore, can't use
