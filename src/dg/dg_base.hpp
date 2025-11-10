@@ -451,6 +451,7 @@ public:
 
     bool compute_only_convective_residual = false;
     bool compute_only_dissipative_residual = false;
+    bool check_same_coords_strongdg = true;
 
     /// Time it takes for the maximum wavespeed to cross the cell domain.
     /** Uses evaluate_CFL() which would be defined in the subclasses.

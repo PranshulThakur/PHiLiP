@@ -381,8 +381,7 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_face_term_and_build_operators_
             mapping_basis,
             this->all_parameters->use_invariant_curl_form);
 
-        const bool check_same_coords = true;
-        if(check_same_coords)
+        if(this->check_same_coords_strongdg)
         {
             check_same_coords_face_strong(mapping_support_points, mapping_support_points_neigh, mapping_basis, iface, neighbor_iface, poly_degree_int);
         }
@@ -1435,10 +1434,24 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_volume_term_strong(
     metric_oper,
     pde_physics,
     vol_term_br2);
-    
-    for(unsigned int idof = 0; idof<n_dofs_cell; ++idof)
+
+    if(this->compute_only_convective_residual)
     {
-        local_rhs_int_cell[idof] += (-1.0)*vol_term_br2[idof];
+        //Already computed
+    }
+    else if(this->compute_only_dissipative_residual)
+    {
+        for(unsigned int idof = 0; idof<n_dofs_cell; ++idof)
+        {
+            local_rhs_int_cell[idof] = (-1.0)*vol_term_br2[idof];
+        }
+    }
+    else
+    { 
+        for(unsigned int idof = 0; idof<n_dofs_cell; ++idof)
+        {
+            local_rhs_int_cell[idof] += (-1.0)*vol_term_br2[idof];
+        }
     }
 }
 
@@ -1954,10 +1967,24 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_boundary_term_strong(
     JxW_face,
     pde_physics,
     boundary_term_br2);
-
-    for(unsigned int idof=0; idof<n_dofs; ++idof)
+    
+    if(this->compute_only_convective_residual)
     {
-        local_rhs_cell[idof] += (-1.0)*boundary_term_br2[idof];
+        //Already computed
+    }
+    else if(this->compute_only_dissipative_residual)
+    {
+        for(unsigned int idof = 0; idof<n_dofs; ++idof)
+        {
+            local_rhs_cell[idof] = (-1.0)*boundary_term_br2[idof];
+        }
+    }
+    else
+    { 
+        for(unsigned int idof = 0; idof<n_dofs; ++idof)
+        {
+            local_rhs_cell[idof] += (-1.0)*boundary_term_br2[idof];
+        }
     }
 
 }
@@ -2809,15 +2836,32 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_face_term_strong(
     face_term_br2_int,
     face_term_br2_ext);
 
-    for(unsigned int idof = 0; idof<n_dofs_int; ++idof)
+    if(this->compute_only_convective_residual)
     {
-        local_rhs_int_cell[idof] += (-1.0)*face_term_br2_int[idof];
+        //Already computed
     }
-    for(unsigned int idof = 0; idof<n_dofs_ext; ++idof)
+    else if(this->compute_only_dissipative_residual)
     {
-        local_rhs_ext_cell[idof] += (-1.0)*face_term_br2_ext[idof];
+        for(unsigned int idof = 0; idof<n_dofs_int; ++idof)
+        {
+            local_rhs_int_cell[idof] = (-1.0)*face_term_br2_int[idof];
+        }
+        for(unsigned int idof = 0; idof<n_dofs_ext; ++idof)
+        {
+            local_rhs_ext_cell[idof] = (-1.0)*face_term_br2_ext[idof];
+        }
     }
-
+    else
+    { 
+        for(unsigned int idof = 0; idof<n_dofs_int; ++idof)
+        {
+            local_rhs_int_cell[idof] += (-1.0)*face_term_br2_int[idof];
+        }
+        for(unsigned int idof = 0; idof<n_dofs_ext; ++idof)
+        {
+            local_rhs_ext_cell[idof] += (-1.0)*face_term_br2_ext[idof];
+        }
+    }
 }
 
 /*******************************************************
