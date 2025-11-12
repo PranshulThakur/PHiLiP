@@ -184,8 +184,9 @@ int main (int argc, char * argv[])
     all_parameters.use_curvilinear_split_form = true;
     all_parameters.conv_num_flux_type = Parameters::AllParameters::ConvectiveNumericalFlux::two_point_flux;
     //all_parameters.conv_num_flux_type = Parameters::AllParameters::ConvectiveNumericalFlux::l2roe;
-    all_parameters.two_point_num_flux_type = Parameters::AllParameters::TwoPointNumericalFlux::KG;
+    //all_parameters.two_point_num_flux_type = Parameters::AllParameters::TwoPointNumericalFlux::KG;
     //all_parameters.two_point_num_flux_type = Parameters::AllParameters::TwoPointNumericalFlux::IR;
+    all_parameters.two_point_num_flux_type = Parameters::AllParameters::TwoPointNumericalFlux::CH;
     std::vector<PDEType> pde_type {
     //    PDEType::diffusion
     //     PDEType::advection

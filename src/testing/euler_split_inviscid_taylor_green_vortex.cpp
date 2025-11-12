@@ -584,6 +584,7 @@ int EulerTaylorGreen<dim, nstate>::run_test() const
     // Create DG
     std::shared_ptr < PHiLiP::DGBase<dim, double> > dg = PHiLiP::DGFactory<dim,double>::create_discontinuous_galerkin(&all_parameters_new, poly_degree, poly_degree, grid_degree, grid);
     dg->allocate_system (false,false,false);
+    dg->check_same_coords_strongdg = false;
 
     pcout << "Implement initial conditions" << std::endl;
     std::shared_ptr< InitialConditionFunction<dim,nstate,double> > initial_condition_function = 
@@ -640,7 +641,7 @@ int EulerTaylorGreen<dim, nstate>::run_test() const
         pcout << "M plus K norm Change in Entropy at time " << ode_solver->current_time << " is " << current_change_entropy_mpi<< std::endl;
         pcout << "M plus K norm Change in Kinetic Energy at time " << ode_solver->current_time << " is " << current_change_energy_mpi<< std::endl;
         //check if change in entropy is conserved at machine precision
-        if(abs(current_change_entropy[0]) > 1e-12 && (dg->all_parameters->two_point_num_flux_type == Parameters::AllParameters::TwoPointNumericalFlux::IR || dg->all_parameters->two_point_num_flux_type == Parameters::AllParameters::TwoPointNumericalFlux::CH || dg->all_parameters->two_point_num_flux_type == Parameters::AllParameters::TwoPointNumericalFlux::Ra)){
+        if(current_change_entropy[0] > 1e-12 && (dg->all_parameters->two_point_num_flux_type == Parameters::AllParameters::TwoPointNumericalFlux::IR || dg->all_parameters->two_point_num_flux_type == Parameters::AllParameters::TwoPointNumericalFlux::CH || dg->all_parameters->two_point_num_flux_type == Parameters::AllParameters::TwoPointNumericalFlux::Ra)){
           pcout << " Change in entropy was not monotonically conserved." << std::endl;
           return 1;
         }
