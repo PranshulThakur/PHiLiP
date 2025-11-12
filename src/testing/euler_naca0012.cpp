@@ -40,7 +40,7 @@ int EulerNACA0012<dim,nstate>
 }
 
 
-#if PHILIP_DIM==2
+#if PHILIP_DIM!=1
     template class EulerNACA0012 <PHILIP_DIM,PHILIP_DIM+2>;
 #endif
 
