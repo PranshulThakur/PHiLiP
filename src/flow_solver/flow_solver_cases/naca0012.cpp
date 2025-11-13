@@ -9,13 +9,14 @@
 #include <deal.II/grid/grid_tools.h>
 #include <deal.II/numerics/vector_tools.h>
 #include <stdlib.h>
-
+#include <deal.II/grid/grid_out.h>
 #include <iostream>
 
 #include "dg/dg_base.hpp"
 #include "functional/lift_drag.hpp"
 #include "mesh/gmsh_reader.hpp"
 #include "mesh/grids/naca_airfoil_grid.hpp"
+#include "mesh/grids/cylinder_channel.h"
 #include "physics/physics_factory.h"
 
 namespace PHiLiP {
@@ -52,6 +53,7 @@ void NACA0012<dim,nstate>::display_additional_flow_case_specific_parameters() co
 template <int dim, int nstate>
 std::shared_ptr<Triangulation> NACA0012<dim,nstate>::generate_grid() const
 {
+/*
     //Dummy triangulation
     if constexpr(dim==2) {
         std::shared_ptr<Triangulation> grid = std::make_shared<Triangulation>(
@@ -70,13 +72,37 @@ std::shared_ptr<Triangulation> NACA0012<dim,nstate>::generate_grid() const
         std::shared_ptr<HighOrderGrid<dim,double>> naca0012_mesh = read_gmsh<dim, dim> (mesh_filename, this->all_param.do_renumber_dofs, 0, use_mesh_smoothing);
         return naca0012_mesh->triangulation;
     }
-    
+*/  
     // TO DO: Avoid reading the mesh twice (here and in set_high_order_grid -- need a default dummy triangulation)
+        std::cout<<"Generating grid"<<std::endl;
+        std::shared_ptr <Triangulation> grid = std::make_shared<Triangulation>(
+        this->mpi_communicator,
+        typename dealii::Triangulation<dim>::MeshSmoothing(
+            dealii::Triangulation<dim>::smoothing_on_refinement |
+            dealii::Triangulation<dim>::smoothing_on_coarsening));
+        const unsigned int number_of_refinements = this->all_param.flow_solver_param.number_of_mesh_refinements;
+        const unsigned int length_left = 20;
+        const unsigned int length_right = 42;
+        const unsigned int height_bottom = 31;
+        const unsigned int height_top = 31;
+        const unsigned int depth  = 2;
+        
+    Grids::cylindrical_channel<dim>(
+        *grid,
+        length_left,
+        length_right,
+        height_bottom,
+        height_top,
+        depth,
+        number_of_refinements);
+        std::cout<<"Done generating grid"<<std::endl;
+        return grid;
 }
 
 template <int dim, int nstate>
 void NACA0012<dim,nstate>::set_higher_order_grid(std::shared_ptr<DGBase<dim, double>> dg) const
-{
+{ (void) dg;
+/*
     const std::string mesh_filename = this->all_param.flow_solver_param.input_mesh_filename+std::string(".msh");
     const bool use_mesh_smoothing = false;
     std::shared_ptr<HighOrderGrid<dim,double>> naca0012_mesh = read_gmsh<dim, dim> (mesh_filename, this->all_param.do_renumber_dofs, 0, use_mesh_smoothing);
@@ -84,6 +110,7 @@ void NACA0012<dim,nstate>::set_higher_order_grid(std::shared_ptr<DGBase<dim, dou
     for (int i=0; i<this->all_param.flow_solver_param.number_of_mesh_refinements; ++i) {
         dg->high_order_grid->refine_global();
     }
+*/
 }
 
 template <int dim, int nstate>

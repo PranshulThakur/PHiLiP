@@ -12,30 +12,29 @@ namespace Grids {
 template<int dim>
 void cylindrical_channel(
     dealii::parallel::distributed::Triangulation<dim> &grid,
-    const std::vector<unsigned int> n_subdivisions,
-    const double channel_length,
-    const double channel_heigh,
-    const double bump_height);
-void uniform_channel_with_cylinder(
-    dealii::Triangulation<3>                &tria,
-    const std::vector<unsigned int> &lengths_and_heights,
-    const double                     depth,
-    unsigned int                     depth_division,
-    const double                     shell_region_radius,
-    const unsigned int               n_shells,
-    const double                     skewness,
-    const bool                       use_transfinite_region,
-    const bool                       colorize);
-void uniform_channel_with_cylinder(
-    dealii::Triangulation<2>                &tria,
-    const std::vector<unsigned int> &lengths_and_heights,
-    const double,
-    unsigned int,
-    const double       shell_region_radius,
-    const unsigned int n_shells,
-    const double       skewness,
-    const bool         use_transfinite_region,
-    const bool         colorize);
+    const unsigned int left_length,
+    const unsigned int right_length,
+    const unsigned int height_bottom,
+    const unsigned int height_top,
+    const unsigned int depth,
+    const unsigned int n_refinements);
 
+template <int dim>
+void dealiiuniform_channel_with_cylinder(
+    dealii::Triangulation<dim>                &tria,
+    const std::vector<unsigned int> &lengths_and_heights,
+    const double                     depth = 1,
+    unsigned int                     depth_division = 1,
+    const double                     shell_region_radius = 0.75,
+    const unsigned int               n_shells = 2,
+    const double                     skewness = 2.0,
+    const bool                       use_transfinite_region = false,
+    const bool                       colorize = true);
+    
+    template <int dim>
+    double
+    minimal_vertex_distance(const dealii::Triangulation<dim> &triangulation);
+
+}
 }
 #endif

@@ -4,12 +4,12 @@
 set test_type = euler_naca0012
 
 # Number of dimensions
-set dimension = 2
+set dimension = 3
 
 # The PDE we want to solve. Choices are
 # <advection|diffusion|convection_diffusion>.
-set pde_type  = euler
-
+set pde_type  = navier_stokes
+set use_weak_form = false
 #set conv_num_flux = lax_friedrichs #roe
 set conv_num_flux = roe
 
@@ -20,7 +20,7 @@ set conv_num_flux = roe
 set overintegration = 0
 
 #set sipg_penalty_factor = 20
-set output_face_results_vtk = true
+#set output_face_results_vtk = true
 
 subsection euler
   set reference_length = 1.0
@@ -108,6 +108,7 @@ subsection flow_solver
   set steady_state_polynomial_ramping = true
   subsection grid
     set input_mesh_filename = ../../../meshes/naca0012_hopw_ref2
+    set number_of_mesh_refinements = 2
   end
 end
 

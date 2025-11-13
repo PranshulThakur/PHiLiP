@@ -22,7 +22,7 @@ int EulerNACA0012<dim,nstate>
 ::run_test () const
 {
     Parameters::AllParameters param = *(TestsBase::all_parameters);
-
+/*
     const unsigned int p_start             = param.manufactured_convergence_study_param.degree_start;
     const unsigned int p_end               = param.manufactured_convergence_study_param.degree_end;
     const unsigned int n_grids_input       = param.manufactured_convergence_study_param.number_of_grids;
@@ -36,6 +36,9 @@ int EulerNACA0012<dim,nstate>
             flow_solver->run();
         }
     }
+*/
+    std::unique_ptr<FlowSolver::FlowSolver<dim,nstate>> flow_solver = FlowSolver::FlowSolverFactory<dim,nstate>::select_flow_case(&param, parameter_handler);
+    flow_solver->run();
     return 0;
 }
 

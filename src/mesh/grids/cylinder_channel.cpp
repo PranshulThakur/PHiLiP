@@ -5,67 +5,56 @@
 
 namespace PHiLiP {
 namespace Grids {
-  void uniform_channel_with_cylinder(
-    dealii::Triangulation<3>                &tria,
-    const std::vector<unsigned int> &lengths_and_heights,
-    const double                     depth,
-    unsigned int                     depth_division,
-    const double                     shell_region_radius,
-    const unsigned int               n_shells,
-    const double                     skewness,
-    const bool                       use_transfinite_region,
-    const bool                       colorize)
-  {
-    using namespace dealii;
-    dealii::Triangulation<2> tria_2;
-    uniform_channel_with_cylinder(tria_2,
-                                  lengths_and_heights,
-                                  depth,
-                                  depth_division,
-                                  shell_region_radius,
-                                  n_shells,
-                                  skewness,
-                                  use_transfinite_region,
-                                  colorize);
 
+template<int dim>
+void cylindrical_channel(
+    dealii::parallel::distributed::Triangulation<dim> &grid,
+    const unsigned int left_length,
+    const unsigned int right_length,
+    const unsigned int height_bottom,
+    const unsigned int height_top,
+    const unsigned int depth,
+    const unsigned int n_refinements)
+{
 
-    // extrude to 3d
-    extrude_triangulation(tria_2, depth_division, depth, tria, true);
+    dealii::Triangulation<dim> grid_serial;
 
+    std::vector<unsigned int> lengths_and_heights(4);
+    lengths_and_heights[0] = left_length;
+    lengths_and_heights[1] = right_length;
+    lengths_and_heights[2] = height_bottom;
+    lengths_and_heights[3] = height_top;
 
-    // set up the new 3d manifolds
-    const types::manifold_id      cylindrical_manifold_id = 0;
-    const types::manifold_id      tfi_manifold_id         = 1;
-    const dealii::PolarManifold<2> *const m_ptr =
-      dynamic_cast<const dealii::PolarManifold<2> *>(
-        &tria_2.get_manifold(cylindrical_manifold_id));
-    Assert(m_ptr != nullptr, dealii::ExcInternalError());
-    const dealii::Point<3>     axial_point(m_ptr->get_center()[0],
-                               m_ptr->get_center()[1],
-                               0.0);
-    const dealii::Tensor<1, 3> direction{{0.0, 0.0, 1.0}};
+    dealiiuniform_channel_with_cylinder(grid_serial, lengths_and_heights, depth);
 
+    grid.copy_triangulation(grid_serial);
 
-    tria.set_manifold(cylindrical_manifold_id, FlatManifold<3>());
-    tria.set_manifold(tfi_manifold_id, FlatManifold<3>());
-    const dealii::CylindricalManifold<3> cylindrical_manifold(direction, axial_point);
+    // Set boundary ids
+    const unsigned int boundary_id_wall = 1001;
+    const unsigned int boundary_id_convective = 1010;
+    const unsigned int boundary_id_ns_characteristic = 1011;
+    
+    for (typename dealii::parallel::distributed::Triangulation<dim>::active_cell_iterator cell = grid.begin_active(); cell != grid.end(); ++cell) {
+        for (unsigned int face=0; face<dealii::GeometryInfo<dim>::faces_per_cell; ++face) {
+            if (cell->face(face)->at_boundary()) {
+                unsigned int current_id = cell->face(face)->boundary_id();
+                if (current_id == 0 || current_id == 3 || current_id == 4) cell->face(face)->set_boundary_id (boundary_id_convective); // left, top and bottom
+                if (current_id == 2) cell->face(face)->set_boundary_id (boundary_id_wall); // Cylindrical wall
+                if (current_id == 1) cell->face(face)->set_boundary_id (boundary_id_ns_characteristic); // right
+            }
+        }
+    }
+    if constexpr(dim==3)
+    {
+        std::vector<dealii::GridTools::PeriodicFacePair<typename dealii::Triangulation<dim>::cell_iterator> > matched_pairs;
+        dealii::GridTools::collect_periodic_faces(grid,5,6,2,matched_pairs);
+        grid.add_periodicity(matched_pairs);
+    }
+    grid.refine_global(n_refinements);
+}
 
-
-    tria.set_manifold(cylindrical_manifold_id, cylindrical_manifold);
-
-
-    if (use_transfinite_region)
-      {
-        dealii::TransfiniteInterpolationManifold<3> inner_manifold;
-        inner_manifold.initialize(tria);
-        tria.set_manifold(tfi_manifold_id, inner_manifold);
-      }
-
-
-    // From extrude_triangulation: since the maximum boundary id of tria_2 was
-    // 4, the front boundary id is 4 and the back is 5. They remain unchanged.
-  }
-void uniform_channel_with_cylinder(
+template <>
+void dealiiuniform_channel_with_cylinder<2>(
     dealii::Triangulation<2>                &tria,
     const std::vector<unsigned int> &lengths_and_heights,
     const double,
@@ -76,7 +65,6 @@ void uniform_channel_with_cylinder(
     const bool         use_transfinite_region,
     const bool         colorize)
   {
-    using namespace dealii;
     const dealii::types::manifold_id polar_manifold_id = 0;
     const dealii::types::manifold_id tfi_manifold_id   = 1;
 
@@ -108,8 +96,8 @@ void uniform_channel_with_cylinder(
     dealii::GridGenerator::subdivided_hyper_rectangle(
       bulk_tria,
       {(length_repetitions), height_repetitions},
-      Point<2>(-double(length_pre), -double(height_below)),
-      Point<2>(double(length_post), double(height_above)));
+      dealii::Point<2>(-double(length_pre), -double(height_below)),
+      dealii::Point<2>(double(length_post), double(height_above)));
 
 
     // bulk_tria now looks like this:
@@ -131,7 +119,7 @@ void uniform_channel_with_cylinder(
     std::set<dealii::Triangulation<2>::active_cell_iterator> cells_to_remove;
     for (const auto &cell : bulk_tria.active_cell_iterators())
       {
-        if ((cell->center() - Point<2>(0., 0.)).norm() < 1.1 * box_radius)
+        if ((cell->center() - dealii::Point<2>(0., 0.)).norm() < 1.1 * box_radius)
           cells_to_remove.insert(cell);
       }
 
@@ -154,7 +142,7 @@ void uniform_channel_with_cylinder(
     for (const auto &cell : cylinder_tria.active_cell_iterators())
       {
         cell->set_manifold_id(tfi_manifold_id);
-        for (const unsigned int face_n : GeometryInfo<2>::face_indices())
+        for (const unsigned int face_n : dealii::GeometryInfo<2>::face_indices())
           if (!cell->face(face_n)->at_boundary())
             cell->face(face_n)->set_manifold_id(tfi_manifold_id);
       }
@@ -169,7 +157,7 @@ void uniform_channel_with_cylinder(
                           "there must be at least one shell."));
         dealii::Triangulation<2> shell_tria;
         dealii::GridGenerator::concentric_hyper_shells(shell_tria,
-                                               Point<2>(),
+                                               dealii::Point<2>(),
                                                radius,
                                                shell_region_radius,
                                                n_shells,
@@ -180,8 +168,8 @@ void uniform_channel_with_cylinder(
         // Make the tolerance as large as possible since these cells can
         // be quite close together
         const double vertex_tolerance =
-          std::min(dealii::minimial_vertex_distance(shell_tria),
-                   dealii::minimial_vertex_distance(cylinder_tria)) *
+          std::min(minimal_vertex_distance(shell_tria),
+                   minimal_vertex_distance(cylinder_tria)) *
           0.5;
 
 
@@ -196,8 +184,8 @@ void uniform_channel_with_cylinder(
     // Compute the tolerance again, since the shells may be very close to
     // each-other:
     const double vertex_tolerance =
-      std::min(dealii::minimial_vertex_distance(tria_without_cylinder),
-               dealii::minimial_vertex_distance(cylinder_tria)) /
+      std::min(minimal_vertex_distance(tria_without_cylinder),
+               minimal_vertex_distance(cylinder_tria)) /
       10;
 
 
@@ -219,17 +207,17 @@ void uniform_channel_with_cylinder(
     for (const auto &cell : tria.active_cell_iterators())
       if (cell->manifold_id() != polar_manifold_id &&
           cell->manifold_id() != tfi_manifold_id)
-        cell->set_all_manifold_ids(numbers::flat_manifold_id);
+        cell->set_all_manifold_ids(dealii::numbers::flat_manifold_id);
 
 
     // attach manifolds
-    dealii::PolarManifold<2> polar_manifold(Point<2>(0., 0.));
+    dealii::PolarManifold<2> polar_manifold(dealii::Point<2>(0., 0.));
     tria.set_manifold(polar_manifold_id, polar_manifold);
 
 
     if (use_transfinite_region)
       {
-        tria.set_manifold(tfi_manifold_id, FlatManifold<2>());
+        tria.set_manifold(tfi_manifold_id, dealii::FlatManifold<2>());
         dealii::TransfiniteInterpolationManifold<2> inner_manifold;
         inner_manifold.initialize(tria);
         tria.set_manifold(tfi_manifold_id, inner_manifold);
@@ -262,52 +250,102 @@ void uniform_channel_with_cylinder(
           }
   }
 
+template <>
+  void dealiiuniform_channel_with_cylinder<3>(
+    dealii::Triangulation<3>                &tria,
+    const std::vector<unsigned int> &lengths_and_heights,
+    const double                     depth,
+    unsigned int                     depth_division,
+    const double                     shell_region_radius,
+    const unsigned int               n_shells,
+    const double                     skewness,
+    const bool                       use_transfinite_region,
+    const bool                       colorize)
+  {
+    dealii::Triangulation<2> tria_2;
+    dealiiuniform_channel_with_cylinder(tria_2,
+                                  lengths_and_heights,
+                                  depth,
+                                  depth_division,
+                                  shell_region_radius,
+                                  n_shells,
+                                  skewness,
+                                  use_transfinite_region,
+                                  colorize);
+
+
+    // extrude to 3d
+    dealii::GridGenerator::extrude_triangulation(tria_2, depth_division, depth, tria, true);
+
+
+    // set up the new 3d manifolds
+    const dealii::types::manifold_id      cylindrical_manifold_id = 0;
+    const dealii::types::manifold_id      tfi_manifold_id         = 1;
+    const dealii::PolarManifold<2> *const m_ptr =
+      dynamic_cast<const dealii::PolarManifold<2> *>(
+        &tria_2.get_manifold(cylindrical_manifold_id));
+    Assert(m_ptr != nullptr, dealii::ExcInternalError());
+    const dealii::Point<3>     axial_point(m_ptr->center[0],
+                               m_ptr->center[1],
+                               0.0);
+    const dealii::Tensor<1, 3> direction{{0.0, 0.0, 1.0}};
+
+
+    tria.set_manifold(cylindrical_manifold_id, dealii::FlatManifold<3>());
+    tria.set_manifold(tfi_manifold_id, dealii::FlatManifold<3>());
+    const dealii::CylindricalManifold<3> cylindrical_manifold(direction, axial_point);
+
+
+    tria.set_manifold(cylindrical_manifold_id, cylindrical_manifold);
+
+
+    if (use_transfinite_region)
+      {
+        dealii::TransfiniteInterpolationManifold<3> inner_manifold;
+        inner_manifold.initialize(tria);
+        tria.set_manifold(tfi_manifold_id, inner_manifold);
+      }
+
+
+    // From extrude_triangulation: since the maximum boundary id of tria_2 was
+    // 4, the front boundary id is 4 and the back is 5. They remain unchanged.
+  }
+
+    template <int dim>
+    double
+    minimal_vertex_distance(const dealii::Triangulation<dim> &triangulation)
+    {
+      double length = std::numeric_limits<double>::max();
+      for (const auto &cell : triangulation.active_cell_iterators())
+        for (unsigned int n = 0; n < dealii::GeometryInfo<dim>::lines_per_cell; ++n)
+          length = std::min(length, cell->line(n)->diameter());
+      return length;
+    }
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+#if PHILIP_DIM != 1
+template void cylindrical_channel<PHILIP_DIM>(
+    dealii::parallel::distributed::Triangulation<PHILIP_DIM> &grid,
+    const unsigned int left_length,
+    const unsigned int right_length,
+    const unsigned int height_bottom,
+    const unsigned int height_top,
+    const unsigned int depth,
+    const unsigned int n_refinements);
+template void dealiiuniform_channel_with_cylinder<PHILIP_DIM>(
+    dealii::Triangulation<PHILIP_DIM>                &tria,
+    const std::vector<unsigned int> &lengths_and_heights,
+    const double                     depth = 1,
+    unsigned int                     depth_division = 1,
+    const double                     shell_region_radius = 0.75,
+    const unsigned int               n_shells = 2,
+    const double                     skewness = 2.0,
+    const bool                       use_transfinite_region = false,
+    const bool                       colorize = true);
+    
+template double  minimal_vertex_distance<PHILIP_DIM>(const dealii::Triangulation<PHILIP_DIM> &triangulation);
+#endif
 
 }
 }
