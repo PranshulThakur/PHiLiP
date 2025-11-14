@@ -31,16 +31,15 @@ void cylindrical_channel(
 
     // Set boundary ids
     const unsigned int boundary_id_wall = 1001;
-    const unsigned int boundary_id_convective = 1010;
-    const unsigned int boundary_id_ns_characteristic = 1011;
+    const unsigned int boundary_id_reimann = 1004;
     
     for (typename dealii::parallel::distributed::Triangulation<dim>::active_cell_iterator cell = grid.begin_active(); cell != grid.end(); ++cell) {
         for (unsigned int face=0; face<dealii::GeometryInfo<dim>::faces_per_cell; ++face) {
             if (cell->face(face)->at_boundary()) {
                 unsigned int current_id = cell->face(face)->boundary_id();
-                if (current_id == 0 || current_id == 3 || current_id == 4) cell->face(face)->set_boundary_id (boundary_id_convective); // left, top and bottom
+                if (current_id == 0 || current_id == 3 || current_id == 4) cell->face(face)->set_boundary_id (boundary_id_reimann); // left, top and bottom
                 if (current_id == 2) cell->face(face)->set_boundary_id (boundary_id_wall); // Cylindrical wall
-                if (current_id == 1) cell->face(face)->set_boundary_id (boundary_id_ns_characteristic); // right
+                if (current_id == 1) cell->face(face)->set_boundary_id (boundary_id_reimann); // right
             }
         }
     }
