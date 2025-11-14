@@ -2895,6 +2895,7 @@ void DGBase<dim,real,MeshType>::assemble_residual (const bool compute_dRdW, cons
 
     right_hand_side.compress(dealii::VectorOperation::add);
     right_hand_side.update_ghost_values();
+    check_same_coords_strongdg = false;
     if ( compute_dRdW ) {
         system_matrix.compress(dealii::VectorOperation::add);
 
@@ -3453,6 +3454,7 @@ void DGBase<dim,real,MeshType>::allocate_system (
     pcout << "Allocating DG system and initializing FEValues" << std::endl;
     // This function allocates all the necessary memory to the
     // system matrices and vectors.
+    check_same_coords_strongdg = true;
 
     dof_handler.distribute_dofs(fe_collection);
     //This Cuthill_McKee renumbering for dof_handlr uses a lot of memory in 3D, is there another way?

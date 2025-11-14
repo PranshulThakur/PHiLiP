@@ -25,7 +25,7 @@ void cylindrical_channel(
     lengths_and_heights[2] = height_bottom;
     lengths_and_heights[3] = height_top;
 
-    dealiiuniform_channel_with_cylinder(grid_serial, lengths_and_heights, depth);
+    dealiiuniform_channel_with_cylinder(grid_serial, lengths_and_heights, depth,2);
 
     grid.copy_triangulation(grid_serial);
 

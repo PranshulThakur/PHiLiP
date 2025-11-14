@@ -3617,12 +3617,36 @@ void DGStrong<dim,nstate,real,MeshType>::check_same_coords_face_strong(
 
     for(unsigned int iquad = 0; iquad<n_face_quad_pts; ++iquad)
     {
+        dealii::Point<dim,adtype> x_int_at_qface;
+        dealii::Point<dim,adtype> x_ext_at_qface;
         for(unsigned int d=0; d<dim; ++d)
         {
-            if( abs(x_face_int[d][iquad] - x_face_ext[d][iquad]) > 1.0e-12)
+            x_int_at_qface[d] = x_face_int[d][iquad];
+            x_ext_at_qface[d] = x_face_ext[d][iquad];
+        }
+        adtype dist = 0.0;
+        adtype dist_minus_z = 0.0;
+        for(unsigned int d=0; d<dim; ++d)
+        {
+            dist += pow((x_int_at_qface[d]- x_ext_at_qface[d]),2);
+            if(d<2)
             {
-                std::cout<<"x_face_int[d][iquad] = "<<x_face_int[d][iquad]<<std::endl;
-                std::cout<<"x_face_ext[d][iquad] = "<<x_face_ext[d][iquad]<<std::endl;
+                dist_minus_z += pow((x_int_at_qface[d]- x_ext_at_qface[d]),2);
+            }
+        }
+        dist = sqrt(dist);
+        dist_minus_z = sqrt(dist_minus_z);
+        if( dist > 1.0e-10) // Coords not matching
+        {
+            if ( dist_minus_z < 1.0e-10 && (dist-2)<1.0e-10) // On periodic face
+            {
+                
+            }
+            else
+            {
+                std::cout<<"x_int_at_qface = "<<x_int_at_qface<<std::endl;
+                std::cout<<"x_ext_at_qface = "<<x_ext_at_qface<<std::endl;
+                std::cout<<"dist = "<<dist<<std::endl;
                 std::cout<<"Coords are not the same for strong DG. Aborting..."<<std::endl;
                 std::abort();
             }
