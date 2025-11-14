@@ -153,7 +153,7 @@ void dealiiuniform_channel_with_cylinder<2>(
     if (radius < shell_region_radius)
       {
         Assert(0 < n_shells,
-               ExcMessage("If the shell region has positive width then "
+               dealii::ExcMessage("If the shell region has positive width then "
                           "there must be at least one shell."));
         dealii::Triangulation<2> shell_tria;
         dealii::GridGenerator::concentric_hyper_shells(shell_tria,

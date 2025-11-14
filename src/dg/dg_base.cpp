@@ -3726,7 +3726,7 @@ void DGBase<dim,real,MeshType>::evaluate_mass_matrices (bool do_inverse_mass_mat
         //Check if need to recompute the 1D basis for the current degree (if different than previous cell)
         //That is, if the poly_degree, manifold type, or grid degree is different than previous reference operator
         if((fe_index_curr_cell != mapping_basis.current_degree) || 
-           (curr_grid_degree != mapping_basis.current_grid_degree))
+           (curr_grid_degree != mapping_basis.current_grid_degree)|| !Cartesian_element )
         {
             reinit_operators_for_mass_matrix(Cartesian_element, fe_index_curr_cell, curr_grid_degree, mapping_basis, basis, reference_mass_matrix, reference_FR, reference_FR_aux, deriv_p);
 
