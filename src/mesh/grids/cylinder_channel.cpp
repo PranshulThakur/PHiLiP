@@ -13,7 +13,12 @@ void cylindrical_channel(
     const unsigned int right_length,
     const unsigned int height_bottom,
     const unsigned int height_top,
-    const unsigned int depth,
+    const double  depth,
+    unsigned int  depth_division,
+    const double  shell_region_radius,
+    const unsigned int   n_shells,
+    const double         skewness,
+    const bool           use_transfinite_region,
     const unsigned int n_refinements)
 {
 
@@ -25,7 +30,7 @@ void cylindrical_channel(
     lengths_and_heights[2] = height_bottom;
     lengths_and_heights[3] = height_top;
 
-    dealiiuniform_channel_with_cylinder(grid_serial, lengths_and_heights, depth,2);
+    dealiiuniform_channel_with_cylinder(grid_serial, lengths_and_heights, depth, depth_division, shell_region_radius, n_shells, skewness, use_transfinite_region, true);
 
     grid.copy_triangulation(grid_serial);
 
@@ -322,7 +327,6 @@ template <>
     }
 
 
-
 #if PHILIP_DIM != 1
 template void cylindrical_channel<PHILIP_DIM>(
     dealii::parallel::distributed::Triangulation<PHILIP_DIM> &grid,
@@ -330,21 +334,27 @@ template void cylindrical_channel<PHILIP_DIM>(
     const unsigned int right_length,
     const unsigned int height_bottom,
     const unsigned int height_top,
-    const unsigned int depth,
+    const double depth,
+    unsigned int depth_division,
+    const double shell_region_radius,
+    const unsigned int  n_shells,
+    const double skewness,
+    const bool  use_transfinite_region,
     const unsigned int n_refinements);
+
 template void dealiiuniform_channel_with_cylinder<PHILIP_DIM>(
     dealii::Triangulation<PHILIP_DIM>                &tria,
     const std::vector<unsigned int> &lengths_and_heights,
-    const double                     depth = 1,
-    unsigned int                     depth_division = 1,
-    const double                     shell_region_radius = 0.75,
-    const unsigned int               n_shells = 2,
-    const double                     skewness = 2.0,
-    const bool                       use_transfinite_region = false,
-    const bool                       colorize = true);
+    const double                     depth,
+    unsigned int                     depth_division,
+    const double                     shell_region_radius,
+    const unsigned int               n_shells,
+    const double                     skewness,
+    const bool                       use_transfinite_region,
+    const bool                       colorize);
     
 template double  minimal_vertex_distance<PHILIP_DIM>(const dealii::Triangulation<PHILIP_DIM> &triangulation);
 #endif
 
-}
-}
+} // namespace Grids
+} // namespace PHiLiP

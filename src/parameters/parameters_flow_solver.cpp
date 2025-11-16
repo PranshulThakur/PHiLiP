@@ -168,6 +168,37 @@ void FlowSolverParam::declare_parameters(dealii::ParameterHandler &prm)
             prm.declare_entry("number_of_mesh_refinements", "0",
                               dealii::Patterns::Integer(0, dealii::Patterns::Integer::max_int_value),
                               "Number of mesh refinements for Gaussian bump and naca0012 based cases.");
+            
+            prm.declare_entry("length_left_cyl", "20",
+                              dealii::Patterns::Integer(0, dealii::Patterns::Integer::max_int_value),
+                              "Cylinder left length.");
+            prm.declare_entry("length_right_cyl", "42",
+                              dealii::Patterns::Integer(0, dealii::Patterns::Integer::max_int_value),
+                              "Cylinder right length.");
+            prm.declare_entry("height_bottom_cyl", "31",
+                              dealii::Patterns::Integer(0, dealii::Patterns::Integer::max_int_value),
+                              "Cylinder height bottom.");
+            prm.declare_entry("height_top_cyl", "31",
+                              dealii::Patterns::Integer(0, dealii::Patterns::Integer::max_int_value),
+                              "Cylinder height top.");
+            prm.declare_entry("depth_cyl", "2",
+                              dealii::Patterns::Integer(0, dealii::Patterns::Integer::max_int_value),
+                              "Cylinder depth.");
+            prm.declare_entry("depth_division_cyl", "2",
+                              dealii::Patterns::Integer(0, dealii::Patterns::Integer::max_int_value),
+                              "Cylinder depth division.");
+            prm.declare_entry("shell_region_radius_cyl", "0.75",
+                              dealii::Patterns::Double(-dealii::Patterns::Double::max_double_value, dealii::Patterns::Double::max_double_value),
+                              "shell_region_radius_cyl.");
+            prm.declare_entry("n_shells_cyl", "2",
+                              dealii::Patterns::Integer(0, dealii::Patterns::Integer::max_int_value),
+                              "Cylinder n_shells.");
+            prm.declare_entry("skewness_cyl", "2.0",
+                              dealii::Patterns::Double(-dealii::Patterns::Double::max_double_value, dealii::Patterns::Double::max_double_value),
+                              "skewness_cyl.");
+            prm.declare_entry("use_transfinite_region_cyl", "false",
+                              dealii::Patterns::Bool(),
+                              "use_transfinite_region_cyl.");
 
             prm.declare_entry("use_gmsh_mesh", "false",
                               dealii::Patterns::Bool(),
@@ -435,6 +466,17 @@ void FlowSolverParam::parse_parameters(dealii::ParameterHandler &prm)
             grid_right_bound = prm.get_double("grid_right_bound");
             number_of_grid_elements_per_dimension = prm.get_integer("number_of_grid_elements_per_dimension");
             number_of_mesh_refinements = prm.get_integer("number_of_mesh_refinements");
+            length_left_cyl = prm.get_integer("length_left_cyl");
+            length_right_cyl = prm.get_integer("length_right_cyl");
+            height_bottom_cyl = prm.get_integer("height_bottom_cyl");
+            height_top_cyl = prm.get_integer("height_top_cyl");
+            depth_cyl = prm.get_integer("depth_cyl");
+            depth_division_cyl = prm.get_integer("depth_division_cyl");
+            shell_region_radius_cyl = prm.get_double("shell_region_radius_cyl");
+            n_shells_cyl = prm.get_integer("n_shells_cyl");
+            skewness_cyl = prm.get_double("skewness_cyl");
+            use_transfinite_region_cyl = prm.get_bool("use_transfinite_region_cyl");
+
             use_gmsh_mesh = prm.get_bool("use_gmsh_mesh");
             mesh_reader_verbose_output = prm.get_bool("mesh_reader_verbose_output");
 

@@ -3,12 +3,12 @@
 
 #include <deal.II/grid/manifold_lib.h>
 #include <deal.II/distributed/tria.h>
+#include <deal.II/grid/tria.h>
 
 namespace PHiLiP {
 namespace Grids {
 
 /// Create a cylindricaly channel with an associated nonlinear manifold.
-
 template<int dim>
 void cylindrical_channel(
     dealii::parallel::distributed::Triangulation<dim> &grid,
@@ -16,7 +16,12 @@ void cylindrical_channel(
     const unsigned int right_length,
     const unsigned int height_bottom,
     const unsigned int height_top,
-    const unsigned int depth,
+    const double depth,
+    unsigned int  depth_division,
+    const double   shell_region_radius,
+    const unsigned int  n_shells,
+    const double skewness,
+    const bool  use_transfinite_region,
     const unsigned int n_refinements);
 
 template <int dim>
@@ -31,10 +36,9 @@ void dealiiuniform_channel_with_cylinder(
     const bool                       use_transfinite_region = false,
     const bool                       colorize = true);
     
-    template <int dim>
-    double
-    minimal_vertex_distance(const dealii::Triangulation<dim> &triangulation);
+template <int dim>
+double minimal_vertex_distance(const dealii::Triangulation<dim> &triangulation);
 
-}
-}
+} // namespace Grids
+} // namespace PHiLiP
 #endif

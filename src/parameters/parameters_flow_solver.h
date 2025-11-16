@@ -117,6 +117,17 @@ public:
     unsigned int number_of_grid_elements_x; ///< Number of subdivisions in x direction for a rectangle grid
     unsigned int number_of_grid_elements_y; ///< Number of subdivisions in y direction for a rectangle grid
     unsigned int number_of_grid_elements_z; ///< Number of subdivisions in z direction for a rectangle grid
+        
+    unsigned int length_left_cyl;
+    unsigned int length_right_cyl;
+    unsigned int height_bottom_cyl;
+    unsigned int height_top_cyl;
+    unsigned int depth_cyl;
+    unsigned int depth_division_cyl;
+    double       shell_region_radius_cyl;
+    unsigned int n_shells_cyl;
+    double       skewness_cyl;
+    bool         use_transfinite_region_cyl;
 
     double expected_order_at_final_time; ///< For limiter convergence tests, specify expected order at final time
 
