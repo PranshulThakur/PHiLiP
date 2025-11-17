@@ -27,6 +27,7 @@ public:
 
     /// Parameter handler for storing the .prm file being ran
     const dealii::ParameterHandler &parameter_handler;
+    std::array<double,2> compute_change_in_entropy(const std::shared_ptr < DGBase<dim, double> > &dg, unsigned int poly_degree) const;
 
     /// Grid convergence on Euler Gaussian Bump
     /** Will run the a grid convergence test for various p

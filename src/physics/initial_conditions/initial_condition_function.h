@@ -55,8 +55,36 @@ public:
     /// Returns the istate-th farfield conservative value
     double value (const dealii::Point<dim> &point, const unsigned int istate) const
     {
-        const double pi = 3.141592653589793238462643383279502884e+00; 
         //return farfield_conservative[istate];
+
+//==========================================================================================
+        // IC for testing lid driven cavity
+        if(istate==0)
+        {
+            return 1.0;
+        }
+        else if(istate==(nstate-1))
+        {
+            double sum=0.0;
+            for(unsigned int d=0; d<dim; ++d)
+            {
+                sum += 0.5*pow(farfield_conservative[1+d],2)/farfield_conservative[0];
+            }
+            const double pressure = (farfield_conservative[nstate-1] - sum)*0.4;
+           
+           return pressure/0.4;
+        }
+        else
+        {
+            return 0.0;
+        }
+        (void) point;
+//==========================================================================================
+
+/*
+//==========================================================================================
+        // IC for testing p+1 convergence order sof wall BC
+        const double pi = 3.141592653589793238462643383279502884e+00; 
         if(istate==0)
         {
             return 1.0;
@@ -74,6 +102,8 @@ public:
             const double pressure = (farfield_conservative[3] - 0.5*(pow(farfield_conservative[1],2) + pow(farfield_conservative[2],2))/farfield_conservative[0])*0.4;
             return (pressure/0.4 + 0.5*(pow((1.0/10.0* sin(pi*point[0]/2.0)*cos(pi*point[1]/2.0)),2) + pow((1.0/10.0* cos(pi*point[0]/2.0)*sin(pi*point[1])),2)));
         }
+//==========================================================================================
+*/
     }
 };
 

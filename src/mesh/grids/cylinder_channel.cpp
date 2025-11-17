@@ -21,6 +21,31 @@ void cylindrical_channel(
     const bool           use_transfinite_region,
     const unsigned int n_refinements)
 {
+//=====================================================================================================================
+    // Grid for testing the lid-driven cavity test case
+    dealii::Point<dim> p1;
+    dealii::Point<dim> p2;
+    for(unsigned int d=0; d<dim; ++d)
+    {
+        p1[d] = -1.0;
+        p2[d] = 1.0;
+    }
+    dealii::GridGenerator::hyper_rectangle	( grid, p1, p2,true );
+    for (typename dealii::parallel::distributed::Triangulation<dim>::active_cell_iterator cell = grid.begin_active(); cell != grid.end(); ++cell) {
+        for (unsigned int face=0; face<dealii::GeometryInfo<dim>::faces_per_cell; ++face) {
+            if (cell->face(face)->at_boundary()) {
+                unsigned int current_id = cell->face(face)->boundary_id();
+                if (current_id == 3 ) {cell->face(face)->set_boundary_id (1010);} // top
+                else {cell->face(face)->set_boundary_id (1001);}
+            }
+        }
+    }
+    grid.refine_global(n_refinements);
+
+
+/*
+//=====================================================================================================================
+    // Grid for testing the p+1 convergence orders of wall BC
     dealii::Point<dim> p1;
     dealii::Point<dim> p2;
     p1[0] = -2.0; p1[1] = -1.0;
@@ -60,8 +85,12 @@ void cylindrical_channel(
             }
         }
     }
+//=====================================================================================================================
+*/
 
 /*
+//=====================================================================================================================
+    // Grid for cylindrical channel
     dealii::Triangulation<dim> grid_serial;
 
     std::vector<unsigned int> lengths_and_heights(4);
@@ -95,6 +124,7 @@ void cylindrical_channel(
         grid.add_periodicity(matched_pairs);
     }
     grid.refine_global(n_refinements);
+//=====================================================================================================================
 */
     (void) left_length;
     (void) right_length;

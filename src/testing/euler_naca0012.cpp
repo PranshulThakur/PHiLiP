@@ -23,6 +23,8 @@ int EulerNACA0012<dim,nstate>
 ::run_test () const
 {
 /*
+    // General code
+    // CHANGE grid, initial_condition, the below code for other runs
     Parameters::AllParameters param = *(TestsBase::all_parameters);
     const unsigned int p_start             = param.manufactured_convergence_study_param.degree_start;
     const unsigned int p_end               = param.manufactured_convergence_study_param.degree_end;
@@ -38,6 +40,46 @@ int EulerNACA0012<dim,nstate>
         }
     }
 */
+
+//=============================================================================================================================
+    // Testing lid driven cavity
+    Parameters::AllParameters param = *(TestsBase::all_parameters);
+    std::unique_ptr<FlowSolver::FlowSolver<dim,nstate>> flow_solver = FlowSolver::FlowSolverFactory<dim,nstate>::select_flow_case(&param, parameter_handler);
+    const double finalTime = param.flow_solver_param.final_time;
+
+    pcout << " number dofs " << flow_solver->dg->dof_handler.n_dofs()<<std::endl;
+    pcout << "preparing to advance solution in time" << std::endl;
+
+    flow_solver->ode_solver->current_iteration = 0;
+    flow_solver->ode_solver->allocate_ode_system();
+
+    //loop over time
+    while(flow_solver->ode_solver->current_time < finalTime){
+        //get timestep
+        const double time_step =  param.flow_solver_param.constant_time_step;
+        if(flow_solver->ode_solver->current_iteration%param.ode_solver_param.print_iteration_modulo==0)
+            pcout<<"time step "<<time_step<<" current time "<<flow_solver->ode_solver->current_time<<std::endl;
+        //take the minimum timestep from all processors.
+        const double dt = time_step;
+        //integrate in time
+        flow_solver->ode_solver->step_in_time(dt, false);
+        flow_solver->ode_solver->current_iteration += 1;
+
+        //get the change in entropy
+        const std::array<double,2> current_change_entropy = compute_change_in_entropy(flow_solver->dg, param.flow_solver_param.poly_degree);
+        const double current_change_entropy_mpi = dealii::Utilities::MPI::sum(current_change_entropy[0], mpi_communicator);
+        pcout << "M plus K norm Change in Entropy at time " << flow_solver->ode_solver->current_time << " is " << current_change_entropy_mpi<< std::endl;
+        //check if change in entropy is conserved at machine precision
+        if(current_change_entropy[0] > 1e-12 && (flow_solver->dg->all_parameters->two_point_num_flux_type == Parameters::AllParameters::TwoPointNumericalFlux::IR || flow_solver->dg->all_parameters->two_point_num_flux_type == Parameters::AllParameters::TwoPointNumericalFlux::CH || flow_solver->dg->all_parameters->two_point_num_flux_type == Parameters::AllParameters::TwoPointNumericalFlux::Ra)){
+          pcout << " Change in entropy was not monotonically conserved." << std::endl;
+          return 1;
+        }
+    }
+    flow_solver->dg->output_results_vtk(7000);
+
+/*
+//=========================================================================================================================
+    // Testing p+1 convergence orders of wall BC
     const unsigned int n_grids_input       =  (*TestsBase::all_parameters).manufactured_convergence_study_param.number_of_grids;
     dealii::ConvergenceTable convergence_table;
     const unsigned int p_start             = (*TestsBase::all_parameters).manufactured_convergence_study_param.degree_start;
@@ -58,7 +100,6 @@ int EulerNACA0012<dim,nstate>
             flow_solver->dg->check_same_coords_strongdg = false;
             flow_solver->run();
 
-            // CHANGE grid, initial_condition, the below code for other runs
             // Compute error at the wall
             int overintegrate = 10;
             dealii::QGauss<dim-1> facequad_extra(flow_solver->dg->max_degree+1+overintegrate);
@@ -125,8 +166,126 @@ int EulerNACA0012<dim,nstate>
         if (pcout.is_active()) conv->write_text(pcout.get_stream());
         pcout << " ********************************************" << std::endl;
     }
-
+//=========================================================================================================================
+*/
     return 0;
+}
+
+template<int dim, int nstate>
+std::array<double,2> EulerNACA0012<dim, nstate>::compute_change_in_entropy(const std::shared_ptr < DGBase<dim, double> > &dg, unsigned int poly_degree) const
+{
+    const unsigned int n_dofs_cell = dg->fe_collection[poly_degree].dofs_per_cell;
+    const unsigned int n_quad_pts = dg->volume_quadrature_collection[poly_degree].size();
+    const unsigned int n_shape_fns = n_dofs_cell / nstate;
+    //We have to project the vector of entropy variables because the mass matrix has an interpolation from solution nodes built into it.
+    OPERATOR::vol_projection_operator<dim,2*dim> vol_projection(1, poly_degree, dg->max_grid_degree);
+    vol_projection.build_1D_volume_operator(dg->oneD_fe_collection_1state[poly_degree], dg->oneD_quadrature_collection[poly_degree]);
+
+    OPERATOR::basis_functions<dim,2*dim> soln_basis(1, poly_degree, dg->max_grid_degree);
+    soln_basis.build_1D_volume_operator(dg->oneD_fe_collection_1state[poly_degree], dg->oneD_quadrature_collection[poly_degree]);
+
+    dealii::LinearAlgebra::distributed::Vector<double> entropy_var_hat_global(dg->right_hand_side);
+    dealii::LinearAlgebra::distributed::Vector<double> energy_var_hat_global(dg->right_hand_side);
+    std::vector<dealii::types::global_dof_index> dofs_indices (n_dofs_cell);
+
+    std::shared_ptr < Physics::Euler<dim, nstate, double > > euler_double  = std::dynamic_pointer_cast<Physics::Euler<dim,dim+2,double>>(PHiLiP::Physics::PhysicsFactory<dim,nstate,double>::create_Physics(dg->all_parameters));
+
+    for (auto cell = dg->dof_handler.begin_active(); cell!=dg->dof_handler.end(); ++cell) {
+        if (!cell->is_locally_owned()) continue;
+        cell->get_dof_indices (dofs_indices);
+
+        //get solution modal coeff
+        std::array<std::vector<double>,nstate> soln_coeff;
+        for(unsigned int idof=0; idof<n_dofs_cell; idof++){
+            const unsigned int istate = dg->fe_collection[poly_degree].system_to_component_index(idof).first;
+            const unsigned int ishape = dg->fe_collection[poly_degree].system_to_component_index(idof).second;
+            if(ishape == 0)
+                soln_coeff[istate].resize(n_shape_fns);
+            soln_coeff[istate][ishape] = dg->solution(dofs_indices[idof]);
+        }
+
+        //interpolate solution to quadrature points
+        std::array<std::vector<double>,nstate> soln_at_q;
+        for(int istate=0; istate<nstate; istate++){
+            soln_at_q[istate].resize(n_quad_pts);
+            soln_basis.matrix_vector_mult_1D(soln_coeff[istate], soln_at_q[istate],
+                                             soln_basis.oneD_vol_operator);
+        }
+        //compute entropy and kinetic energy "entropy" variables at quad points
+        std::array<std::vector<double>,nstate> entropy_var_at_q;
+        std::array<std::vector<double>,nstate> energy_var_at_q;
+        for(unsigned int iquad=0; iquad<n_quad_pts; iquad++){
+            std::array<double,nstate> soln_state;
+            for(int istate=0; istate<nstate; istate++){
+                soln_state[istate] = soln_at_q[istate][iquad];
+            }
+            std::array<double,nstate> entropy_var_state = euler_double->compute_entropy_variables(soln_state);
+            std::array<double,nstate> kin_energy_state = euler_double->compute_kinetic_energy_variables(soln_state);
+            for(int istate=0; istate<nstate; istate++){
+                if(iquad==0){
+                    entropy_var_at_q[istate].resize(n_quad_pts);
+                    energy_var_at_q[istate].resize(n_quad_pts);
+                }
+                energy_var_at_q[istate][iquad] = kin_energy_state[istate];
+                entropy_var_at_q[istate][iquad] = entropy_var_state[istate];
+            }
+        }
+        //project the enrtopy and KE var to modal coefficients
+        //then write it into a global vector
+        for(int istate=0; istate<nstate; istate++){
+            //Projected vector of entropy variables.
+            std::vector<double> entropy_var_hat(n_shape_fns);
+            vol_projection.matrix_vector_mult_1D(entropy_var_at_q[istate], entropy_var_hat,
+                                                 vol_projection.oneD_vol_operator);
+            std::vector<double> energy_var_hat(n_shape_fns);
+            vol_projection.matrix_vector_mult_1D(energy_var_at_q[istate], energy_var_hat,
+                                                 vol_projection.oneD_vol_operator);
+
+            for(unsigned int ishape=0; ishape<n_shape_fns; ishape++){
+                const unsigned int idof = istate * n_shape_fns + ishape;
+                entropy_var_hat_global[dofs_indices[idof]] = entropy_var_hat[ishape];
+                energy_var_hat_global[dofs_indices[idof]] = energy_var_hat[ishape];
+            }
+        }
+    }
+    entropy_var_hat_global.update_ghost_values();;
+
+    //evaluate the change in entropy and change in KE
+    dg->assemble_residual();
+    std::array<double,2> change_entropy_and_energy;
+    change_entropy_and_energy[0] = entropy_var_hat_global * dg->right_hand_side;
+    change_entropy_and_energy[1] = energy_var_hat_global * dg->right_hand_side;
+
+    //compute changes in only one residual
+    dg->compute_only_convective_residual = true;
+    dg->compute_only_dissipative_residual = false;
+    dg->assemble_residual();
+    const double entropy_var_times_res_conv = dealii::Utilities::MPI::sum((entropy_var_hat_global*dg->right_hand_side),mpi_communicator);
+    
+    dg->compute_only_convective_residual = false;
+    dg->compute_only_dissipative_residual = true;
+    dg->assemble_residual();
+    const double entropy_var_times_res_dissip = dealii::Utilities::MPI::sum((entropy_var_hat_global*dg->right_hand_side),mpi_communicator);
+
+    if(abs(entropy_var_times_res_conv) > 1.0e-12) 
+    {
+        std::cout<<"Entropy var times convective residual is non-zero. Aborting.."<<std::endl;
+        std::cout<<"entropy_var_times_res_conv = "<<entropy_var_times_res_conv<<std::endl;
+        std::abort();
+    }
+    if(entropy_var_times_res_dissip > 1.0e-12) 
+    {
+        std::cout<<"Entropy var times dissipative residual is positive. Aborting.."<<std::endl;
+        std::cout<<"entropy_var_times_res_dissip = "<<entropy_var_times_res_dissip<<std::endl;
+        std::abort();
+    }
+    
+
+
+    // reset to false
+    dg->compute_only_convective_residual = false;
+    dg->compute_only_dissipative_residual = false;
+    return change_entropy_and_energy;
 }
 
 

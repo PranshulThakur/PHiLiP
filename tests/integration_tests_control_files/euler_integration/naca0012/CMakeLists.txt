@@ -20,10 +20,67 @@ set_tests_labels(2D_EULER_INTEGRATION_NACA0012_SUBSONIC_LONG    EULER_INTEGRATIO
 configure_file(3d_ns_cylinder.prm 3d_ns_cylinder.prm COPYONLY)
 add_test(
   NAME 3D_NS_CYLINDER
-  COMMAND mpirun -np ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_2D -i ${CMAKE_CURRENT_BINARY_DIR}/3d_ns_cylinder.prm
+  COMMAND mpirun -np ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_3D -i ${CMAKE_CURRENT_BINARY_DIR}/3d_ns_cylinder.prm
   WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
 )
 set_tests_labels(3D_NS_CYLINDER                                 EULER_INTEGRATION
+                                                                NACA0012
+                                                                3D
+                                                                PARALLEL
+                                                                NAVIER_STOKES
+                                                                IMPLICIT
+                                                                WEAK
+                                                                UNCOLLOCATED
+                                                                MANUFACTURED_SOLUTION
+                                                                CONVERGENCE
+                                                                LONG
+                                                                INTEGRATION_TEST)
+
+configure_file(2d_wallbc_convergencerate.prm 2d_wallbc_convergencerate.prm COPYONLY)
+add_test(
+  NAME 2D_WALLBC_CONVERGENCERATE
+  COMMAND mpirun -np ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_2D -i ${CMAKE_CURRENT_BINARY_DIR}/2d_wallbc_convergencerate.prm
+  WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
+)
+set_tests_labels(2D_WALLBC_CONVERGENCERATE                      EULER_INTEGRATION
+                                                                NACA0012
+                                                                2D
+                                                                PARALLEL
+                                                                NAVIER_STOKES
+                                                                IMPLICIT
+                                                                WEAK
+                                                                UNCOLLOCATED
+                                                                MANUFACTURED_SOLUTION
+                                                                CONVERGENCE
+                                                                LONG
+                                                                INTEGRATION_TEST)
+
+configure_file(2d_lid_driven_cavity.prm 2d_lid_driven_cavity.prm COPYONLY)
+add_test(
+  NAME 2D_LID_DRIVEN_CAVITY
+  COMMAND mpirun -np ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_2D -i ${CMAKE_CURRENT_BINARY_DIR}/2d_lid_driven_cavity.prm
+  WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
+)
+set_tests_labels(2D_LID_DRIVEN_CAVITY                           EULER_INTEGRATION
+                                                                NACA0012
+                                                                2D
+                                                                PARALLEL
+                                                                NAVIER_STOKES
+                                                                IMPLICIT
+                                                                WEAK
+                                                                UNCOLLOCATED
+                                                                MANUFACTURED_SOLUTION
+                                                                CONVERGENCE
+                                                                LONG
+                                                                INTEGRATION_TEST)
+
+configure_file(3d_lid_driven_cavity.prm 3d_lid_driven_cavity.prm COPYONLY)
+add_test(
+  NAME 3D_LID_DRIVEN_CAVITY
+  COMMAND mpirun -np ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_3D -i ${CMAKE_CURRENT_BINARY_DIR}/3d_lid_driven_cavity.prm
+  WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
+)
+set_tests_labels(3D_LID_DRIVEN_CAVITY                           EULER_INTEGRATION
                                                                 NACA0012
                                                                 3D
                                                                 PARALLEL

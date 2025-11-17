@@ -996,7 +996,7 @@ void NavierStokes<dim,nstate,real>
     const unsigned int boundary_id) const
 {
     // Note: Computes v_bc as the actual entropy var at the boundary, without assuming averaging.
-    if(boundary_id==1001)//Adiabatic wall boundary
+    if(boundary_id==1001)//Adiabatic wall boundary zero velocity
     {
         for(unsigned int s=0; s<nstate-1; ++s)
         {
@@ -1015,6 +1015,35 @@ void NavierStokes<dim,nstate,real>
         for(unsigned int i=1; i<=dim; ++i)
         {
             v_bc_at_q[i] = 0.0;
+        }
+        v_bc_at_q[nstate-1] = v_int_at_q[nstate-1];
+    }
+    else if(boundary_id == 1010) // Moving adiabatic wall boundary
+    {
+        for(unsigned int s=0; s<nstate-1; ++s)
+        {
+            for(unsigned int d=0; d<dim; ++d)
+            {
+                sigma_bc_at_q[s][d] = poly_sigma_at_q[s][d];
+            }
+        }
+        std::array<real,dim> v_wall;
+        v_wall.fill(0.0);
+        v_wall[0] = 1.0;
+
+        for(unsigned int d=0; d<dim; ++d)
+        {
+            sigma_bc_at_q[nstate-1][d] = 0.0;
+            for(unsigned int d2 = 0; d2<dim; ++d2)
+            {
+                sigma_bc_at_q[nstate-1][d] += v_wall[d2]*poly_sigma_at_q[1+d2][d];
+            }
+        }
+        
+        v_bc_at_q[0] = v_int_at_q[0];
+        for(unsigned int i=1; i<=dim; ++i)
+        {
+            v_bc_at_q[i] = -v_wall[i-1]*v_int_at_q[nstate-1];
         }
         v_bc_at_q[nstate-1] = v_int_at_q[nstate-1];
     }
