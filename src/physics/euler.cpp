@@ -1396,6 +1396,8 @@ void Euler<dim,nstate,real>
     } 
     else if (boundary_type == 1001) {
         // Wall boundary condition (slip for Euler, no-slip for Navier-Stokes; done through polymorphism)
+        std::cout<<"Shouldn't have reached here in Euler::boundary_face_values()"<<std::endl;
+        std::abort();
         boundary_wall (normal_int, soln_int, soln_grad_int, soln_bc, soln_grad_bc);
     } 
     else if (boundary_type == 1002) {
