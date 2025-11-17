@@ -1874,11 +1874,28 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_boundary_term_strong(
         //or solution from the projected entropy variables.
         //Now, it uses projected entropy variables for NSFR, and solution
         //interpolated to face for conservative DG.
-        pde_physics.boundary_face_values (boundary_id, surf_flux_node, unit_phys_normal_int, soln_state_int, aux_soln_state_int, soln_boundary, grad_soln_boundary);
+        const unsigned int boundary_id_passed_conv = (boundary_id==1001 && (this->all_parameters->use_split_form || this->all_parameters->use_curvilinear_split_form)) ? 1006 : boundary_id;
+        pde_physics.boundary_face_values (boundary_id_passed_conv, surf_flux_node, unit_phys_normal_int, soln_state_int, aux_soln_state_int, soln_boundary, grad_soln_boundary);
         
         // Convective numerical flux.
         std::array<adtype,nstate> conv_num_flux_dot_n_at_q;
-        conv_num_flux_dot_n_at_q = conv_num_flux.evaluate_flux(soln_state_int, soln_boundary, unit_phys_normal_int);
+        if(boundary_id==1001 && (this->all_parameters->use_split_form || this->all_parameters->use_curvilinear_split_form) )
+        {
+            std::array<dealii::Tensor<1,dim,adtype>,nstate> conv_phys_flux_2pt_bc;
+            conv_phys_flux_2pt_bc = pde_physics.convective_numerical_split_flux(soln_state_int, soln_boundary);
+            for(unsigned int s=0; s<nstate; ++s)
+            {
+                conv_num_flux_dot_n_at_q[s] = 0.0;
+                for(unsigned int d=0; d<dim; ++d)
+                {
+                    conv_num_flux_dot_n_at_q[s] +=  conv_phys_flux_2pt_bc[s][d]*unit_phys_normal_int[d];
+                }
+            }
+        }
+        else
+        {
+            conv_num_flux_dot_n_at_q = conv_num_flux.evaluate_flux(soln_state_int, soln_boundary, unit_phys_normal_int);
+        }
        /* 
         // Dissipative numerical flux
         std::array<adtype,nstate> diss_auxi_num_flux_dot_n_at_q;

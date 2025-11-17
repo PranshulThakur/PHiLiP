@@ -20,7 +20,7 @@ set_tests_labels(2D_EULER_INTEGRATION_NACA0012_SUBSONIC_LONG    EULER_INTEGRATIO
 configure_file(3d_ns_cylinder.prm 3d_ns_cylinder.prm COPYONLY)
 add_test(
   NAME 3D_NS_CYLINDER
-  COMMAND mpirun -np ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_3D -i ${CMAKE_CURRENT_BINARY_DIR}/3d_ns_cylinder.prm
+  COMMAND mpirun -np ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_2D -i ${CMAKE_CURRENT_BINARY_DIR}/3d_ns_cylinder.prm
   WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
 )
 set_tests_labels(3D_NS_CYLINDER                                 EULER_INTEGRATION

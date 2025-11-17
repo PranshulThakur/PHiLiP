@@ -21,7 +21,46 @@ void cylindrical_channel(
     const bool           use_transfinite_region,
     const unsigned int n_refinements)
 {
+    dealii::Point<dim> p1;
+    dealii::Point<dim> p2;
+    p1[0] = -2.0; p1[1] = -1.0;
+    p2[0] = 2.0; p2[1] = 1.0;
+    dealii::GridGenerator::hyper_rectangle	( grid, p1, p2,true );
+    const double pi = 3.14159;
+    
+    for (typename dealii::parallel::distributed::Triangulation<dim>::active_cell_iterator cell = grid.begin_active(); cell != grid.end(); ++cell) {
+        for (unsigned int face=0; face<dealii::GeometryInfo<dim>::faces_per_cell; ++face) {
+            if (cell->face(face)->at_boundary()) {
+                unsigned int current_id = cell->face(face)->boundary_id();
+                if (current_id == 2 || current_id == 3 ) cell->face(face)->set_boundary_id (1001); // top and bottom
+            }
+        }
+    }
+    std::vector<dealii::GridTools::PeriodicFacePair<typename dealii::Triangulation<dim>::cell_iterator> > matched_pairs;
+    dealii::GridTools::collect_periodic_faces(grid,0,1,0,matched_pairs);
+    grid.add_periodicity(matched_pairs);
+    grid.refine_global(n_refinements);
+    std::vector<double> y_expected(pow(2,n_refinements)-1);
+    for(unsigned int i=0; i<y_expected.size(); ++i)
+    {
+        y_expected[i] = -1.0 + 2.0/(y_expected.size()+1)*(i+1.0);
+        std::cout<<"y_expected[i] = "<<y_expected[i];
+        std::cout<<" y_computed[i] = "<<y_expected[i] + 0.25*sin(pi*y_expected[i])<<std::endl;
+    }
+    for (typename dealii::parallel::distributed::Triangulation<dim>::active_cell_iterator cell = grid.begin_active(); cell != grid.end(); ++cell) {
+        for(unsigned int ivertex = 0; ivertex < 4; ++ivertex)
+        {
+            for(unsigned int i=0; i<y_expected.size(); ++i)
+            {
+                if(abs(cell->vertex(ivertex)[1] - y_expected[i])<1.0e-6)
+                {
+                    cell->vertex(ivertex)[1] = y_expected[i] + 0.25*sin(pi*y_expected[i])+1.0e-5; 
+                }
+            }
+        }
+    }
 
+/*
     dealii::Triangulation<dim> grid_serial;
 
     std::vector<unsigned int> lengths_and_heights(4);
@@ -55,6 +94,18 @@ void cylindrical_channel(
         grid.add_periodicity(matched_pairs);
     }
     grid.refine_global(n_refinements);
+*/
+    (void) left_length;
+    (void) right_length;
+    (void) height_bottom;
+    (void) height_top;
+    (void)  depth;
+    (void)  depth_division;
+    (void)  shell_region_radius;
+    (void)   n_shells;
+    (void)         skewness;
+    (void)           use_transfinite_region;
+    (void) n_refinements;
 }
 
 template <>
