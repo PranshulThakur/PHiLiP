@@ -1879,23 +1879,7 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_boundary_term_strong(
         
         // Convective numerical flux.
         std::array<adtype,nstate> conv_num_flux_dot_n_at_q;
-        if(boundary_id==1001 && (this->all_parameters->use_split_form || this->all_parameters->use_curvilinear_split_form) )
-        {
-            std::array<dealii::Tensor<1,dim,adtype>,nstate> conv_phys_flux_2pt_bc;
-            conv_phys_flux_2pt_bc = pde_physics.convective_numerical_split_flux(soln_state_int, soln_boundary);
-            for(unsigned int s=0; s<nstate; ++s)
-            {
-                conv_num_flux_dot_n_at_q[s] = 0.0;
-                for(unsigned int d=0; d<dim; ++d)
-                {
-                    conv_num_flux_dot_n_at_q[s] +=  conv_phys_flux_2pt_bc[s][d]*unit_phys_normal_int[d];
-                }
-            }
-        }
-        else
-        {
-            conv_num_flux_dot_n_at_q = conv_num_flux.evaluate_flux(soln_state_int, soln_boundary, unit_phys_normal_int);
-        }
+        conv_num_flux_dot_n_at_q = conv_num_flux.evaluate_flux(soln_state_int, soln_boundary, unit_phys_normal_int);
        /* 
         // Dissipative numerical flux
         std::array<adtype,nstate> diss_auxi_num_flux_dot_n_at_q;
