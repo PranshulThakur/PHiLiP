@@ -25,8 +25,11 @@ void cylindrical_channel(
     dealii::Point<dim> p2;
     p1[0] = -2.0; p1[1] = -1.0;
     p2[0] = 2.0; p2[1] = 1.0;
-    dealii::GridGenerator::hyper_rectangle	( grid, p1, p2,true );
-    const double pi = 3.14159;
+    const double pi = 3.141592653589793238462643383279502884e+00;
+    std::vector<unsigned int> repetitions(2);
+    repetitions[0] = 2;
+    repetitions[1] = 1;
+    dealii::GridGenerator::subdivided_hyper_rectangle	( grid, repetitions, p1, p2,true );
     
     for (typename dealii::parallel::distributed::Triangulation<dim>::active_cell_iterator cell = grid.begin_active(); cell != grid.end(); ++cell) {
         for (unsigned int face=0; face<dealii::GeometryInfo<dim>::faces_per_cell; ++face) {
@@ -44,8 +47,6 @@ void cylindrical_channel(
     for(unsigned int i=0; i<y_expected.size(); ++i)
     {
         y_expected[i] = -1.0 + 2.0/(y_expected.size()+1)*(i+1.0);
-        std::cout<<"y_expected[i] = "<<y_expected[i];
-        std::cout<<" y_computed[i] = "<<y_expected[i] + 0.25*sin(pi*y_expected[i])<<std::endl;
     }
     for (typename dealii::parallel::distributed::Triangulation<dim>::active_cell_iterator cell = grid.begin_active(); cell != grid.end(); ++cell) {
         for(unsigned int ivertex = 0; ivertex < 4; ++ivertex)

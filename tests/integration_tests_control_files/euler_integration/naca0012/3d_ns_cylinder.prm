@@ -10,7 +10,6 @@ set dimension = 2
 # <advection|diffusion|convection_diffusion>.
 set pde_type  = navier_stokes
 set use_weak_form = false
-#set conv_num_flux = lax_friedrichs #roe
 set conv_num_flux = two_point_flux
 set two_point_num_flux_type = CH
 
@@ -25,7 +24,6 @@ subsection euler
 end
 subsection navier_stokes
   set reynolds_number_inf = 50.0
-  set thermal_boundary_condition_type = adiabatic
 end
 
 subsection linear solver
@@ -61,7 +59,7 @@ subsection linear solver
 end
 
 subsection ODE solver
-  set output_solution_every_x_steps = 1
+  #set output_solution_every_x_steps = 1
   set ode_solver_type = runge_kutta
   set runge_kutta_method = rk4_ex
 end
@@ -81,15 +79,16 @@ subsection manufactured solution convergence study
   set initial_grid_size = 4
 
   # Number of grids in grid study
-  set number_of_grids   = 5
+  set number_of_grids   = 4
 end
 
 subsection flow_solver
   set flow_case_type = naca0012
   #set steady_state_polynomial_ramping = true
   set poly_degree = 1
-  set constant_time_step = 1e-3
+  set constant_time_step = 1.0e-3
   set final_time = 0.5
+  set steady_state = false
   subsection grid
     #set input_mesh_filename = ../../../meshes/naca0012_hopw_ref2
     set number_of_mesh_refinements = 2

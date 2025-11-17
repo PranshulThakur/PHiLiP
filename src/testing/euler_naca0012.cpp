@@ -50,7 +50,7 @@ int EulerNACA0012<dim,nstate>
         {
             Parameters::AllParameters param = *(TestsBase::all_parameters);
             param.flow_solver_param.number_of_mesh_refinements += igrid; 
-            param.flow_solver_param.constant_time_step /= pow(2.0,igrid); 
+            param.flow_solver_param.constant_time_step /= pow(2.0,2*igrid); 
             param.flow_solver_param.poly_degree = poly_degree;
             param.flow_solver_param.max_poly_degree_for_adaptation = poly_degree;
         

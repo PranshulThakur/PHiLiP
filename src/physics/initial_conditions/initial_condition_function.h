@@ -71,7 +71,8 @@ public:
         }
         else
         {
-            return (1.0/(0.1*0.1*1.4*0.4) + 0.5*(pow((1.0/10.0* sin(pi*point[0]/2.0)*cos(pi*point[1]/2.0)),2) + pow((1.0/10.0* cos(pi*point[0]/2.0)*sin(pi*point[1])),2)));
+            const double pressure = (farfield_conservative[3] - 0.5*(pow(farfield_conservative[1],2) + pow(farfield_conservative[2],2))/farfield_conservative[0])*0.4;
+            return (pressure/0.4 + 0.5*(pow((1.0/10.0* sin(pi*point[0]/2.0)*cos(pi*point[1]/2.0)),2) + pow((1.0/10.0* cos(pi*point[0]/2.0)*sin(pi*point[1])),2)));
         }
     }
 };
