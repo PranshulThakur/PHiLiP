@@ -21,6 +21,7 @@ void cylindrical_channel(
     const bool           use_transfinite_region,
     const unsigned int n_refinements)
 {
+/*
 //=====================================================================================================================
     // Grid for testing the lid-driven cavity test case
     dealii::Point<dim> p1;
@@ -41,7 +42,7 @@ void cylindrical_channel(
         }
     }
     grid.refine_global(n_refinements);
-
+*/
 
 /*
 //=====================================================================================================================
@@ -88,7 +89,7 @@ void cylindrical_channel(
 //=====================================================================================================================
 */
 
-/*
+
 //=====================================================================================================================
     // Grid for cylindrical channel
     dealii::Triangulation<dim> grid_serial;
@@ -125,7 +126,7 @@ void cylindrical_channel(
     }
     grid.refine_global(n_refinements);
 //=====================================================================================================================
-*/
+
     (void) left_length;
     (void) right_length;
     (void) height_bottom;

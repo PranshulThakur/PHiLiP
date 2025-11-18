@@ -55,8 +55,9 @@ public:
     /// Returns the istate-th farfield conservative value
     double value (const dealii::Point<dim> &point, const unsigned int istate) const
     {
-        //return farfield_conservative[istate];
-
+        return farfield_conservative[istate];
+        (void) point;
+/*
 //==========================================================================================
         // IC for testing lid driven cavity
         if(istate==0)
@@ -80,7 +81,7 @@ public:
         }
         (void) point;
 //==========================================================================================
-
+*/
 /*
 //==========================================================================================
         // IC for testing p+1 convergence order sof wall BC
