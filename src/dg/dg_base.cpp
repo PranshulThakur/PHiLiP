@@ -4070,6 +4070,7 @@ void DGBase<dim,real,MeshType>::apply_inverse_global_mass_matrix(
         }
         else{
             mass_inv.build_1D_volume_operator(oneD_fe_collection_1state[max_degree], oneD_quadrature_collection[max_degree]);
+            projection_oper.build_1D_volume_operator(oneD_fe_collection_1state[max_degree], oneD_quadrature_collection[max_degree]);
         }
     }
     else{//we always use weight-adjusted for curvilinear based off the projection operator
@@ -4077,6 +4078,7 @@ void DGBase<dim,real,MeshType>::apply_inverse_global_mass_matrix(
             projection_oper_aux.build_1D_volume_operator(oneD_fe_collection_1state[max_degree], oneD_quadrature_collection[max_degree]);
         }
         else{
+            mass_inv.build_1D_volume_operator(oneD_fe_collection_1state[max_degree], oneD_quadrature_collection[max_degree]);
             projection_oper.build_1D_volume_operator(oneD_fe_collection_1state[max_degree], oneD_quadrature_collection[max_degree]);
         }
     }
@@ -4096,7 +4098,7 @@ void DGBase<dim,real,MeshType>::apply_inverse_global_mass_matrix(
         soln_cell->get_dof_indices (current_dofs_indices);
 
         const bool Cartesian_element = (soln_cell->manifold_id() == dealii::numbers::flat_manifold_id);
-
+/*
         // if poly degree, the element manifold type, or grid degree changed for this cell, reinitialize the reference operator
         if((poly_degree != mass_inv.current_degree && Cartesian_element && !use_auxiliary_eq) || 
             (poly_degree != projection_oper.current_degree && (grid_degree > 1 || Cartesian_element) && !use_auxiliary_eq))
@@ -4115,7 +4117,7 @@ void DGBase<dim,real,MeshType>::apply_inverse_global_mass_matrix(
                 }
             }
         }
-
+*/
         // get mapping support points and determinant of Jacobian
         // setup metric cell
         std::vector<dealii::types::global_dof_index> metric_dofs_indices(n_metric_dofs);
