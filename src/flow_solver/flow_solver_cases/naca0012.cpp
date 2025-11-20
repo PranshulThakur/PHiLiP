@@ -158,7 +158,7 @@ void NACA0012<dim, nstate>::compute_unsteady_data_and_write_to_table(
 {
     // Compute aerodynamic values
     const double lift = 0.0; //this->compute_lift(dg);
-    const double drag = 0.0; //this->compute_drag(dg);
+    const double drag = this->compute_drag(dg);
     (void) dg;
 
     if(this->mpi_rank==0) {
