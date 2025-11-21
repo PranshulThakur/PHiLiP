@@ -26,7 +26,7 @@ int EulerNACA0012<dim,nstate>
     // General code
     // CHANGE grid, initial_condition, the below code for other runs
     Parameters::AllParameters param = *(TestsBase::all_parameters);
-    const double grid_size = 0.05/pow(2.0,param.flow_solver_param.number_of_mesh_refinements); 
+    const double grid_size = 0.1/pow(2.0,param.flow_solver_param.number_of_mesh_refinements); 
     const double max_wave_speed = 1.0 + 1.0/param.euler_param.mach_inf;
     const double dt = 1.0/(2.0*param.flow_solver_param.poly_degree+1.0) * grid_size/max_wave_speed; // From N. Chalmers, L. Krivodonova, A robust CFL condition for the discontinuous Galerkin method on triangular meshes, JCP 2020.
     param.flow_solver_param.constant_time_step = dt;

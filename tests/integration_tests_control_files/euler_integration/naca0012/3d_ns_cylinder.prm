@@ -63,7 +63,7 @@ subsection linear solver
 end
 
 subsection ODE solver
-  set output_solution_every_x_steps = 1
+  set output_solution_every_x_steps = 100
   set ode_solver_type = runge_kutta
   set runge_kutta_method = rk4_ex
 end
@@ -85,7 +85,7 @@ subsection flow_solver
     set depth_division_cyl = 3
     set shell_region_radius_cyl = 0.75
     set n_shells_cyl = 2
-    set skewness_cyl = 2.0
+    set skewness_cyl = 0.8
     set use_transfinite_region_cyl = false
   end
 end
