@@ -17,7 +17,7 @@ set use_split_form = true
 set use_curvilinear_split_form = true
 set use_inverse_mass_on_the_fly = true
 set use_weight_adjusted_mass = true
-
+set overintegration = 3
 #set output_face_results_vtk = true
 
 subsection euler
@@ -71,9 +71,10 @@ end
 subsection flow_solver
   set flow_case_type = naca0012
   set poly_degree = 2
-  set final_time = 720
-  set constant_time_step = 0.01
+  set final_time = 720.0
+  set constant_time_step = 0.0025
   set steady_state = false
+  #set output_restart_files = true
   subsection grid
     #set input_mesh_filename = ../../../meshes/naca0012_hopw_ref2
     set number_of_mesh_refinements = 0

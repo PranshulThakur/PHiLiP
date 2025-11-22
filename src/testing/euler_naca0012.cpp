@@ -28,8 +28,8 @@ int EulerNACA0012<dim,nstate>
     Parameters::AllParameters param = *(TestsBase::all_parameters);
     const double grid_size = 0.1/pow(2.0,param.flow_solver_param.number_of_mesh_refinements); 
     const double max_wave_speed = (1.0 + 1.0/param.euler_param.mach_inf)*1.5;
-    const double dt = std::min((1.0/(2.0*param.flow_solver_param.poly_degree+1.0) * grid_size/max_wave_speed), param.flow_solver_param.constant_time_step); // From N. Chalmers, L. Krivodonova, A robust CFL condition for the discontinuous Galerkin method on triangular meshes, JCP 2020.
-    param.flow_solver_param.constant_time_step = dt;
+    const double dt = 1.0/(2.0*param.flow_solver_param.poly_degree+1.0) * grid_size/max_wave_speed; // From N. Chalmers, L. Krivodonova, A robust CFL condition for the discontinuous Galerkin method on triangular meshes, JCP 2020.
+    pcout<<"Time step limit due to the grid size and wave speed: dt = "<<dt<<std::endl;
 
     std::unique_ptr<FlowSolver::FlowSolver<dim,nstate>> flow_solver = FlowSolver::FlowSolverFactory<dim,nstate>::select_flow_case(&param, parameter_handler);
     flow_solver->run();
