@@ -1515,9 +1515,9 @@ void Euler<dim,nstate,real>
     } 
     else if (boundary_type == 1004) {
         // Riemann-based farfield boundary condition
-        //boundary_riemann (normal_int, soln_int, soln_bc);
+        boundary_riemann (normal_int, soln_int, soln_bc);
         // Characteristics-based farfield boundary condition
-        boundary_characteristics (normal_int, soln_int, soln_bc);
+        //boundary_characteristics (normal_int, soln_int, soln_bc);
         for(unsigned int s=0; s<nstate; ++s)
         {
             soln_grad_bc[s] = soln_grad_int[s];
