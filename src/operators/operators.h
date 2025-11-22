@@ -134,6 +134,7 @@ public:
             const dealii::FullMatrix<double> &basis_z,
             const bool adding = false,
             const double factor = 1.0);
+
     ///Computes the divergence using the sum factorization matrix-vector multiplication.
     /** Often, we compute a dot product in dim, where each matrix multiplictaion uses
     * sum factorization. Example, consider taking the reference divergence of the reference flux:
@@ -747,6 +748,16 @@ public:
     void build_1D_volume_operator(
             const dealii::FESystem<1,1> &finite_element,
             const dealii::Quadrature<1> &quadrature);
+    
+    template <typename real>
+    void weight_adjusted_vol_projection(
+        const std::vector<real> &input_at_q,
+        std::vector<real> &input_coeffs_weight_adjusted,
+        const unsigned int n_quad_pts,
+        const unsigned int n_shape_fns,
+        OPERATOR::basis_functions<dim,2*dim>          &soln_basis,
+        OPERATOR::vol_projection_operator<dim,2*dim>  &soln_basis_projection_oper,
+        const std::vector<real> & det_Jac_vol);
 };
 
 ///Projection operator corresponding to basis functions onto \f$(M+K)\f$-norm.

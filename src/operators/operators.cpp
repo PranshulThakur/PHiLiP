@@ -1875,6 +1875,48 @@ void vol_projection_operator<dim,n_faces>::build_1D_volume_operator(
 }
 
 template <int dim, int n_faces>  
+template <typename real>
+void vol_projection_operator<dim,n_faces>::weight_adjusted_vol_projection(
+    const std::vector<real> &input_at_q,
+    std::vector<real> &input_coeffs_weight_adjusted,
+    const unsigned int n_quad_pts,
+    const unsigned int n_shape_fns,
+    OPERATOR::basis_functions<dim,2*dim>                               &soln_basis,
+    OPERATOR::vol_projection_operator<dim,2*dim>                       &soln_basis_projection_oper,
+    const std::vector<real> & det_Jac_vol)
+{
+    // Multiply by J
+    std::vector<real> J_times_input_at_q(n_quad_pts);
+    for(unsigned int iquad=0; iquad<n_quad_pts; ++iquad)
+    {
+        J_times_input_at_q[iquad] = input_at_q[iquad]*det_Jac_vol[iquad];
+    }
+
+    // Project to polynomial
+    std::vector<real> coeffs_J_times_input(n_shape_fns);
+    std::vector<real> proj_J_times_input_at_q(n_quad_pts);
+    soln_basis_projection_oper.matrix_vector_mult_1D(J_times_input_at_q,
+                                                     coeffs_J_times_input,
+                                                     soln_basis_projection_oper.oneD_vol_operator);
+    soln_basis.matrix_vector_mult_1D(coeffs_J_times_input,
+                                     proj_J_times_input_at_q,
+                                     soln_basis.oneD_vol_operator);
+    
+    // Multiply by 1/J
+    std::vector<real> inv_J_times_poly_at_q(n_quad_pts);
+    for(unsigned int iquad=0; iquad<n_quad_pts; ++iquad)
+    {
+        inv_J_times_poly_at_q[iquad] = proj_J_times_input_at_q[iquad]/det_Jac_vol[iquad];
+    }
+
+    // Project
+    soln_basis_projection_oper.matrix_vector_mult_1D(inv_J_times_poly_at_q,
+                                                     input_coeffs_weight_adjusted,
+                                                     soln_basis_projection_oper.oneD_vol_operator);
+}
+
+
+template <int dim, int n_faces>  
 vol_projection_operator_FR<dim,n_faces>::vol_projection_operator_FR(
     const int nstate_input,
     const unsigned int max_degree_input,
@@ -3198,6 +3240,51 @@ template void SumFactorizedOperators<PHILIP_DIM,2*PHILIP_DIM>::matrix_vector_mul
     const dealii::FullMatrix<double> &basis_z,
     const bool adding,
     const double factor);
+    
+template void vol_projection_operator<PHILIP_DIM,2*PHILIP_DIM>::weight_adjusted_vol_projection<double>(
+        const std::vector<double> &input_at_q,
+        std::vector<double> &input_coeffs_weight_adjusted,
+        const unsigned int n_quad_pts,
+        const unsigned int n_shape_fns,
+        OPERATOR::basis_functions<PHILIP_DIM,2*PHILIP_DIM>          &soln_basis,
+        OPERATOR::vol_projection_operator<PHILIP_DIM,2*PHILIP_DIM>  &soln_basis_projection_oper,
+        const std::vector<double> & det_Jac_vol);
+
+template void vol_projection_operator<PHILIP_DIM,2*PHILIP_DIM>::weight_adjusted_vol_projection<FadType>(
+        const std::vector<FadType> &input_at_q,
+        std::vector<FadType> &input_coeffs_weight_adjusted,
+        const unsigned int n_quad_pts,
+        const unsigned int n_shape_fns,
+        OPERATOR::basis_functions<PHILIP_DIM,2*PHILIP_DIM>          &soln_basis,
+        OPERATOR::vol_projection_operator<PHILIP_DIM,2*PHILIP_DIM>  &soln_basis_projection_oper,
+        const std::vector<FadType> & det_Jac_vol);
+
+template void vol_projection_operator<PHILIP_DIM,2*PHILIP_DIM>::weight_adjusted_vol_projection<RadType>(
+        const std::vector<RadType> &input_at_q,
+        std::vector<RadType> &input_coeffs_weight_adjusted,
+        const unsigned int n_quad_pts,
+        const unsigned int n_shape_fns,
+        OPERATOR::basis_functions<PHILIP_DIM,2*PHILIP_DIM>          &soln_basis,
+        OPERATOR::vol_projection_operator<PHILIP_DIM,2*PHILIP_DIM>  &soln_basis_projection_oper,
+        const std::vector<RadType> & det_Jac_vol);
+
+template void vol_projection_operator<PHILIP_DIM,2*PHILIP_DIM>::weight_adjusted_vol_projection<FadFadType>(
+        const std::vector<FadFadType> &input_at_q,
+        std::vector<FadFadType> &input_coeffs_weight_adjusted,
+        const unsigned int n_quad_pts,
+        const unsigned int n_shape_fns,
+        OPERATOR::basis_functions<PHILIP_DIM,2*PHILIP_DIM>          &soln_basis,
+        OPERATOR::vol_projection_operator<PHILIP_DIM,2*PHILIP_DIM>  &soln_basis_projection_oper,
+        const std::vector<FadFadType> & det_Jac_vol);
+
+template void vol_projection_operator<PHILIP_DIM,2*PHILIP_DIM>::weight_adjusted_vol_projection<RadFadType>(
+        const std::vector<RadFadType> &input_at_q,
+        std::vector<RadFadType> &input_coeffs_weight_adjusted,
+        const unsigned int n_quad_pts,
+        const unsigned int n_shape_fns,
+        OPERATOR::basis_functions<PHILIP_DIM,2*PHILIP_DIM>          &soln_basis,
+        OPERATOR::vol_projection_operator<PHILIP_DIM,2*PHILIP_DIM>  &soln_basis_projection_oper,
+        const std::vector<RadFadType> & det_Jac_vol);
 
 template void SumFactorizedOperators<PHILIP_DIM,2*PHILIP_DIM>::divergence_matrix_vector_mult<double>(
             const dealii::Tensor<1,PHILIP_DIM,std::vector<double>> &input_vect,
