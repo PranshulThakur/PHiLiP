@@ -966,6 +966,110 @@ std::array<dealii::Tensor<1,dim,real>,nstate> Euler<dim,nstate,real>
 
 template <int dim, int nstate, typename real>
 void Euler<dim,nstate,real>
+::boundary_characteristics (
+   const dealii::Tensor<1,dim,real> &normal_int,
+   const std::array<real,nstate> &soln_int,
+   std::array<real,nstate> &soln_bc) const
+{
+    if constexpr(dim==3)
+    {
+        std::array<std::array<real, nstate>,nstate> P; 
+        std::array<std::array<real, nstate>,nstate> P_inv;
+        std::array<real, nstate> lambda;
+        std::array<real,nstate> z_int;
+        std::array<real,nstate> z_inf;
+        std::array<real,nstate> z_bc;
+
+        const real sy = normal_int[2];
+        const real cy = sqrt(normal_int[0]*normal_int[0] + normal_int[1]*normal_int[1]);
+        const real cz = normal_int[0]/sqrt(normal_int[0]*normal_int[0] + normal_int[1]*normal_int[1]);
+        const real sz = normal_int[1]/sqrt(normal_int[0]*normal_int[0] + normal_int[1]*normal_int[1]);
+
+        const real c = compute_sound(soln_int);
+        const dealii::Tensor<1,dim,real> vel = compute_velocities<real>(soln_int);
+        real vel_dot_n = 0.0;
+        real norm_vel_sqr = 0.0;
+        for(unsigned int d=0; d<dim; ++d)
+        {
+            vel_dot_n += vel[d]*normal_int[d];
+            norm_vel_sqr += vel[d]*vel[d];
+        }
+        const real H = compute_specific_enthalpy(soln_int, compute_pressure<real>(soln_int));
+
+        P[0][0] = 1.0;                      P[0][1] = 1.0; P[0][2]=0.0; P[0][3]=0.0; P[0][4]=1.0;
+        P[1][0]= vel[0] - c*normal_int[0] ; P[1][1] = vel[0]; P[1][2]=-sz; P[1][3]=-cz*sy; P[1][4]=vel[0]+c*normal_int[0];
+        P[2][0] = vel[1] - c*normal_int[1]; P[2][1] = vel[1]; P[2][2]=cz; P[2][3]=-sz*sy; P[2][4]=vel[1]+c*normal_int[1];
+        P[3][0] = vel[2] - c*normal_int[2]; P[3][1] = vel[2]; P[3][2]=0.0; P[3][3]=cy; P[3][4]=vel[2]+c*normal_int[2];
+        P[4][0] = H - c*vel_dot_n; P[4][1] = 0.5*norm_vel_sqr; P[4][2]=cz*vel[1]-sz*vel[0] ; P[4][3]=-cz*sy*vel[0]-sz*sy*vel[1]+vel[2]*cy; P[4][4]=H + c*vel_dot_n;
+
+        P_inv[0][0]=H+c*(vel_dot_n - c)/this->gamm1; P_inv[0][1]=-vel[0]-c*normal_int[0]/this->gamm1; P_inv[0][2]=-vel[1]-c*normal_int[1]/this->gamm1; P_inv[0][3]=-vel[2]-c*normal_int[2]/this->gamm1; P_inv[0][4]=1.0;
+        P_inv[1][0]=-2.0*H + 4.0*c*c/this->gamm1; P_inv[1][1] = 2.0*vel[0]; P_inv[1][2] = 2.0*vel[1]; P_inv[1][3]=2.0*vel[2]; P_inv[1][4]=-2.0;
+        P_inv[2][0] = -2.0*c*c/this->gamm1*(cz*vel[1]-sz*vel[0]); P_inv[2][1]=-2.0*c*c/this->gamm1*sz; P_inv[2][2]=2.0*c*c/this->gamm1*cz; P_inv[2][3]=0.0; P_inv[2][4]=0.0;
+        P_inv[3][0] = -2.0*c*c/this->gamm1*(-cz*sy*vel[0] - sz*sy*vel[1] + vel[2]*cy); P_inv[3][1] = -2.0*c*c/this->gamm1*cz*sy; P_inv[3][2]=-2.0*c*c/this->gamm1*sz*sy; P_inv[3][3]=2.0*c*c/this->gamm1*cy; P_inv[3][4]=0.0;
+        P_inv[4][0]=H-c/this->gamm1*(c+vel_dot_n); P_inv[4][1]=-vel[0]+c*normal_int[0]/this->gamm1; P_inv[4][2]=-vel[1]+c*normal_int[1]/this->gamm1; P_inv[4][3] = -vel[2]+c*normal_int[2]/this->gamm1; P_inv[4][4]=1.0;
+
+        for(unsigned int s1=0; s1<nstate; ++s1)
+        {
+            for(unsigned int s2=0; s2<nstate; ++s2)
+            {
+                P_inv[s1][s2] *= this->gamm1/(2.0*c*c);
+            }
+        }
+
+        lambda[0] = vel_dot_n-c; lambda[1] = vel_dot_n; lambda[2] = vel_dot_n; lambda[3] = vel_dot_n; lambda[4] = vel_dot_n+c;
+
+        // Compute z_inf and z_int
+        std::array<real,nstate> uinf;
+        uinf[0] = density_inf;
+        uinf[1] = density_inf*velocities_inf[0];
+        uinf[2] = density_inf*velocities_inf[1];
+        uinf[3] = density_inf*velocities_inf[2];
+        uinf[4] = pressure_inf/this->gamm1 + 0.5*density_inf*(pow(velocities_inf[0],2) + pow(velocities_inf[1],2) + pow(velocities_inf[2],2));
+
+        for(unsigned int s1=0; s1<nstate; ++s1)
+        {
+            z_inf[s1] = 0.0;
+            z_int[s1] = 0.0;
+            for(unsigned int s2=0; s2<nstate; ++s2)
+            {
+                z_inf[s1] += P_inv[s1][s2]*uinf[s2];
+                z_int[s1] += P_inv[s1][s2]*soln_int[s2];
+            }
+        }
+
+        // set z_bc
+        for(unsigned int s=0; s<nstate; ++s)
+        {
+            if(lambda[s]>=0.0)
+            {
+                z_bc[s] = z_int[s];
+            }
+            else
+            {
+                z_bc[s] = z_inf[s];
+            }
+        }
+
+        // set u_bc
+        for(unsigned int s1=0; s1<nstate; ++s1)
+        {
+            soln_bc[s1] = 0.0;
+            for(unsigned int s2=0; s2<nstate; ++s2)
+            {
+                soln_bc[s1] += P[s1][s2]*z_bc[s2];
+            }
+        }
+    }
+    else
+    {
+        std::cout<<"Euler::boundary_characteristics is not implemented for dim < 3. Aborting.."<<std::endl;
+        std::abort();
+    }
+
+}
+
+template <int dim, int nstate, typename real>
+void Euler<dim,nstate,real>
 ::boundary_riemann (
    const dealii::Tensor<1,dim,real> &normal_int,
    const std::array<real,nstate> &soln_int,
@@ -1411,7 +1515,9 @@ void Euler<dim,nstate,real>
     } 
     else if (boundary_type == 1004) {
         // Riemann-based farfield boundary condition
-        boundary_riemann (normal_int, soln_int, soln_bc);
+        //boundary_riemann (normal_int, soln_int, soln_bc);
+        // Characteristics-based farfield boundary condition
+        boundary_characteristics (normal_int, soln_int, soln_bc);
         for(unsigned int s=0; s<nstate; ++s)
         {
             soln_grad_bc[s] = soln_grad_int[s];

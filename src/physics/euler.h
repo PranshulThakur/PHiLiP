@@ -422,6 +422,11 @@ protected:
        const dealii::Tensor<1,dim,real> &normal_int,
        const std::array<real,nstate> &soln_int,
        std::array<real,nstate> &soln_bc) const;
+    
+    void boundary_characteristics (
+       const dealii::Tensor<1,dim,real> &normal_int,
+       const std::array<real,nstate> &soln_int,
+       std::array<real,nstate> &soln_bc) const;
 
     /// Simple farfield boundary conditions based on freestream values
     void boundary_farfield (
