@@ -79,8 +79,8 @@ subsection flow_solver
     set grid_degree = 2
     set length_left_cyl = 20
     set length_right_cyl = 40
-    set height_bottom_cyl = 30
-    set height_top_cyl = 30
+    set height_bottom_cyl = 15
+    set height_top_cyl = 15
     set depth_cyl = 2
     set depth_division_cyl = 3
     set shell_region_radius_cyl = 0.75
