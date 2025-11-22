@@ -183,6 +183,46 @@ void NACA0012<dim, nstate>::compute_unsteady_data_and_write_to_table(
         this->pcout << "        Consider decreasing the time step / CFL number." << std::endl;
         std::abort();
     }
+/* 
+// Compute max wave speed
+    // Initialize the maximum local wave speed to zero
+    double maximum_local_wave_speed = 0.0;
+
+    // Overintegrate the error to make sure there is not integration error in the error estimate
+    int overintegrate = 10;
+    dealii::QGauss<dim> quad_extra(dg->max_degree+1+overintegrate);
+    dealii::FEValues<dim,dim> fe_values_extra(*(dg->high_order_grid->mapping_fe_field), dg->fe_collection[dg->max_degree], quad_extra,
+                                              dealii::update_values | dealii::update_gradients | dealii::update_JxW_values | dealii::update_quadrature_points);
+
+    const unsigned int n_quad_pts = fe_values_extra.n_quadrature_points;
+    std::array<double,nstate> soln_at_q;
+
+    std::vector<dealii::types::global_dof_index> dofs_indices (fe_values_extra.dofs_per_cell);
+    for (auto cell = dg->dof_handler.begin_active(); cell!=dg->dof_handler.end(); ++cell) {
+        if (!cell->is_locally_owned()) continue;
+        fe_values_extra.reinit (cell);
+        cell->get_dof_indices (dofs_indices);
+
+        for (unsigned int iquad=0; iquad<n_quad_pts; ++iquad) {
+
+            std::fill(soln_at_q.begin(), soln_at_q.end(), 0.0);
+            for (unsigned int idof=0; idof<fe_values_extra.dofs_per_cell; ++idof) {
+                const unsigned int istate = fe_values_extra.get_fe().system_to_component_index(idof).first;
+                soln_at_q[istate] += dg->solution[dofs_indices[idof]] * fe_values_extra.shape_value_component(idof, iquad, istate);
+            }
+
+            // Update the maximum local wave speed (i.e. convective eigenvalue)
+            const double vel_norm = sqrt(pow(soln_at_q[1]/soln_at_q[0],2)+pow(soln_at_q[2]/soln_at_q[0],2)+pow(soln_at_q[3]/soln_at_q[0],2));
+            const double pressure = 0.4*(soln_at_q[nstate-1] - 0.5*soln_at_q[0]*vel_norm*vel_norm);
+            const double c = sqrt(1.4*pressure/soln_at_q[0]);
+            const double local_wave_speed = vel_norm + c;
+
+            if(local_wave_speed > maximum_local_wave_speed) maximum_local_wave_speed = local_wave_speed;
+        }
+    }
+    const double maximum_wave_speed = dealii::Utilities::MPI::max(maximum_local_wave_speed, this->mpi_communicator);
+    this->pcout<<"Max wave speed = "<<maximum_wave_speed<<std::endl;
+*/
 }
 
 #if PHILIP_DIM!=1
