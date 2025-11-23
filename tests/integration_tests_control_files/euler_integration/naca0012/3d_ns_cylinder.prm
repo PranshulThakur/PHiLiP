@@ -63,7 +63,7 @@ subsection linear solver
 end
 
 subsection ODE solver
-  set output_solution_every_x_steps = 100
+  #set output_solution_every_x_steps = 100
   set ode_solver_type = runge_kutta
   set runge_kutta_method = ssprk3_ex #rk4_ex
 end
@@ -72,9 +72,12 @@ subsection flow_solver
   set flow_case_type = naca0012
   set poly_degree = 2
   set final_time = 720.0
-  set constant_time_step = 0.0025
+  set end_exactly_at_final_time = false
+  set constant_time_step = 0.0015
   set steady_state = false
-  #set output_restart_files = true
+  set output_restart_files = true
+  set restart_files_directory_name = restart_files
+  set output_restart_files_every_x_steps = 480
   subsection grid
     #set input_mesh_filename = ../../../meshes/naca0012_hopw_ref2
     set number_of_mesh_refinements = 0
