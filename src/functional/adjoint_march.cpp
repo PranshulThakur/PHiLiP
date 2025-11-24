@@ -82,6 +82,40 @@ compute_QR_decomposition(const std::array<VectorType,n_col> &A,
     }
 }
     
+
+
+template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
+void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
+advance_in_time_hom(const std::array<VectorType,n_subspace_vectors> & psi_n, 
+                    std::array<VectorType,n_subspace_vectors> &psi_nminus) const
+{
+    VectorType temp(dg->right_hand_side);
+    // Assumes dRdW is already computed at time n
+    for(unsigned int k=0; k<n_subspace_vectors; ++k)
+    {
+        dg->system_matrix.Tvmult(temp, psi_n[k]);
+        temp*=dt;
+        dg->apply_inverse_global_mass_matrix(temp,psi_nminus[k]);
+        psi_nminus[k] += psi_n[k];
+        psi_nminus[k].update_ghost_values();
+    }
+}
+
+template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
+void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
+advance_in_time_nonhom(const VectorType & psi_n, 
+                        VectorType &psi_nminus) const
+{
+    VectorType temp(dg->right_hand_side);
+    // Assumes dRdW and dIdw is already computed at time n
+    dg->system_matrix.Tvmult(temp, psi_n);
+    temp+= functional->dIdw;
+    temp*=dt;
+    dg->apply_inverse_global_mass_matrix(temp,psi_nminus);
+    psi_nminus += psi_n;
+    psi_nminus.update_ghost_values();
+}
+    
 template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
 void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
 compute_Y_terminal(std::array< VectorType, n_subspace_vectors> &Y_terminal) const
@@ -126,11 +160,9 @@ compute_Y_terminal(std::array< VectorType, n_subspace_vectors> &Y_terminal) cons
             const double current_time = (i-1)*delT + j*dt;
             load_solution_at_time(current_time);
             dg->assemble_residual(true);
+            advance_in_time_hom(Q_n, Q_nminus);
             for(unsigned int k=0; k<n_subspace_vectors; ++k)
             {
-                Q_nminus[k] = Q_n[k];
-                dg->system_matrix.Tvmult_add(Q_nminus[k],dt*Q_n[k]);
-                Q_nminus[k].update_ghost_values();
                 Q_n[k] = Q_nminus[k];
             }
         }
@@ -189,65 +221,39 @@ compute_R_b_d_h_vecs()
             // Compute integrands to be integrated
             //=========================================
             compute_df_dc(f_c);
+            compute_dJ_dc(integrand_J_c[j]);
             for(unsigned int k=0; k<n_subspace_vectors; ++k)
             {
                 integrand_d[j][k] = Y[k]*f_c;
             }
             integrand_h[j] = v*f_c;
-            compute_dJ_dc(integrand_J_c[j]);
             //========================================
+            advance_in_time_hom(Y,Y_minus);
+            advance_in_time_nonhom(v,v_minus);
             for(unsigned int k=0; k<n_subspace_vectors; ++k)
             {
-                Y_minus[k] = Y[k];
-                dg->system_matrix.Tvmult_add(Y_minus[k],dt*Y[k]);
-                Y_minus[k].update_ghost_values();
                 Y[k] = Y_minus[k];
             }
-            v_minus = v;
-            dg->system_matrix.Tvmult_add(v_minus,dt*v);
-            v_minus += dt*functional->dIdw;
-            v_minus.update_ghost_values();
             v = v_minus;
-
-
-
-
-
-
-
-           ks_solver->rk3_adjoint_hom(Y,u_stored[t_index],Y_minus);
-           ks_solver->rk3_adjoint_nonhom(v,u_stored[t_index],v_minus);
-           for(int k=0; k<n_int_grid_points;++k)
-           {
-                for(int l=0; l<n_subspace_vectors;++l)
-                {
-                    Y[k][l] = Y_minus[k][l];
-                }
-                v[k] = v_minus[k];
-           }
-            // Compute integrands to be integrated
-            //=========================================
-            ks_solver->f(u_stored[t_index],f);
-            ks_solver->f_c(u_stored[t_index],f_c);
-            for(int k=0; k<n_subspace_vectors; ++k)
+            if(j==1)
             {
-                integrand_d[j-1][k] = 0.0;
-                integrand_d_f[j-1][k] = 0.0;
-                for(int l=0; l<n_int_grid_points; ++l)
+                const double current_time_minus = current_time - dt;
+                load_solution_at_time(current_time_minus);
+                compute_df_dc(f_c);
+                compute_dJ_dc(integrand_J_c[j-1]);
+                for(unsigned int k=0; k<n_subspace_vectors; ++k)
                 {
-                    integrand_d[j-1][k] += f_c[l]*Y[l][k];
-                    integrand_d_f[j-1][k] += f[l]*Y[l][k];
+                    integrand_d[j-1][k] = Y_minus[k]*f_c;
                 }
+                integrand_h[j-1] = v_minus*f_c;
             }
-            integrand_h[j-1]=0.0;
-            integrand_h_f[j-1]=0.0;
-            for(int l=0; l<n_int_grid_points;++l)
-            {
-                integrand_h[j-1]+= f_c[l]*v[l];
-                integrand_h_f[j-1]+= f[l]*v[l];
-            }
-            //========================================
-        } //for n_steps ends
+        } // nsteps ends
+
+
+
+
+
+
         // Compute integrals
         for(int k=0; k<n_subspace_vectors;++k)
         {

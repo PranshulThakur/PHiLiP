@@ -57,6 +57,10 @@ class AdjointMarch
                                 const std::array<double,n_subspace_vectors> &d,
                                 const std::array<double,n_subspace_vectors> &h) const;
     void load_solution_at_time(const double _time);
+    void advance_in_time_hom(const std::array<VectorType,n_subspace_vectors> & psi_n, 
+                             std::array<VectorType,n_subspace_vectors> &psi_nminus) const;
+    void advance_in_time_nonhom(const VectorType & psi_n, 
+                                VectorType &psi_nminus) const;
 
     void compute_df_dc(VectorType &f_c);
     void compute_dJ_dc(double &J_c);
