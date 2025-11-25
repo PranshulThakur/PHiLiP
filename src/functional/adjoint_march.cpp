@@ -1,41 +1,31 @@
 #include "adjoint_march.h"
+#include "dg/dg_factory.hpp"
 
 namespace PHiLiP {
 
 template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
 AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
 AdjointMarch(std::shared_ptr<DGBase<dim,double,MeshType>> _dg,
-             std::shared_ptr<Functional<dim,nstate,double,MeshType>> _functional,
-             const std::string _restart_file_index_terminal,
-             const double dt_, const double delT_, const double T_, const double T_extra_) // Total trajecotry length is T+T_extra
+             const int _restart_index_terminal,
+             const double dt_, const double delT_, const double T_, const double T_extra_, const double _perturbation_mach) // Total trajecotry length is T+T_extra
     : dg(_dg)
-    , functional(_functional)
+    , restart_index_terminal(_restart_index_terminal)
     , dt(dt_)
     , delT(delT_)
     , T(T_)
     , T_extra(T_extra_)
-    , dg(_dg)
     , K(T/delT)
-    , n_steps(delT/dt)
-    , restart_file_index_terminal(_restart_file_index_terminal)
+    , nsteps(delT/dt)
+    , perturbation_mach(_perturbation_mach)
 {
-    R_vec.resize(K);
-    s_vec.resize(K);
-    b_vec.resize(K);
-    d_vec.resize(K);
-    h_vec.resize(K);
-    d_f_vec.resize(K);
-    h_f_vec.resize(K);
-    weights_simpson_nsteps.resize(n_steps+1);
-    for(int i=0; i<=n_steps; ++i)
-    {
-        double w = 1.0;
-        if( (i==0) || (i==n_steps)) {w = 17.0/48.0;}
-        else if( (i==1) || (i==(n_steps-1))) {w = 59.0/48.0;}
-        else if( (i==2) || (i==(n_steps-2))) {w = 43.0/48.0;}
-        else if( (i==3) || (i==(n_steps-3))) {w = 49.0/48.0;}
-        weights_simpson_nsteps[i] = w;
-    }
+    // Initialize and allocate perturbed variables
+    Parameters::AllParameters param = *(dg->all_parameters);
+    param.euler_param.mach_inf = dg->all_parameters->euler_param.mach_inf + perturbation_mach;
+    dg_perturbed = DGFactory<dim,double>::create_discontinuous_galerkin(&param, param.flow_solver_param.poly_degree, param.flow_solver_param.max_poly_degree_for_adaptation, param.flow_solver_param.grid_degree, dg->triangulation);
+    dg_perturbed->allocate_system(false,false,false);
+
+    functional = FunctionalFactory<dim,nstate,double,MeshType>::create_Functional(dg->all_parameters, dg);
+    functional_perturbed = FunctionalFactory<dim,nstate,double,MeshType>::create_Functional(&param, dg_perturbed);
 }
 
 template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
@@ -73,7 +63,9 @@ compute_QR_decomposition(const std::array<VectorType,n_col> &A,
         for(unsigned int j=0; j<i; ++j)
         {
             R[j][i] = Q[j]*A[i];
-            Q[i] -= R[j][i]*Q[j];
+            VectorType temp = Q[j];
+            temp *= R[j][i];
+            Q[i] -= temp;
         }
 
         R[i][i] = Q[i].l2_norm();
@@ -82,8 +74,6 @@ compute_QR_decomposition(const std::array<VectorType,n_col> &A,
     }
 }
     
-
-
 template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
 void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
 advance_in_time_hom(const std::array<VectorType,n_subspace_vectors> & psi_n, 
@@ -118,16 +108,18 @@ advance_in_time_nonhom(const VectorType & psi_n,
     
 template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
 void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
-compute_Y_terminal(std::array< VectorType, n_subspace_vectors> &Y_terminal) const
+compute_Y_terminal(std::array< VectorType, n_subspace_vectors> &Y_terminal) 
 {
     std::array< VectorType, n_subspace_vectors+1> Y_augmented;
     load_solution_at_time(T+T_extra);
+    std::cout<<"Computing Jacobian.."<<std::endl;
     dg->assemble_residual(true);
+    std::cout<<"Done computing Jacobian.."<<std::endl;
     Y_augmented[0] = dg->right_hand_side;
     for(unsigned int i=1; i<n_subspace_vectors+1; ++i)
     {
         Y_augmented[i].reinit(dg->right_hand_side);
-        if(Y_augmented[i].get_partitioner().in_local_range(i-1))
+        if(Y_augmented[i].get_partitioner()->in_local_range(i-1))
         {
             Y_augmented[i][i-1] = 1.0;
         }
@@ -155,7 +147,7 @@ compute_Y_terminal(std::array< VectorType, n_subspace_vectors> &Y_terminal) cons
     for(int i=K+K_extra; i>K; --i)
     {
         // Integrate from Ti to T_{i-1}
-        for(int j=n_steps; j>0; --j) // Move from j to j-1
+        for(int j=nsteps; j>0; --j) // Move from j to j-1
         {
             const double current_time = (i-1)*delT + j*dt;
             load_solution_at_time(current_time);
@@ -178,49 +170,55 @@ compute_Y_terminal(std::array< VectorType, n_subspace_vectors> &Y_terminal) cons
 
 template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
 void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
-compute_v_terminal(VectorType &v_terminal) const
+compute_v_terminal(VectorType &v_terminal)
 { 
-    const int m_T = T/dt;
+    const unsigned int m_T = T/dt;
     std::vector<double> j_vals(m_T+1);
     for(unsigned int i=0; i<m_T+1; ++i)
     {
         const double current_time = i*dt;
         load_solution_at_time(current_time);
-        j_vals[i] = functional.evaluate_functional();
+        j_vals[i] = functional->evaluate_functional();
     }
     const double j_bar = 1.0/T * simpson_integration(j_vals,m_T,dt);
     dg->assemble_residual();
-    v_terminal = ((j_bar - j_vals[m_T])/(dg->right_hand_side*dg->right_hand_side)) * dg->right_hand_side;
+    v_terminal = dg->right_hand_side;
+    v_terminal *= ((j_bar - j_vals[m_T])/(dg->right_hand_side*dg->right_hand_side));
+    v_terminal.update_ghost_values();
 }
     
 template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
 void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
 compute_R_b_d_h_vecs()
 {
-    std::ofstream cout_R("R_vec.txt"); dealii::ConditionalOStream pcout_R(cout_R, Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0);
-    std::ofstream cout_b("b_vec.txt"); dealii::ConditionalOStream pcout_b(cout_b, Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0);
-    std::ofstream cout_d("d_vec.txt"); dealii::ConditionalOStream pcout_d(cout_d, Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0);
-    std::ofstream cout_h("h_vec.txt"); dealii::ConditionalOStream pcout_h(cout_h, Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0);
-    std::ofstream cout_J_c("integral_J_c.txt"); dealii::ConditionalOStream pcout_J_c(cout_J_c, Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0);
+    std::cout<<"Here 1"<<std::endl;
+    std::ofstream cout_R("R_vec.txt"); dealii::ConditionalOStream pcout_R(cout_R, dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0);
+    std::ofstream cout_b("b_vec.txt"); dealii::ConditionalOStream pcout_b(cout_b, dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0);
+    std::ofstream cout_d("d_vec.txt"); dealii::ConditionalOStream pcout_d(cout_d, dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0);
+    std::ofstream cout_h("h_vec.txt"); dealii::ConditionalOStream pcout_h(cout_h, dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0);
+    std::ofstream cout_J_c("integral_J_c.txt"); dealii::ConditionalOStream pcout_J_c(cout_J_c, dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0);
 
     std::array<VectorType,n_subspace_vectors> Y;
     VectorType v;
+    std::cout<<"Here 2"<<std::endl;
     compute_Y_terminal(Y);
+    std::cout<<"Here 3"<<std::endl;
     compute_v_terminal(v);
+    std::cout<<"Here 4"<<std::endl;
     std::array<VectorType,n_subspace_vectors> Y_minus;
     VectorType v_minus;
     std::array<VectorType,n_subspace_vectors> Q;
     std::array<std::array<double,n_subspace_vectors>,n_subspace_vectors> R;
     
     std::array<std::vector<double>,n_subspace_vectors> integrand_d;
-    for(unsigned int k=0; k<n_subspace_vectors; ++k) {integrand_d[k].resize(n_steps+1);}
-    std::vector<double> integrand_h(n_steps+1);
-    std::vector<double> integrand_J_c(n_steps+1);
+    for(unsigned int k=0; k<n_subspace_vectors; ++k) {integrand_d[k].resize(nsteps+1);}
+    std::vector<double> integrand_h(nsteps+1);
+    std::vector<double> integrand_J_c(nsteps+1);
     VectorType f_c;
 
     for(int i=K; i>0; --i) // Between Ti and T_{i-1}
     {
-        for(int j=n_steps; j>0; --j) // Between j and j-1
+        for(int j=nsteps; j>0; --j) // Between j and j-1
         {           
            const double current_time = (i-1)*delT + j*dt;
            load_solution_at_time(current_time);
@@ -228,8 +226,7 @@ compute_R_b_d_h_vecs()
            functional->evaluate_functional(true);
             // Compute integrands to be integrated
             //=========================================
-            compute_df_dc(f_c);
-            compute_dJ_dc(integrand_J_c[j]);
+            compute_df_dc_and_dJ_dc(f_c,integrand_J_c[j]);
             for(unsigned int k=0; k<n_subspace_vectors; ++k)
             {
                 integrand_d[k][j] = Y[k]*f_c;
@@ -247,8 +244,7 @@ compute_R_b_d_h_vecs()
             {
                 const double current_time_minus = current_time - dt;
                 load_solution_at_time(current_time_minus);
-                compute_df_dc(f_c);
-                compute_dJ_dc(integrand_J_c[j-1]);
+                compute_df_dc_and_dJ_dc(f_c,integrand_J_c[j-1]);
                 for(unsigned int k=0; k<n_subspace_vectors; ++k)
                 {
                     integrand_d[k][j-1] = Y_minus[k]*f_c;
@@ -266,13 +262,15 @@ compute_R_b_d_h_vecs()
         }
 
         // Compute QR and variables for the next iteration
-        compute_QR_decomposition(Y_minus, Q, R);
+        compute_QR_decomposition<n_subspace_vectors>(Y_minus, Q, R);
         std::array<double, n_subspace_vectors> b;
         for(unsigned int k=0; k<n_subspace_vectors; ++k)
         {
             Y[k] = Q[k];
-            b[k] = -Q[k]*v_minus;
-            v += Q[k]*b[k];
+            b[k] = -(Q[k]*v_minus);
+            VectorType temp_v = Q[k];
+            temp_v *= b[k];
+            v += temp_v;
         }
         v.update_ghost_values();
 
@@ -281,13 +279,13 @@ compute_R_b_d_h_vecs()
         {
             for(unsigned int k2 = 0; k2<n_subspace_vectors; ++k2)
             {
-                pcout_R<<R[k1][k2]<<"\n";
+                pcout_R<<std::setprecision(16)<<R[k1][k2]<<"\n";
             }
-            pcout_b<<b[k1]<<"\n";
-            pcout_d<<integrals_d[k1]<<"\n";
+            pcout_b<<std::setprecision(16)<<b[k1]<<"\n";
+            pcout_d<<std::setprecision(16)<<integrals_d[k1]<<"\n";
         }
-        pcout_J_c<<integral_jc<<"\n";
-        pcout_h<<integral_h<<"\n";
+        pcout_J_c<<std::setprecision(16)<<integral_jc<<"\n";
+        pcout_h<<std::setprecision(16)<<integral_h<<"\n";
     } // K loop
 }
     
@@ -296,7 +294,7 @@ void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
 load_solution_at_time(const double _time)
 {
     const int steps = _time/dt;
-    const int restart_index = restart_index_end - ((int) (T+T_extra)/dt) + steps;
+    const int restart_index = restart_index_terminal - (int)((T+T_extra)/dt) + steps;
 
     // Computes restart index string
     std::string restart_index_string = std::to_string(restart_index);
@@ -305,18 +303,40 @@ load_solution_at_time(const double _time)
     restart_index_string.insert(0, number_of_zeros, '0');
     const std::string prefix = "restart-";
     const std::string restart_filename_without_extension = prefix+restart_index_string;
+    std::cout<<restart_filename_without_extension<<std::endl;
 #if PHILIP_DIM>1
-    dg->triangulation->load(flow_solver_param.restart_files_directory_name + std::string("/") + restart_filename_without_extension);
+    dg->triangulation->load(dg->all_parameters->flow_solver_param.restart_files_directory_name + std::string("/") + restart_filename_without_extension);
     
     // Note: Future development with hp-capabilities, see section "Note on usage with DoFHandler with hp-capabilities"
     // ----- Ref: https://www.dealii.org/current/doxygen/deal.II/classparallel_1_1distributed_1_1SolutionTransfer.html
     dealii::LinearAlgebra::distributed::Vector<double> solution_no_ghost;
-    solution_no_ghost.reinit(dg->locally_owned_dofs, this->mpi_communicator);
+    solution_no_ghost.reinit(dg->locally_owned_dofs, MPI_COMM_WORLD);
     dealii::parallel::distributed::SolutionTransfer<dim, dealii::LinearAlgebra::distributed::Vector<double>, dealii::DoFHandler<dim>> solution_transfer(dg->dof_handler);
     solution_transfer.deserialize(solution_no_ghost);
     dg->solution = solution_no_ghost; //< assignment
     dg->solution.update_ghost_values();
 #endif
+    std::cout<<"Done loading solution"<<std::endl;
+}
+    
+template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
+void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
+compute_df_dc_and_dJ_dc(VectorType &f_c, double &J_c)
+{
+    dg->assemble_residual();
+
+    dg_perturbed->solution = dg->solution;
+    dg_perturbed->solution.update_ghost_values();
+    dg_perturbed->assemble_residual();
+
+    f_c = dg_perturbed->right_hand_side;
+    f_c -= dg->right_hand_side;
+    f_c /= perturbation_mach;
+    f_c.update_ghost_values();
+
+    J_c = functional_perturbed->evaluate_functional();
+    J_c -= functional->evaluate_functional();
+    J_c/= perturbation_mach;
 }
 
 /*
@@ -407,6 +427,28 @@ compute_s_unstable_forward_march()
     }
 }
 
+template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
+void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
+load_R_b_d_h_vecs()
+{
+    R_vec.resize(K);
+    s_vec.resize(K);
+    b_vec.resize(K);
+    d_vec.resize(K);
+    h_vec.resize(K);
+    integralJc_vec.resize(K);
+    
+    std::ifstream in_R("R_vec.txt");
+    std::ifstream in_b("b_vec.txt");
+    std::ifstream in_d("d_vec.txt");
+    std::ifstream in_h("h_vec.txt");
+    std::ifstream in_Jc("integral_J_c.txt");
+    for(unsigned int i=K-1; i>=0; --i)
+    {
+        
+    }
+}
+
 template<int n_int_grid_points,int n_subspace_vectors>
 double AdjointMarch<n_int_grid_points,n_subspace_vectors>::
 compute_sensitivity()
@@ -447,8 +489,8 @@ compute_f_dot_adjoint_average() const
     return abs(f_dot_adj_avg);
 }
 */
-template class AdjointMarch<127,20>;
-template class AdjointMarch<255,20>;
-template class AdjointMarch<511,20>;
+#if PHILIP_DIM != 1
+template class AdjointMarch<PHILIP_DIM, PHILIP_DIM+2, 20, dealii::parallel::distributed::Triangulation<PHILIP_DIM>>;
+#endif
 
 } // PHiLiP namespace

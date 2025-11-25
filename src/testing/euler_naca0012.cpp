@@ -5,7 +5,7 @@
 #include "euler_naca0012.hpp"
 #include "flow_solver/flow_solver_factory.h"
 #include <deal.II/base/convergence_table.h>
-
+#include "functional/adjoint_march.h"
 
 namespace PHiLiP {
 namespace Tests {
@@ -23,7 +23,20 @@ int EulerNACA0012<dim,nstate>
 ::run_test () const
 {
 
-    // General code
+    // Code to compute R, b, d and h vecs and store in file
+    Parameters::AllParameters param = *(TestsBase::all_parameters);
+    param.ode_solver_param.allocate_matrix_dRdW = true; 
+    std::unique_ptr<FlowSolver::FlowSolver<dim,nstate>> flow_solver = FlowSolver::FlowSolverFactory<dim,nstate>::select_flow_case(&param, parameter_handler);
+    const double dt = param.flow_solver_param.constant_time_step;
+    const double delT = 2*dt; //500*param.flow_solver_param.constant_time_step;
+    const double T = 6*dt; //40.0;
+    const double T_extra = 4*dt; //20.0;
+    std::unique_ptr<AdjointMarch<dim, nstate, 20>> adjoint_march = std::make_unique<AdjointMarch<dim, nstate, 20>>(flow_solver->dg,17730,dt,delT,T,T_extra);  
+
+    adjoint_march->compute_R_b_d_h_vecs();
+
+/*
+    // General code to run flow solver over the cylinder
     // CHANGE grid, initial_condition, the below code for other runs
     Parameters::AllParameters param = *(TestsBase::all_parameters);
     const double grid_size = 0.1/pow(2.0,param.flow_solver_param.number_of_mesh_refinements); 
@@ -33,7 +46,7 @@ int EulerNACA0012<dim,nstate>
 
     std::unique_ptr<FlowSolver::FlowSolver<dim,nstate>> flow_solver = FlowSolver::FlowSolverFactory<dim,nstate>::select_flow_case(&param, parameter_handler);
     flow_solver->run();
-
+*/
 
 
 
