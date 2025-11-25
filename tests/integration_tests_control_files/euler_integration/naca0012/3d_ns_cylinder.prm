@@ -24,10 +24,16 @@ subsection euler
   set reference_length = 1.0
   set mach_infinity = 0.093
 end
+
 subsection navier_stokes
   set reynolds_number_inf = 1100.0
   set prandtl_number = 0.71
   set temperature_inf = 283.0 
+end
+
+subsection functional
+  # functional choice
+  set functional_type = drag
 end
 
 subsection linear solver
