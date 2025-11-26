@@ -1303,7 +1303,7 @@ FunctionalFactory<dim,nstate,real,MeshType>::create_Functional(
             true,
             false);
     }else if(functional_type == FunctionalTypeEnum::lift){
-        if constexpr(dim==2 && 
+        if constexpr((dim==2||dim==3) && 
                      nstate==(dim+2) && 
                      std::is_same<MeshType, dealii::parallel::distributed::Triangulation<dim>>::value)
         {
@@ -1312,7 +1312,7 @@ FunctionalFactory<dim,nstate,real,MeshType>::create_Functional(
                 LiftDragFunctional<dim,dim+2,double,MeshType>::Functional_types::lift);
         }
     }else if(functional_type == FunctionalTypeEnum::drag){
-        if constexpr(dim==2 && 
+        if constexpr((dim==2 || dim==3) && 
                      nstate==(dim+2) && 
                      std::is_same<MeshType, dealii::parallel::distributed::Triangulation<dim>>::value)
         {
