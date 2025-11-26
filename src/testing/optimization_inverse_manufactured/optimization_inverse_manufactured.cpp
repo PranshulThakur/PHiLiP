@@ -648,11 +648,11 @@ int OptimizationInverseManufactured<dim,nstate>
   auto dRdW_T = transpose_trilinos_matrix(dg->system_matrix);
 
   Parameters::LinearSolverParam linear_solver_param = all_parameters->linear_solver_param;
-  solve_linear (dRdW_T, inverse_target_functional.dIdw, dg->dual, linear_solver_param);
+  solve_linear (dRdW_T, inverse_target_functional.dIdw, dg->duals[0], linear_solver_param);
 
   grad_lagrangian = dIdXs;
   grad_lagrangian *= -1.0;
-  dRdXs.Tvmult_add(grad_lagrangian, dg->dual);
+  dRdXs.Tvmult_add(grad_lagrangian, dg->duals[0]);
   grad_lagrangian *= -1.0;
  }
  for (unsigned int i_design = 0; i_design < n_max_design && current_kkt_norm > kkt_tolerance; i_design++) {
@@ -784,12 +784,12 @@ int OptimizationInverseManufactured<dim,nstate>
   auto dRdW_T = transpose_trilinos_matrix(dg->system_matrix);
 
   Parameters::LinearSolverParam linear_solver_param = all_parameters->linear_solver_param;
-  solve_linear (dRdW_T, inverse_target_functional.dIdw, dg->dual, linear_solver_param);
+  solve_linear (dRdW_T, inverse_target_functional.dIdw, dg->duals[0], linear_solver_param);
 
   const auto old_grad_lagrangian = grad_lagrangian;
   grad_lagrangian = dIdXs;
   grad_lagrangian *= -1.0;
-  dRdXs.Tvmult_add(grad_lagrangian, dg->dual);
+  dRdXs.Tvmult_add(grad_lagrangian, dg->duals[0]);
   grad_lagrangian *= -1.0;
 
   if (use_BFGS) {

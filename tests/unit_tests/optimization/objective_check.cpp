@@ -201,7 +201,7 @@ int test(const unsigned int nx_ffd)
     const bool has_ownership = false;
     DealiiVector des_var_sim = dg->solution;
     DealiiVector des_var_ctl = ffd_design_variables;
-    DealiiVector des_var_adj = dg->dual;
+    DealiiVector des_var_adj = dg->duals[0];
     Teuchos::RCP<DealiiVector> des_var_sim_rcp = Teuchos::rcp(&des_var_sim, has_ownership);
     Teuchos::RCP<DealiiVector> des_var_ctl_rcp = Teuchos::rcp(&des_var_ctl, has_ownership);
     Teuchos::RCP<DealiiVector> des_var_adj_rcp = Teuchos::rcp(&des_var_adj, has_ownership);

@@ -480,7 +480,9 @@ public:
     /** This is used to evaluate the dot-product between the dual and the 2nd derivatives of the residual
      *  since storing the 2nd order partials of the residual is a very large 3rd order tensor.
      */
-    dealii::LinearAlgebra::distributed::Vector<real> dual;
+    static const unsigned int n_duals = 13;
+    std::array<dealii::LinearAlgebra::distributed::Vector<real>,n_duals> duals;
+    std::array<dealii::LinearAlgebra::distributed::Vector<real>,n_duals> duals_transpose_dRdW;
 
     /// Sets the stored dual variables used to compute the dual dotted with the residual Hessians
     void set_dual(const dealii::LinearAlgebra::distributed::Vector<real> &dual_input);

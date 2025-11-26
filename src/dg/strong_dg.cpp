@@ -3708,7 +3708,11 @@ template <int dim, int nstate, typename real, typename MeshType>
 void DGStrong<dim,nstate,real,MeshType>::allocate_dual_vector(const bool compute_d2R)
 {
     if(compute_d2R){
-        this->dual.reinit(this->locally_owned_dofs, this->ghost_dofs, this->mpi_communicator);
+        for(unsigned int k=0; k<this->n_duals; ++k)
+        {
+            this->duals[k].reinit(this->locally_owned_dofs, this->ghost_dofs, this->mpi_communicator);
+            this->duals_transpose_dRdW[k].reinit(this->locally_owned_dofs, this->ghost_dofs, this->mpi_communicator);
+        }
     }
 }
 

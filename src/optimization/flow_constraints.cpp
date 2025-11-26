@@ -530,13 +530,14 @@ void FlowConstraints<dim>
                                   const ROL::Vector<double> &des_var_ctl,
                                   double &tol)
 {
+    (void) dual;
     // ROL_vector_to_dealii_vector_reference(output_vector) *= 0.0;
     // return;
 
     if(i_print) std::cout << __PRETTY_FUNCTION__ << std::endl;
     (void) tol;
-    dg->set_dual(ROL_vector_to_dealii_vector_reference(dual));
-    dg->dual.update_ghost_values();
+    //dg->set_dual(ROL_vector_to_dealii_vector_reference(dual));
+    //dg->dual.update_ghost_values();
     update_1(des_var_sim);
     update_2(des_var_ctl);
 
@@ -557,6 +558,7 @@ void FlowConstraints<dim>
                                   const ROL::Vector<double> &des_var_ctl,
                                   double &tol)
 {
+    (void) dual;
     // ROL_vector_to_dealii_vector_reference(output_vector) *= 0.0;
     // return;
 
@@ -565,8 +567,8 @@ void FlowConstraints<dim>
     update_1(des_var_sim);
     update_2(des_var_ctl);
 
-    dg->set_dual(ROL_vector_to_dealii_vector_reference(dual));
-    dg->dual.update_ghost_values();
+    //dg->set_dual(ROL_vector_to_dealii_vector_reference(dual));
+    //dg->dual.update_ghost_values();
 
     const auto &input_vector_v = ROL_vector_to_dealii_vector_reference(input_vector);
 
@@ -614,6 +616,7 @@ void FlowConstraints<dim>
     double &tol
     )
 {
+    (void) dual;
     // ROL_vector_to_dealii_vector_reference(output_vector) *= 0.0;
     // return;
 
@@ -622,8 +625,8 @@ void FlowConstraints<dim>
     update_1(des_var_sim);
     update_2(des_var_ctl);
 
-    dg->set_dual(ROL_vector_to_dealii_vector_reference(dual));
-    dg->dual.update_ghost_values();
+    //dg->set_dual(ROL_vector_to_dealii_vector_reference(dual));
+    //dg->dual.update_ghost_values();
 
     const auto &input_vector_v = ROL_vector_to_dealii_vector_reference(input_vector);
 
@@ -673,6 +676,7 @@ void FlowConstraints<dim>
     double &tol
     )
 {
+    (void) dual;
     // ROL_vector_to_dealii_vector_reference(output_vector) *= 0.0;
     // return;
 
@@ -682,8 +686,8 @@ void FlowConstraints<dim>
     update_1(des_var_sim);
     update_2(des_var_ctl);
 
-    dg->set_dual(ROL_vector_to_dealii_vector_reference(dual));
-    dg->dual.update_ghost_values();
+    //dg->set_dual(ROL_vector_to_dealii_vector_reference(dual));
+    //dg->dual.update_ghost_values();
 
     const auto &input_vector_v = ROL_vector_to_dealii_vector_reference(input_vector);
 

@@ -560,7 +560,7 @@ int EulerNACAOptimization<dim,nstate>
     // Reset to initial_grid
     DealiiVector des_var_sim = dg->solution;
     DealiiVector des_var_ctl = initial_design_variables;
-    DealiiVector des_var_adj = dg->dual;
+    DealiiVector des_var_adj = dg->duals[0];
     des_var_adj.add(0.1);
 
     const bool has_ownership = false;

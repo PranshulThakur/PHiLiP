@@ -53,9 +53,15 @@ class AdjointMarch
 
     void load_solution_at_time(const double _time);
     void advance_in_time_hom(const std::array<VectorType,n_subspace_vectors> & psi_n, 
-                             std::array<VectorType,n_subspace_vectors> &psi_nminus) const;
-    void advance_in_time_nonhom(const VectorType & psi_n, 
-                                VectorType &psi_nminus) const;
+                             std::array<VectorType,n_subspace_vectors> &psi_nminus);
+    //void advance_in_time_nonhom(const VectorType & psi_n, 
+    //                            VectorType &psi_nminus);
+    void advance_in_time_hom_and_nonhom(const std::array<VectorType,n_subspace_vectors> & Y_n,
+                                        const VectorType &v_n,
+                                        std::array<VectorType,n_subspace_vectors> & Y_nminus,
+                                        VectorType &v_nminus);
+
+    void apply_f_u_transposed(const std::array<VectorType,n_subspace_vectors+1> &in_vec, std::array<VectorType,n_subspace_vectors+1> &out_vec);
 
 public:
     AdjointMarch(std::shared_ptr<DGBase<dim,double,MeshType>> _dg,

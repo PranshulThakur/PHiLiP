@@ -119,10 +119,10 @@ int test (
     ode_solver->steady_state();
 
     // Set dual to 1.0 so that every 2nd derivative of the residual is accounted for.
-    for (auto it = dg->dual.begin(); it != dg->dual.end(); ++it) {
+    for (auto it = dg->duals[0].begin(); it != dg->duals[0].end(); ++it) {
         (*it) = 1.0;
     }
-    dg->dual.update_ghost_values();
+    dg->duals[0].update_ghost_values();
 
     pcout << "Evaluating AD..." << std::endl;
     //dg->assemble_residual(false, false, true);
@@ -192,7 +192,7 @@ int test (
                         }
                     }
                     dg->assemble_residual(false, false, false);
-                    perturbed_dual_dot_residual[ij] = dg->right_hand_side * dg->dual;
+                    perturbed_dual_dot_residual[ij] = dg->right_hand_side * dg->duals[0];
 
                     if (inode_relevant) {
                         high_order_grid->volume_nodes(inode) = old_inode;
