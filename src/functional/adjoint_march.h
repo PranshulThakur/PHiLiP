@@ -65,7 +65,7 @@ class AdjointMarch
 public:
     AdjointMarch(std::shared_ptr<DGBase<dim,double,MeshType>> _dg,
                  const int _restart_index_terminal,
-                 const double dt_, const double delT_, const double T_, const double T_extra_, const double _perturbation_mach = 1.0e-3); // Total trajecotry length is T+T_extra
+                 const double dt_, const double delT_, const double T_, const double T_extra_, const double _perturbation_mach = 1.0e-5); // Total trajecotry length is T+T_extra
     ~AdjointMarch(){};
     double compute_sensitivity();
     void load_solution_at_time(const double _time);
