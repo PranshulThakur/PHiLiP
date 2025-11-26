@@ -1228,7 +1228,7 @@ FunctionalFactory<dim,nstate,real,MeshType>::create_Functional(
     PHiLiP::Parameters::AllParameters const *const param,
     std::shared_ptr< PHiLiP::DGBase<dim,real,MeshType> > dg)
 {
-    return FunctionalFactory<dim,nstate,real,MeshType>::create_Functional(param->grid_refinement_study_param.functional_param, dg);
+    return FunctionalFactory<dim,nstate,real,MeshType>::create_Functional(param->functional_param, dg);
 }
 
 template <int dim, int nstate, typename real, typename MeshType>
