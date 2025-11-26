@@ -51,7 +51,6 @@ class AdjointMarch
 
     double simpson_integration(const std::vector<double> &integrand, const int n, const double h ) const; // Integration using n+1 points
 
-    void load_solution_at_time(const double _time);
     void advance_in_time_hom(const std::array<VectorType,n_subspace_vectors> & psi_n, 
                              std::array<VectorType,n_subspace_vectors> &psi_nminus);
     //void advance_in_time_nonhom(const VectorType & psi_n, 
@@ -69,6 +68,7 @@ public:
                  const double dt_, const double delT_, const double T_, const double T_extra_, const double _perturbation_mach = 1.0e-3); // Total trajecotry length is T+T_extra
     ~AdjointMarch(){};
     double compute_sensitivity();
+    void load_solution_at_time(const double _time);
     double compute_f_dot_adjoint_average() const;
     void compute_df_dc_and_dJ_dc(VectorType &f_c, double &J_c);
     void compute_R_b_d_h_vecs();

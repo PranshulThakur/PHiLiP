@@ -28,13 +28,28 @@ int EulerNACA0012<dim,nstate>
     param.ode_solver_param.allocate_matrix_dRdW = true; 
     std::unique_ptr<FlowSolver::FlowSolver<dim,nstate>> flow_solver = FlowSolver::FlowSolverFactory<dim,nstate>::select_flow_case(&param, parameter_handler);
     const double dt = param.flow_solver_param.constant_time_step;
-    const double delT = 500*dt;
-    const double T = 66*delT;
-    const double T_extra = 26*delT;
-    std::unique_ptr<AdjointMarch<dim, nstate, 12>> adjoint_march = std::make_unique<AdjointMarch<dim, nstate, 12>>(flow_solver->dg,66177,dt,delT,T,T_extra);  
+    const double delT = 2*dt;
+    const double T = 6*dt;
+    const double T_extra = 4*dt;
+    //std::unique_ptr<AdjointMarch<dim, nstate, 12>> adjoint_march = std::make_unique<AdjointMarch<dim, nstate, 12>>(flow_solver->dg,17730,dt,delT,T,T_extra, perturbation);  
 
-    adjoint_march->compute_R_b_d_h_vecs();
+    //adjoint_march->compute_R_b_d_h_vecs();
+{
+    for(int i=3; i<8; ++i)
+    {
+        const double perturbation = std::pow(10.0,-i);
+        std::cout<<"perturbation = "<<perturbation<<std::endl;
+        std::unique_ptr<AdjointMarch<dim, nstate, 12>> adjoint_march = std::make_unique<AdjointMarch<dim, nstate, 12>>(flow_solver->dg,17730,dt,delT,T,T_extra, perturbation);  
 
+        adjoint_march->load_solution_at_time(T+T_extra);
+        dealii::LinearAlgebra::distributed::Vector<double> f_c(flow_solver->dg->solution);
+        double J_c;
+        adjoint_march->compute_df_dc_and_dJ_dc(f_c, J_c);
+        this->pcout<<"perturbation = "<<perturbation<<"   dRdc_norm = "<<f_c.l2_norm()<<"   J_c = "<<J_c<<std::endl;
+        
+    }
+
+}
 /*
     // General code to run flow solver over the cylinder
     // CHANGE grid, initial_condition, the below code for other runs
