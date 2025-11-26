@@ -355,7 +355,7 @@ load_solution_at_time(const double _time)
     restart_index_string.insert(0, number_of_zeros, '0');
     const std::string prefix = "restart-";
     const std::string restart_filename_without_extension = prefix+restart_index_string;
-    std::cout<<restart_filename_without_extension<<std::endl;
+    //std::cout<<restart_filename_without_extension<<std::endl;
 #if PHILIP_DIM>1
     dg->triangulation->load(dg->all_parameters->flow_solver_param.restart_files_directory_name + std::string("/") + restart_filename_without_extension);
     
@@ -368,7 +368,7 @@ load_solution_at_time(const double _time)
     dg->solution = solution_no_ghost; //< assignment
     dg->solution.update_ghost_values();
 #endif
-    std::cout<<"Done loading solution"<<std::endl;
+    //std::cout<<"Done loading solution"<<std::endl;
 }
     
 template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
