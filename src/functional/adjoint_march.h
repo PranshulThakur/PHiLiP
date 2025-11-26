@@ -37,7 +37,7 @@ class AdjointMarch
     std::vector<std::array<double,n_subspace_vectors>> b_vec;
     std::vector<std::array<double,n_subspace_vectors>> d_vec;
     std::vector<double> h_vec;
-
+    Parameters::AllParameters param;
     void compute_s_stable_backward_march();
     void compute_s_unstable_forward_march();
     void compute_unstable_neutral_stable_subspace_indices();
