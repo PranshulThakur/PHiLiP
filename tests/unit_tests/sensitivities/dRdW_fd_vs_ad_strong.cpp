@@ -136,14 +136,39 @@ int test (
     }
     dRdW_fd.compress(dealii::VectorOperation::add);
 
-    dRdW_fd.add(-1.0,dg->system_matrix);
+    //dRdW_fd.add(-1.0,dg->system_matrix); 
+    
+    double diff_l2_norm = 0.0;  
+    for(unsigned int k=0; k<12; ++k)
+    {
+        for(unsigned int idof = 0; idof<dg->dof_handler.n_dofs(); ++idof)
+        {
+            solutionVector identity_coln (dg->right_hand_side);
+            identity_coln *=0.0;
+            if(identity_coln.get_partitioner()->in_local_range(idof))
+            {
+                identity_coln[idof] = 1.0;
+            }
+            identity_coln.update_ghost_values();
 
-    const double diff_lone_norm = dRdW_fd.l1_norm();
-    const double diff_linf_norm = dRdW_fd.linfty_norm();
-    pcout << "(dRdW_FD - dRdW_AD) L1-norm = " << diff_lone_norm << std::endl;
-    pcout << "(dRdW_FD - dRdW_AD) Linf-norm = " << diff_linf_norm << std::endl;
+            solutionVector matrix_vector_fd (dg->right_hand_side);
+            dRdW_fd.Tvmult(matrix_vector_fd, identity_coln);
+            dg->duals[k] = identity_coln; dg->duals[k].update_ghost_values();
+            dg->assemble_residual(true);
+            solutionVector diff_vec = matrix_vector_fd;
+            diff_vec -= dg->duals_transpose_dRdW[k];
+            pcout<<"Diff vec norm = "<<diff_vec.l2_norm()<<std::endl;
+            diff_l2_norm += diff_vec.l2_norm();
+        }
+    }
 
-    if (diff_lone_norm > TOLERANCE) 
+    //const double diff_lone_norm = dRdW_fd.l1_norm();
+    //const double diff_linf_norm = dRdW_fd.linfty_norm();
+    //pcout << "(dRdW_FD - dRdW_AD) L1-norm = " << diff_lone_norm << std::endl;
+    //pcout << "(dRdW_FD - dRdW_AD) Linf-norm = " << diff_linf_norm << std::endl;
+    //if (diff_lone_norm > TOLERANCE)
+    pcout << "(dRdW_FD - dRdW_AD) L2-norm = " << diff_l2_norm << std::endl;
+    if (diff_l2_norm > TOLERANCE) 
     {
         const unsigned int n_digits = 5;
         const unsigned int n_spacing = 7+n_digits;
