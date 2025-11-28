@@ -1077,7 +1077,7 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_volume_term_strong(
     std::array<std::vector<adtype>,nstate> entropy_var_at_q;
     std::array<std::vector<adtype>,nstate> projected_entropy_var_at_q;
     std::array<std::vector<adtype>,nstate> entropy_var_coeffs;
-    //std::vector<std::array<std::array<real,nstate>,nstate>> dv_du(n_quad_pts);
+    std::vector<std::array<std::array<real,nstate>,nstate>> dv_du(n_quad_pts);
     if(true){
     //if (this->all_parameters->use_split_form || this->all_parameters->use_curvilinear_split_form){
         for(int istate=0; istate<nstate; istate++){
@@ -1092,10 +1092,10 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_volume_term_strong(
             }
             std::array<adtype,nstate> entropy_var;
             entropy_var = pde_physics.compute_entropy_variables(soln_state);
-            //if(compute_dRdW_strong)
-            //{
-            //    pde_physics.get_d_entropy_var_d_conservative_var(dv_du[iquad],entropy_var); 
-            //}
+            if(compute_dRdW_strong)
+            {
+                pde_physics.get_d_entropy_var_d_conservative_var(dv_du[iquad],entropy_var); 
+            }
             for(int istate=0; istate<nstate; istate++){
                 entropy_var_at_q[istate][iquad] = entropy_var[istate];
             }
@@ -1144,7 +1144,7 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_volume_term_strong(
         flux_basis.sum_factorized_Hadamard_sparsity_pattern(n_quad_pts_1D, n_quad_pts_1D, Hadamard_rows_sparsity, Hadamard_columns_sparsity);
     }
 
-    //std::vector<std::array<std::array<real,nstate>,nstate>> dutilde_dvtilde(n_quad_pts);
+    std::vector<std::array<std::array<real,nstate>,nstate>> dutilde_dvtilde(n_quad_pts);
 
     for (unsigned int iquad=0; iquad<n_quad_pts; ++iquad) {
         //extract soln and auxiliary soln at quad pt to be used in physics
@@ -1180,10 +1180,10 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_volume_term_strong(
                 entropy_var[istate] = projected_entropy_var_at_q[istate][iquad];
             }
             soln_state = pde_physics.compute_conservative_variables_from_entropy_variables (entropy_var);
-            //if(compute_dRdW_strong)
-            //{
-            //    pde_physics.get_d_conservative_var_d_entropy_var(dutilde_dvtilde[iquad], entropy_var);
-            //}
+            if(compute_dRdW_strong)
+            {
+                pde_physics.get_d_conservative_var_d_entropy_var(dutilde_dvtilde[iquad], entropy_var);
+            }
             
             //loop over all the non-zero entries for "sum-factorized" Hadamard product that corresponds to the iquad.
             for(unsigned int row_index = iquad * n_quad_pts_1D, column_index = 0; 
@@ -1343,6 +1343,11 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_volume_term_strong(
                                                           flux_basis_stiffness.oneD_skew_symm_vol_oper, 
                                                           oneD_vol_quad_weights,
                                                           flux_basis_stiffness_skew_symm_oper_sparse);
+    }
+
+    if(compute_dRdW_strong && dim==3)
+    {
+        
     }
 
     //For each state we:
