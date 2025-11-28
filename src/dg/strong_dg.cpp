@@ -1345,9 +1345,44 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_volume_term_strong(
                                                           flux_basis_stiffness_skew_symm_oper_sparse);
     }
 
-    if(compute_dRdW_strong && dim==3)
+    if(compute_dRdW_strong)
     {
-        
+       std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate> dQF1_dutilde;
+       std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate> dQF2_dutilde;
+       std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate> dQF3_dutilde;
+       for(unsigned int s=0; s<nstate; ++s)
+       {
+            for(unsigned int s2=0; s2<nstate; ++s2)
+            {
+                dQF1_dutilde[s][s2].reinit(n_quad_pts,n_quad_pts);
+                dQF2_dutilde[s][s2].reinit(n_quad_pts,n_quad_pts);
+                dQF3_dutilde[s][s2].reinit(n_quad_pts,n_quad_pts);
+            }
+       }
+       if constexpr(dim==3)
+       {
+           for(unsigned int n=0; n<n_quad_pts_1D; ++n)
+           {
+                for(unsigned int m=0; m<n_quad_pts_1D; ++m)
+                {
+                    for(unsigned int l = 0; l<n_quad_pts_1D; ++l)
+                    {
+                        const unsigned int iquad = l + m*n_quad_pts_1D + n*n_quad_pts_1D*n_quad_pts_1D;
+
+                        // For dim1
+                        for(unsigned int p=0; p<n_quad_pts_1D; ++p)
+                        {
+                            const unsigned int jquad = p + m*n_quad_pts_1D + n*n_quad_pts_1D*n_quad_pts_1D;
+                        }
+                    }
+                }
+           } //n
+       }
+       else
+       {
+            std::cout<<"dRdW_strong is not yet implemented for dim<3."<<std::endl;
+            std::abort();
+       }
     }
 
     //For each state we:
