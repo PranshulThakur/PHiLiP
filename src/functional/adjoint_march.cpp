@@ -218,6 +218,22 @@ compute_Y_terminal(std::array< VectorType, n_subspace_vectors> &Y_terminal)
 }
 
 template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
+double AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
+compute_time_averaged_functional()
+{
+    const unsigned int m_T = T/dt;
+    std::vector<double> j_vals(m_T+1);
+    for(unsigned int i=0; i<m_T+1; ++i)
+    {
+        const double current_time = i*dt;
+        load_solution_at_time(current_time);
+        j_vals[i] = functional->evaluate_functional();
+    }
+    const double j_bar = 1.0/T * simpson_integration(j_vals,m_T,dt);
+    return j_bar; 
+}
+
+template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
 void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
 compute_v_terminal(VectorType &v_terminal)
 { 

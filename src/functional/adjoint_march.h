@@ -72,6 +72,7 @@ public:
     double compute_f_dot_adjoint_average() const;
     void compute_df_dc_and_dJ_dc(VectorType &f_c, double &J_c);
     void compute_R_b_d_h_vecs();
+    double compute_time_averaged_functional();
 
 };
 } // PHiLiP namespace

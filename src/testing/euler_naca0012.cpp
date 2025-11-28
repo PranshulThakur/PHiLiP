@@ -22,12 +22,42 @@ template<int dim, int nstate>
 int EulerNACA0012<dim,nstate>
 ::run_test () const
 {
+    Parameters::AllParameters param = *(TestsBase::all_parameters);
+    std::unique_ptr<FlowSolver::FlowSolver<dim,nstate>> flow_solver = FlowSolver::FlowSolverFactory<dim,nstate>::select_flow_case(&param, parameter_handler);
+    
+    const double dt = param.flow_solver_param.constant_time_step;
+    double delT = 0;
+    double T_extra = 0;
+    double T;
+    int restart_file_no_temrinal;
+    if(param.euler_param.mach_inf == 0.091)
+    {
+        //T = 3.1470599999993664e+02 - 2.6352449999920736e+02;
+        T = 34121*dt;
+        restart_file_no_temrinal = 34491;
+    }
+    else if(param.euler_param.mach_inf == 0.096)
+    {
+        //T = 3.2536050000008845e+02 - 2.7360149999935095e+02;
+        T = 34506*dt;
+        restart_file_no_temrinal = 34888;
+    }
+    else if(param.euler_param.mach_inf == 0.093)
+    {
+        //T = 
+        T = 34506*dt;
+        restart_file_no_temrinal = 66177;
+    }
+    std::unique_ptr<AdjointMarch<dim, nstate, 12>> adjoint_march = std::make_unique<AdjointMarch<dim, nstate, 12>>(flow_solver->dg,restart_file_no_temrinal,dt,delT,T,T_extra);  
 
+    this->pcout<<"Time-averaged functional = "<<std::setprecision(16)<<adjoint_march->compute_time_averaged_functional()<<std::endl;
+
+/*
     // Code to compute R, b, d and h vecs and store in file
     Parameters::AllParameters param = *(TestsBase::all_parameters);
     param.ode_solver_param.allocate_matrix_dRdW = true; 
     std::unique_ptr<FlowSolver::FlowSolver<dim,nstate>> flow_solver = FlowSolver::FlowSolverFactory<dim,nstate>::select_flow_case(&param, parameter_handler);
-    /*
+    
     const double dt = param.flow_solver_param.constant_time_step;
     const double delT = 500*dt;//2*dt;
     const double T = 66*delT;//6*dt;
@@ -35,7 +65,7 @@ int EulerNACA0012<dim,nstate>
     std::unique_ptr<AdjointMarch<dim, nstate, 12>> adjoint_march = std::make_unique<AdjointMarch<dim, nstate, 12>>(flow_solver->dg,66177,dt,delT,T,T_extra);  
 
     adjoint_march->compute_R_b_d_h_vecs();
-    */
+*/  
     /*
 {
     for(int i=3; i<8; ++i)
@@ -54,7 +84,7 @@ int EulerNACA0012<dim,nstate>
 
 }
 */
-
+/*
 // Time the residual
     const double dt = param.flow_solver_param.constant_time_step;
     const double delT = 2*dt;
@@ -76,6 +106,7 @@ int EulerNACA0012<dim,nstate>
         timer.stop();
         this->pcout<<"Wall time to assemble AD residual = "<<timer.wall_time()<<std::endl;
     }
+*/
 /*
     // General code to run flow solver over the cylinder
     // CHANGE grid, initial_condition, the below code for other runs
