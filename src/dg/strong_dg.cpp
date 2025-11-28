@@ -1354,9 +1354,9 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_volume_term_strong(
        {
             for(unsigned int s2=0; s2<nstate; ++s2)
             {
-                dQF1_dutilde[s][s2].reinit(n_quad_pts,n_quad_pts);
-                dQF2_dutilde[s][s2].reinit(n_quad_pts,n_quad_pts);
-                dQF3_dutilde[s][s2].reinit(n_quad_pts,n_quad_pts);
+                dQF1_dutilde[s][s2].reinit(n_quad_pts,n_quad_pts); dQF1_dutilde[s][s2] = 0;
+                dQF2_dutilde[s][s2].reinit(n_quad_pts,n_quad_pts); dQF2_dutilde[s][s2] = 0;
+                dQF3_dutilde[s][s2].reinit(n_quad_pts,n_quad_pts); dQF3_dutilde[s][s2] = 0;
             }
        }
        if constexpr(dim==3)
@@ -1368,11 +1368,33 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_volume_term_strong(
                     for(unsigned int l = 0; l<n_quad_pts_1D; ++l)
                     {
                         const unsigned int iquad = l + m*n_quad_pts_1D + n*n_quad_pts_1D*n_quad_pts_1D;
+                        unsigned int row_index = iquad * n_quad_pts_1D;
+                        unsigned int column_index = 0; 
 
                         // For dim1
                         for(unsigned int p=0; p<n_quad_pts_1D; ++p)
                         {
                             const unsigned int jquad = p + m*n_quad_pts_1D + n*n_quad_pts_1D*n_quad_pts_1D;
+                            const unsigned int jquad_pattern = Hadamard_columns_sparsity[row_index][ref_dim];
+                            //std::array<std::array<std::array<double,nstate>,nstate>,2> dFsplit_du = pde_physics.convective_numerical_split_flux_derivative(
+                            row_index++; 
+                            column_index++;
+                        }
+                        row_index = iquad * n_quad_pts_1D;
+                        column_index=0;
+                        // For dim2
+                        for(unsigned int q=0; q<n_quad_pts_1D; ++q)
+                        {
+                            const unsigned int jquad = l + q*n_quad_pts_1D + n*n_quad_pts_1D*n_quad_pts_1D;
+                            //std::array<std::array<std::array<double,nstate>,nstate>,2> dFsplit_du = pde_physics.convective_numerical_split_flux_derivative(
+                        }
+                        row_index = iquad * n_quad_pts_1D;
+                        column_index=0;
+                        // For dim3
+                        for(unsigned int r=0; r<n_quad_pts_1D; ++r)
+                        {
+                            const unsigned int jquad = l + m*n_quad_pts_1D + r*n_quad_pts_1D*n_quad_pts_1D;
+                            //std::array<std::array<std::array<double,nstate>,nstate>,2> dFsplit_du = pde_physics.convective_numerical_split_flux_derivative(
                         }
                     }
                 }
