@@ -1145,8 +1145,31 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_volume_term_strong(
     }
 
     std::vector<std::array<std::array<real,nstate>,nstate>> dutilde_dvtilde(n_quad_pts);
+    std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate> dQF_dutilde;
+    if(compute_dRdW_strong)
+    {
+        if constexpr (dim==3)
+        {
+           for(unsigned int s=0; s<nstate; ++s)
+           {
+                for(unsigned int s2=0; s2<nstate; ++s2)
+                {
+                    dQF_dutilde[s][s2].reinit(n_quad_pts,n_quad_pts); 
+                    dQF_dutilde[s][s2] = 0;
+                }
+           }
+        }
+        else
+        {
+            std::cout<<"dRdW_strong is not yet implemented for dim<3. Aborting..."<<std::endl;
+            std::abort();
+        }
+    }
 
     for (unsigned int iquad=0; iquad<n_quad_pts; ++iquad) {
+        const int l_ = iquad % n_quad_pts_1D;
+        const int m_ = (iquad/n_quad_pts_1D) % n_quad_pts_1D;
+        const int n_ = (iquad/n_quad_pts_1D)/n_quad_pts_1D;
         //extract soln and auxiliary soln at quad pt to be used in physics
         std::array<adtype,nstate> soln_state;
         std::array<dealii::Tensor<1,dim,adtype>,nstate> aux_soln_state;
@@ -1235,6 +1258,53 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_volume_term_strong(
                             conv_ref_flux_2pt);
                         //write into reference Hadamard flux matrix
                         conv_ref_2pt_flux_at_q[istate][ref_dim][iquad * n_quad_pts_1D + column_index] = conv_ref_flux_2pt[ref_dim];
+                    }
+
+                    if(compute_dRdW_strong)
+                    {
+                        std::array<dealii::FullMatrix<double>,2> dFsplit_dutilde = pde_physics.convective_numerical_split_flux_derivative(soln_state, soln_state_flux_basis, metric_cofactor_split, ref_dim);
+                        if(ref_dim==0)
+                        {
+                            const int p_ = flux_quad % n_quad_pts_1D;
+                            dFsplit_dutilde[0]*= flux_basis_stiffness.oneD_skew_symm_vol_oper[l_][p_]*oneD_vol_quad_weights[m_]*oneD_vol_quad_weights[n_];
+                            dFsplit_dutilde[1]*= flux_basis_stiffness.oneD_skew_symm_vol_oper[l_][p_]*oneD_vol_quad_weights[m_]*oneD_vol_quad_weights[n_];
+                            for(unsigned int s1=0; s1<nstate; ++s1)
+                            {
+                                for(unsigned int s2=0; s2<nstate; ++s2)
+                                {
+                                    dQF_dutilde[s1][s2][iquad][flux_quad] += dFsplit_dutilde[1][s1][s2];
+                                    dQF_dutilde[s1][s2][iquad][iquad] += dFsplit_dutilde[0][s1][s2];
+                                }
+                            }
+                        }
+                        else if(ref_dim==1)
+                        {
+                            const int q_ = (flux_quad/n_quad_pts_1D) % n_quad_pts_1D;
+                            dFsplit_dutilde[0]*= flux_basis_stiffness.oneD_skew_symm_vol_oper[m_][q_]*oneD_vol_quad_weights[l_]*oneD_vol_quad_weights[n_];
+                            dFsplit_dutilde[1]*= flux_basis_stiffness.oneD_skew_symm_vol_oper[m_][q_]*oneD_vol_quad_weights[l_]*oneD_vol_quad_weights[n_];
+                            for(unsigned int s1=0; s1<nstate; ++s1)
+                            {
+                                for(unsigned int s2=0; s2<nstate; ++s2)
+                                {
+                                    dQF_dutilde[s1][s2][iquad][flux_quad] += dFsplit_dutilde[1][s1][s2];
+                                    dQF_dutilde[s1][s2][iquad][iquad] += dFsplit_dutilde[0][s1][s2];
+                                }
+                            }
+                        }
+                        else if(ref_dim==2)
+                        {
+                            const int r_ = (flux_quad/n_quad_pts_1D) / n_quad_pts_1D;
+                            dFsplit_dutilde[0]*= flux_basis_stiffness.oneD_skew_symm_vol_oper[n_][r_]*oneD_vol_quad_weights[l_]*oneD_vol_quad_weights[m_];
+                            dFsplit_dutilde[1]*= flux_basis_stiffness.oneD_skew_symm_vol_oper[n_][r_]*oneD_vol_quad_weights[l_]*oneD_vol_quad_weights[m_];
+                            for(unsigned int s1=0; s1<nstate; ++s1)
+                            {
+                                for(unsigned int s2=0; s2<nstate; ++s2)
+                                {
+                                    dQF_dutilde[s1][s2][iquad][flux_quad] += dFsplit_dutilde[1][s1][s2];
+                                    dQF_dutilde[s1][s2][iquad][iquad] += dFsplit_dutilde[0][s1][s2];
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -1347,16 +1417,13 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_volume_term_strong(
 
     if(compute_dRdW_strong)
     {
-       std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate> dQF1_dutilde;
-       std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate> dQF2_dutilde;
-       std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate> dQF3_dutilde;
+       std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate> dQF_dutilde;
        for(unsigned int s=0; s<nstate; ++s)
        {
             for(unsigned int s2=0; s2<nstate; ++s2)
             {
-                dQF1_dutilde[s][s2].reinit(n_quad_pts,n_quad_pts); dQF1_dutilde[s][s2] = 0;
-                dQF2_dutilde[s][s2].reinit(n_quad_pts,n_quad_pts); dQF2_dutilde[s][s2] = 0;
-                dQF3_dutilde[s][s2].reinit(n_quad_pts,n_quad_pts); dQF3_dutilde[s][s2] = 0;
+                dQF_dutilde[s][s2].reinit(n_quad_pts,n_quad_pts); 
+                dQF_dutilde[s][s2] = 0;
             }
        }
        if constexpr(dim==3)
@@ -1394,7 +1461,6 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_volume_term_strong(
                         for(unsigned int r=0; r<n_quad_pts_1D; ++r)
                         {
                             const unsigned int jquad = l + m*n_quad_pts_1D + r*n_quad_pts_1D*n_quad_pts_1D;
-                            //std::array<std::array<std::array<double,nstate>,nstate>,2> dFsplit_du = pde_physics.convective_numerical_split_flux_derivative(
                         }
                     }
                 }
