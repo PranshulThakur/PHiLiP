@@ -2,6 +2,7 @@
 #define __STRONG_DISCONTINUOUSGALERKIN_H__
 
 #include "dg_base_state.hpp"
+#include <xtensor/xarray.hpp>
 
 namespace PHiLiP {
 
@@ -946,6 +947,16 @@ protected:
         std::vector<adtype>                                                &integral_val) const;
 
     template <typename adtype>
+    void compute_gradbasis_T_vol_integral(
+        const unsigned int                                                 n_quad_pts,
+        const unsigned int                                                 n_dofs_cell,
+        OPERATOR::basis_functions<dim,2*dim>                               &soln_basis,
+        OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper,
+        const std::vector<double>                                          &weight_vect,
+        const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>   &T,
+        std::vector<adtype>                                                &integral_val) const;
+
+    template <typename adtype>
     void compute_physical_grad_entropy_var(
         const std::array<std::vector<adtype>,nstate>                       &entropy_var_coeff,
         OPERATOR::basis_functions<dim,2*dim>                               &soln_basis,
@@ -993,6 +1004,7 @@ protected:
         OPERATOR::basis_functions<dim,2*dim>                               &flux_basis,
         OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper,
         const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
+        const xt::xarray<double>                                           &H_mat, 
         std::vector<adtype>                                                &vol_term) const;
 
     template <typename adtype>

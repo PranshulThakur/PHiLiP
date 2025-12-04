@@ -559,13 +559,42 @@ std::array<dealii::Tensor<1,dim,real>,nstate> NavierStokes<dim,nstate,real>
     const std::array<real,nstate> &entropy_var,
     const std::array<dealii::Tensor<1,dim,real>,nstate> &entropy_var_gradient) const
 {
+
+    std::array<std::array<dealii::Tensor<2,dim,real>,nstate>,nstate> K;
+    get_K_matrix(
+    K,
+    entropy_var);
+    // Compute viscous flux
+    std::array<dealii::Tensor<1,dim,real>,nstate> viscous_flux; // initialized to zero by default
+    for(unsigned int d1 =0; d1<dim; ++d1)
+    {
+        for(unsigned int d2 =0; d2<dim; ++d2)
+        {   
+            for(unsigned int s1 =0; s1<nstate; ++s1)
+            {
+                for(unsigned int s2=0; s2<nstate; ++s2)
+                {
+                    viscous_flux[s1][d1] += K[s1][s2][d1][d2]*entropy_var_gradient[s2][d2];
+                }
+            }
+        }
+    }
+
+    return viscous_flux;
+}
+
+template <int dim, int nstate, typename real>
+void NavierStokes<dim,nstate,real>
+::get_K_matrix(
+    std::array<std::array<dealii::Tensor<2,dim,real>,nstate>,nstate> &K,
+    const std::array<real,nstate> &entropy_var) const
+{
     const std::array<real,nstate> conservative_soln_from_entropy_var = this->compute_conservative_variables_from_entropy_variables (entropy_var);
     const std::array<real,nstate> primitive_soln = this->template convert_conservative_to_primitive<real>(conservative_soln_from_entropy_var);
     //const real scaled_viscosity_coefficient = compute_scaled_viscosity_coefficient<real>(primitive_soln); // \mu
     //const real scaled_2nd_viscosity_coefficient = (-2.0/3.0)*scaled_viscosity_coefficient; // \lambda from Stokes' hypothesis
     const real mu = compute_scaled_viscosity_coefficient<real>(primitive_soln); // \mu
     const real lambda = (-2.0/3.0)*mu; // \lambda from Stokes' hypothesis
-    std::array<std::array<dealii::Tensor<2,dim,real>,nstate>,nstate> K;  // entropy-based diffusion tensor. Defaults to zero. Indexed as K[s1][s2][d1][d2].
 
     if constexpr(dim==3)
     {
@@ -718,35 +747,15 @@ std::array<dealii::Tensor<1,dim,real>,nstate> NavierStokes<dim,nstate,real>
             }
         }
     }
-
-    // Compute viscous flux
-    std::array<dealii::Tensor<1,dim,real>,nstate> viscous_flux; // initialized to zero by default
-    for(unsigned int d1 =0; d1<dim; ++d1)
-    {
-        for(unsigned int d2 =0; d2<dim; ++d2)
-        {   
-            for(unsigned int s1 =0; s1<nstate; ++s1)
-            {
-                for(unsigned int s2=0; s2<nstate; ++s2)
-                {
-                    viscous_flux[s1][d1] += K[s1][s2][d1][d2]*entropy_var_gradient[s2][d2];
-                }
-            }
-        }
-    }
-
     (void) lambda;
-    return viscous_flux;
 }
 
 template <int dim, int nstate, typename real>
-std::array<dealii::Tensor<1,dim,real>,nstate> NavierStokes<dim,nstate,real>
-::apply_d_entropy_var_d_conservative_var(
-    const std::array<dealii::Tensor<1,dim,real>,nstate> & in_vector,
-    const std::array<real,nstate> & entropy_var) const
-{
-    
-    std::array<std::array<real,nstate>,nstate> dVdU;
+void NavierStokes<dim,nstate,real>
+::get_d_entropy_var_d_conservative_var(
+    std::array<std::array<real,nstate>,nstate> &dVdU,
+    const std::array<real,nstate> &entropy_var) const
+{ 
     if constexpr(dim==3)
     {
         const real v1 = entropy_var[0];
@@ -856,28 +865,12 @@ std::array<dealii::Tensor<1,dim,real>,nstate> NavierStokes<dim,nstate,real>
         std::abort();
     }
 
-        // Note: Assumes gradient is just the interior gradient. Gradient information is only used for the wall BC above.
-    std::array<dealii::Tensor<1,dim,real>,nstate> out_vector;
-    for(unsigned int i=0; i<nstate; ++i)
-    {
-        for(unsigned int j=0; j<nstate; ++j)
-        {
-            for(unsigned int d=0; d<dim; ++d)
-            {
-                out_vector[i][d] += dVdU[i][j]*in_vector[j][d];
-            }
-        }
-    }
-    return out_vector;
 }
 
-template <int dim, int nstate, typename real>
-std::array<dealii::Tensor<1,dim,real>,nstate> NavierStokes<dim,nstate,real>
-::apply_d_conservative_var_d_entropy_var(
-    const std::array<dealii::Tensor<1,dim,real>,nstate> & in_vector,
-    const std::array<real,nstate> & entropy_var) const
+void get_d_conservative_var_d_entropy_var(
+    std::array<std::array<real,nstate>,nstate> &dUdV,
+    const std::array<real,nstate> &entropy_var) const
 {
-    std::array<std::array<real,nstate>,nstate> dUdV;
     if constexpr(dim==3)
     {
         const real v1 = entropy_var[0];
@@ -985,7 +978,38 @@ std::array<dealii::Tensor<1,dim,real>,nstate> NavierStokes<dim,nstate,real>
         std::cout<<"Not yet implemented"<<std::endl;
         std::abort();
     }
+}
 
+template <int dim, int nstate, typename real>
+std::array<dealii::Tensor<1,dim,real>,nstate> NavierStokes<dim,nstate,real>
+::apply_d_entropy_var_d_conservative_var(
+    const std::array<dealii::Tensor<1,dim,real>,nstate> & in_vector,
+    const std::array<real,nstate> & entropy_var) const
+{
+    std::array<std::array<real,nstate>,nstate> dVdU;
+    get_d_entropy_var_d_conservative_var(dVdU,entropy_var);
+    std::array<dealii::Tensor<1,dim,real>,nstate> out_vector;
+    for(unsigned int i=0; i<nstate; ++i)
+    {
+        for(unsigned int j=0; j<nstate; ++j)
+        {
+            for(unsigned int d=0; d<dim; ++d)
+            {
+                out_vector[i][d] += dVdU[i][j]*in_vector[j][d];
+            }
+        }
+    }
+    return out_vector;
+}
+
+template <int dim, int nstate, typename real>
+std::array<dealii::Tensor<1,dim,real>,nstate> NavierStokes<dim,nstate,real>
+::apply_d_conservative_var_d_entropy_var(
+    const std::array<dealii::Tensor<1,dim,real>,nstate> & in_vector,
+    const std::array<real,nstate> & entropy_var) const
+{
+    std::array<std::array<real,nstate>,nstate> dUdV;
+    get_d_conservative_var_d_entropy_var(dUdV,entropy_var);
     std::array<dealii::Tensor<1,dim,real>,nstate> out_vector;
     for(unsigned int i=0; i<nstate; ++i)
     {
@@ -1104,6 +1128,161 @@ void NavierStokes<dim,nstate,real>
         v_bc_at_q = this->compute_entropy_variables(soln_bc);
         std::array<dealii::Tensor<1,dim,real>,nstate> grad_entropyvar_bc = apply_d_entropy_var_d_conservative_var(soln_grad_bc,v_bc_at_q);
         sigma_bc_at_q = dissipative_flux_entropy_based (v_bc_at_q, grad_entropyvar_bc);    
+    }
+}
+    
+template <int dim, int nstate, typename real>
+void NavierStokes<dim,nstate,real>::
+compute_dsigmabc_and_dvbc_derivatives(
+    const std::array<real,nstate> &v_at_q,
+    const dealii::Tensor<1,dim,real> &normal_int,
+    const std::array<dealii::Tensor<1,dim,real>,nstate> &sigma_h_at_q, 
+    const std::array<dealii::Tensor<1,dim,real>,nstate> &grad_v_at_q, 
+    std::array<std::array<std::array<std::array<double,dim>,nstate>,dim>,nstate> &d_sigmabc_d_sigmah,
+    std::array<std::array<std::array<std::array<double,dim>,nstate>,dim>,nstate> &d_sigmabc_d_gradv,
+    std::array<std::array<std::array<double,nstate>,nstate>,dim> &d_sigmabc_dvh,
+    std::array<std::array<double,nstate>,nstate> &d_vbc_dvh,
+    const unsigned int boundary_id) const
+{
+    if(boundary_id==1001)
+    {
+        for(unsigned int s1=0; s1<nstate; ++s1)
+        {
+            for(unsigned int d1=0; d1<dim; ++d1)
+            {
+                for(unsigned int s2=0; s2<nstate; ++s2)
+                {
+                    for(unsigned int d2=0; d2<dim; ++d2)
+                    {
+                        d_sigmabc_d_gradv[s1][d1][s2][d2] = 0.0;
+                        d_sigmabc_d_sigmah[s1][d1][s2][d2] = 0.0;
+                    }
+                }
+            }
+        }
+
+        for(unsigned int d=0; d<dim; ++d)
+        {
+            for(unsigned int s1=0; s1<nstate; ++s1)
+            {
+                for(unsigned int s2=0; s2<nstate; ++s2)
+                {
+                    d_sigmabc_dvh[d][s1][s2] = 0.0;
+                }
+            }
+        }
+
+        for(unsigned int s=0; s<nstate-1; ++s)
+        {
+            for(unsigned int d=0; d<dim; ++d)
+            {
+                d_sigmabc_d_sigmah[s][d][s][d] = 1.0;
+            }
+        }
+
+        for(unsigned int s1=0; s1<nstate; ++s1)
+        {
+            for(unsigned int s2=0; s2<nstate; ++s2)
+            {
+                d_vbc_dvh[s1][s2] = 0.0;
+            }
+        }
+        d_vbc_dvh[0][0] = 1.0;
+        d_vbc_dvh[nstate-1][nstate-1] = 1.0;
+    }
+    else if(boundary_id==1004)
+    {
+        for(unsigned int s1=0; s1<nstate; ++s1)
+        {
+            for(unsigned int d1=0; d1<dim; ++d1)
+            {
+                for(unsigned int s2=0; s2<nstate; ++s2)
+                {
+                    for(unsigned int d2=0; d2<dim; ++d2)
+                    {
+                        d_sigmabc_d_sigmah[s1][d1][s2][d2] = 0.0;
+                    }
+                }
+            }
+        }
+
+        // Compute d_vbc_dvh
+        const std::array<real,nstate> soln_int = this->compute_conservative_variables_from_entropy_variables (v_int_at_q);
+        const std::array<dealii::Tensor<1,dim,real>,nstate> soln_grad_int_dummy;
+        std::array<real,nstate> soln_bc;
+        std::array<dealii::Tensor<1,dim,real>,nstate> soln_grad_bc_dummy;
+        this->boundary_face_values (
+           boundary_id,
+           pos,
+           unit_phys_normal,
+           soln_int,
+           soln_grad_int_dummy,
+           soln_bc,
+           soln_grad_bc_dummy);
+        
+        v_bc_at_q = this->compute_entropy_variables(soln_bc);
+
+        std::array<std::array<real,nstate>,nstate> dv_du_bc;
+        get_d_entropy_var_d_conservative_var(
+        dv_du_bc,
+        v_bc_at_q);
+        
+        std::array<std::array<real,nstate>,nstate> dubc_duh;
+        this->compute_d_solnbc_d_u(
+        soln_int,
+        normal_int,
+        boundary_id);
+
+        std::array<std::array<real,nstate>,nstate> du_dv_int;
+        get_d_conservative_var_d_entropy_var(
+        du_dv_int,
+        v_int_at_q);
+
+        for(unsigned int s1=0; s1<nstate; ++s1)
+        {
+            for(unsigned int s2=0; s2<nstate; ++s2)
+            {
+                d_vbc_dvh[s1][s2] = 0;
+                for(unsigned int sk=0; sk<nstate; ++sk)
+                {
+                    for(unsigned int sl=0; sl<nstate; ++sl)
+                    {
+                        d_vbc_dvh[s1][s2]+= dv_du_bc[s1][sk]*dubc_duh[sk][sl]*du_dv_int[sl][s2];
+                    }
+                }
+            }
+        }
+
+        // Form d_sigmabc_d_gradv
+        for(unsigned int s=0; s<nstate; ++s)
+        {
+            for(unsigned int d=0; d<dim; ++d)
+            {
+                for(unsigned int sl=0; sl<nstate; ++sl)
+                {
+                    for(unsigned int d1=0; d1<dim; ++d1)
+                    {
+                        d_sigmabc_d_gradv[s][d][sl][d1]=0.0;
+
+                        for(unsigned int s1=0; s1<nstate; ++s1)
+                        {
+                            for(unsigned int sk=0; sk<nstate; ++sk)
+                            {
+                                d_sigmabc_d_gradv[s][d][sl][d1]+= K[s][s1][d][d1]*dv_du_bc[s1][sk]*du_dv_int[sk][sl];
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Form d_sigmabc_dvh
+
+    }
+    else
+    {
+        std::cout<<"AD NavierStokes::compute_dsigmabc_and_dvbc_derivatives() is not implemented for this BC. Aborting..."<<std::endl;
+        std::abort(); 
     }
 }
 

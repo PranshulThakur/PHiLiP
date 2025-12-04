@@ -1914,7 +1914,70 @@ void vol_projection_operator<dim,n_faces>::weight_adjusted_vol_projection(
                                                      input_coeffs_weight_adjusted,
                                                      soln_basis_projection_oper.oneD_vol_operator);
 }
+    
+template <int dim, int n_faces>  
+void vol_projection_operator<dim,n_faces>::build_1D_G_operator_vol(
+    const dealii::FullMatrix<double> &P, 
+    const dealii::FullMatrix<double> &phi)
+{
+    const unsigned int n_quad_pts_1D = phi.m();
+    oneD_G_operator_vol.reinit(n_quad_pts_1D,n_quad_pts_1D);
+    for(unsigned int Ltilde = 0; Ltilde < n_quad_pts_1D; ++Ltilde)
+    {
+        for(unsigned int L=0; L<n_quad_pts_1D; ++L)
+        {
+            oneD_G_operator_vol[Ltilde][L] = 0;
+            for(unsigned int i=0; i<phi.n(); ++i)
+            {
+                oneD_G_operator_vol[Ltilde][L] += phi[Ltilde][i]*P[i][l];
+            }
+        }
+    }
+}
 
+template <int dim, int n_faces>  
+void vol_projection_operator<dim,n_faces>::build_1D_DG_operator_vol(const dealii::FullMatrix<double> &P, const dealii::FullMatrix<double> &D_phi)
+{
+    const unsigned int n_quad_pts_1D = D_phi.m();
+    oneD_DG_operator_vol.reinit(n_quad_pts_1D, n_quad_pts_1D);
+    for(unsigned int L = 0; L < n_quad_pts_1D; ++L)
+    {
+        for(unsigned int Ltilde=0; Ltilde<n_quad_pts_1D; ++Ltilde)
+        {
+            oneD_DG_operator_vol[L][Ltilde] = 0;
+            for(unsigned int i=0; i<D_phi.n(); ++i)
+            {
+                oneD_DG_operator_vol[L][Ltilde] += D_phi[L][i]*P[i][Ltilde];
+            }
+        }
+    }
+}
+
+template <int dim, int n_faces>  
+void vol_projection_operator<dim,n_faces>::build_1D_G_operator_face(
+    const dealii::FullMatrix<double> &P, 
+    const std::array<dealii::FullMatrix<double>,2> &phi_face)
+{
+    const unsigned int n_quads_vol = P.n();
+    const unsigned int n_dofs = P.m();
+    for(unsigned int iface=0; iface<2; ++iface)
+    {
+        const int n_quads_face = phi_face[iface].m();
+        assert(n_quads_face==1);
+        oneD_G_operator_face[iface].reinit(n_quads_face,n_quads_vol);
+        for(unsigned int l=0; l<n_quads_face; ++l)
+        {
+            for(unsigned int Ltilde = 0; Ltilde<n_quads_vol; ++Ltilde)
+            {
+                oneD_G_operator_face[iface][l][Ltilde]=0;
+                for(unsigned int i=0; i<n_dofs; ++i)
+                {
+                    oneD_G_operator_surf[iface][l][Ltilde]+= phi_face[iface][l][i]*P[i][Ltilde];
+                }
+            }
+        }
+    }
+}
 
 template <int dim, int n_faces>  
 vol_projection_operator_FR<dim,n_faces>::vol_projection_operator_FR(

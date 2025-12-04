@@ -436,19 +436,20 @@ inline real Euler<dim,nstate,real>
 // Split form functions:
 
 template <int dim, int nstate, typename real>
-std::array<dealii::Tensor<1,dim,real>,nstate> Euler<dim, nstate, real>
-::convective_numerical_split_flux(const std::array<real,nstate> &conservative_soln1,
-                                  const std::array<real,nstate> &conservative_soln2) const
+template<typename adtype>
+std::array<dealii::Tensor<1,dim,adtype>,nstate> Euler<dim, nstate, real>
+::convective_numerical_split_flux_templated(const std::array<adtype,nstate> &conservative_soln1,
+                                  const std::array<adtype,nstate> &conservative_soln2) const
 {
-    std::array<dealii::Tensor<1,dim,real>,nstate> conv_num_split_flux;
+    std::array<dealii::Tensor<1,dim,adtype>,nstate> conv_num_split_flux;
     if(two_point_num_flux_type == two_point_num_flux_enum::KG) {
-        conv_num_split_flux = convective_numerical_split_flux_kennedy_gruber(conservative_soln1, conservative_soln2);
+        conv_num_split_flux = convective_numerical_split_flux_kennedy_gruber<adtype>(conservative_soln1, conservative_soln2);
     } else if(two_point_num_flux_type == two_point_num_flux_enum::IR) {
-        conv_num_split_flux = convective_numerical_split_flux_ismail_roe(conservative_soln1, conservative_soln2);
+        conv_num_split_flux = convective_numerical_split_flux_ismail_roe<adtype>(conservative_soln1, conservative_soln2);
     } else if(two_point_num_flux_type == two_point_num_flux_enum::CH) {
-        conv_num_split_flux = convective_numerical_split_flux_chandrashekar(conservative_soln1, conservative_soln2);
+        conv_num_split_flux = convective_numerical_split_flux_chandrashekar<adtype>(conservative_soln1, conservative_soln2);
     } else if(two_point_num_flux_type == two_point_num_flux_enum::Ra) {
-        conv_num_split_flux = convective_numerical_split_flux_ranocha(conservative_soln1, conservative_soln2);
+        conv_num_split_flux = convective_numerical_split_flux_ranocha<adtype>(conservative_soln1, conservative_soln2);
     }
 
     return conv_num_split_flux;
@@ -456,14 +457,23 @@ std::array<dealii::Tensor<1,dim,real>,nstate> Euler<dim, nstate, real>
 
 template <int dim, int nstate, typename real>
 std::array<dealii::Tensor<1,dim,real>,nstate> Euler<dim, nstate, real>
-::convective_numerical_split_flux_kennedy_gruber(const std::array<real,nstate> &conservative_soln1,
-                                                 const std::array<real,nstate> &conservative_soln2) const
+::convective_numerical_split_flux(const std::array<real,nstate> &conservative_soln1,
+                                  const std::array<real,nstate> &conservative_soln2) const
 {
-    std::array<dealii::Tensor<1,dim,real>,nstate> conv_num_split_flux;
-    const real mean_density = compute_mean_density(conservative_soln1, conservative_soln2);
-    const real mean_pressure = compute_mean_pressure(conservative_soln1, conservative_soln2);
-    const dealii::Tensor<1,dim,real> mean_velocities = compute_mean_velocities(conservative_soln1,conservative_soln2);
-    const real mean_specific_total_energy = compute_mean_specific_total_energy(conservative_soln1, conservative_soln2);
+    return convective_numerical_split_flux_templated<real>(convervative_soln1, conservative_soln2);
+}
+
+template <int dim, int nstate, typename real>
+template<typename adtype>
+std::array<dealii::Tensor<1,dim,adtype>,nstate> Euler<dim, nstate, real>
+::convective_numerical_split_flux_kennedy_gruber(const std::array<real,adtype> &conservative_soln1,
+                                                 const std::array<real,adtype> &conservative_soln2) const
+{
+    std::array<dealii::Tensor<1,dim,adtype>,nstate> conv_num_split_flux;
+    const adtype mean_density = compute_mean_density<adtype>(conservative_soln1, conservative_soln2);
+    const adtype mean_pressure = compute_mean_pressure<adtype>(conservative_soln1, conservative_soln2);
+    const dealii::Tensor<1,dim,adtype> mean_velocities = compute_mean_velocities<adtype>(conservative_soln1,conservative_soln2);
+    const adtype mean_specific_total_energy = compute_mean_specific_total_energy<adtype>(conservative_soln1, conservative_soln2);
 
     for (int flux_dim = 0; flux_dim < dim; ++flux_dim)
     {
@@ -482,11 +492,12 @@ std::array<dealii::Tensor<1,dim,real>,nstate> Euler<dim, nstate, real>
 }
 
 template <int dim, int nstate, typename real>
-std::array<real,nstate> Euler<dim, nstate, real>
-::compute_ismail_roe_parameter_vector_from_primitive(const std::array<real,nstate> &primitive_soln) const
+template<typename adtype>
+std::array<adtype,nstate> Euler<dim, nstate, real>
+::compute_ismail_roe_parameter_vector_from_primitive(const std::array<adtype,nstate> &primitive_soln) const
 {
     // Ismail-Roe parameter vector; Eq (3.14) [Gassner, Winters, and Kopriva, 2016, SBP]
-    std::array<real,nstate> ismail_roe_parameter_vector;
+    std::array<adtype,nstate> ismail_roe_parameter_vector;
     ismail_roe_parameter_vector[0] = sqrt(primitive_soln[0]/primitive_soln[nstate-1]);
     for(int d=0; d<dim; ++d){
         ismail_roe_parameter_vector[1+d] = ismail_roe_parameter_vector[0]*primitive_soln[1+d];
@@ -497,63 +508,65 @@ std::array<real,nstate> Euler<dim, nstate, real>
 }
 
 template <int dim, int nstate, typename real>
-real Euler<dim, nstate, real>
-::compute_ismail_roe_logarithmic_mean(const real val1, const real val2) const
+template<typename adtype>
+adtype Euler<dim, nstate, real>
+::compute_ismail_roe_logarithmic_mean(const adtype val1, const adtype val2) const
 {
     // See Appendix B [Ismail and Roe, 2009, Entropy-Consistent Euler Flux Functions II]
     // -- Numerically stable algorithm for computing the logarithmic mean
-    const real zeta = val1/val2;
-    const real f = (zeta-1.0)/(zeta+1.0);
-    const real u = f*f;
+    const adtype zeta = val1/val2;
+    const adtype f = (zeta-1.0)/(zeta+1.0);
+    const adtype u = f*f;
     
-    real F;
+    adtype F;
     if(u<1.0e-2){ F = 1.0 + u/3.0 + u*u/5.0 + u*u*u/7.0; } 
     else { 
         //if constexpr(std::is_same<real,double>::value) F = std::log(zeta)/2.0/f; 
         F = log(zeta)/2.0/f; 
     }
     
-    const real log_mean_val = (val1+val2)/(2.0*F);
+    const adtype log_mean_val = (val1+val2)/(2.0*F);
 
     return log_mean_val;
 }
 
 template <int dim, int nstate, typename real>
-std::array<dealii::Tensor<1,dim,real>,nstate> Euler<dim, nstate, real>
-::convective_numerical_split_flux_ismail_roe(const std::array<real,nstate> &conservative_soln1,
-                                             const std::array<real,nstate> &conservative_soln2) const
+template<typename adtype>
+std::array<dealii::Tensor<1,dim,adtype>,nstate> Euler<dim, nstate, real>
+::convective_numerical_split_flux_ismail_roe(const std::array<adtype,nstate> &conservative_soln1,
+                                             const std::array<adtype,nstate> &conservative_soln2) const
 {
     // Get Ismail Roe parameter vectors
-    const std::array<real,nstate> parameter_vector1 = compute_ismail_roe_parameter_vector_from_primitive(
-                                                        convert_conservative_to_primitive<real>(conservative_soln1));
-    const std::array<real,nstate> parameter_vector2 = compute_ismail_roe_parameter_vector_from_primitive(
-                                                        convert_conservative_to_primitive<real>(conservative_soln2));
+    const std::array<adtype,nstate> parameter_vector1 = compute_ismail_roe_parameter_vector_from_primitive<adtype>(
+                                                        convert_conservative_to_primitive<adtype>(conservative_soln1));
+    const std::array<adtype,nstate> parameter_vector2 = compute_ismail_roe_parameter_vector_from_primitive<adtype>(
+                                                        convert_conservative_to_primitive<adtype>(conservative_soln2));
 
     // Compute mean (average) parameter vector
-    std::array<real,nstate> avg_parameter_vector;
+    std::array<adtype,nstate> avg_parameter_vector;
     for(int s=0; s<nstate; ++s){
         avg_parameter_vector[s] = 0.5*(parameter_vector1[s] + parameter_vector2[s]);
     }
 
     // Compute logarithmic mean parameter vector
-    std::array<real,nstate> log_mean_parameter_vector;
+    std::array<adtype,nstate> log_mean_parameter_vector;
     for(int s=0; s<nstate; ++s){
-        log_mean_parameter_vector[s] = compute_ismail_roe_logarithmic_mean(parameter_vector1[s], parameter_vector2[s]);
+        log_mean_parameter_vector[s] = compute_ismail_roe_logarithmic_mean<adtype>(parameter_vector1[s], parameter_vector2[s]);
     }
 
     // Compute Ismail Roe mean primitive variables; Eq (3.15) [Gassner, Winters, and Kopriva, 2016, SBP]
-    std::array<real,dim> mean_velocities;
-    const real mean_density = avg_parameter_vector[0]*log_mean_parameter_vector[nstate-1];
+    std::array<adtype,dim> mean_velocities;
+    const adtype mean_density = avg_parameter_vector[0]*log_mean_parameter_vector[nstate-1];
     for(int d=0; d<dim; ++d){
         mean_velocities[d] = avg_parameter_vector[1+d]/avg_parameter_vector[0];
     }
-    const real mean_pressure = avg_parameter_vector[nstate-1]/avg_parameter_vector[0];
+    const adtype mean_pressure = avg_parameter_vector[nstate-1]/avg_parameter_vector[0];
     // -- enthalpy
-    real mean_enthalpy = (gam+1.0)*(log_mean_parameter_vector[nstate-1]/log_mean_parameter_vector[0]) + gamm1*mean_pressure;
+    adtype mean_enthalpy = (gam+1.0)*(log_mean_parameter_vector[nstate-1]/log_mean_parameter_vector[0]) + gamm1*mean_pressure;
     mean_enthalpy /= 2.0*gam;
     mean_enthalpy *= gam/(mean_density*gamm1);
     // -- get sum of mean velocities squared
-    real mean_velocities_sqr_sum = 0.0;
+    adtype mean_velocities_sqr_sum = 0.0;
     for(int d=0; d<dim; ++d){
         mean_velocities_sqr_sum += mean_velocities[d]*mean_velocities[d];
     }
@@ -561,7 +574,7 @@ std::array<dealii::Tensor<1,dim,real>,nstate> Euler<dim, nstate, real>
     mean_enthalpy += 0.5*mean_velocities_sqr_sum;
 
     // Compute Ismail Roe convective numerical split flux
-    std::array<dealii::Tensor<1,dim,real>,nstate> conv_num_split_flux;
+    std::array<dealii::Tensor<1,dim,adtype>,nstate> conv_num_split_flux;
     for (int flux_dim = 0; flux_dim < dim; ++flux_dim)
     {
         // Density equation
@@ -579,33 +592,34 @@ std::array<dealii::Tensor<1,dim,real>,nstate> Euler<dim, nstate, real>
 }
 
 template <int dim, int nstate, typename real>
-std::array<dealii::Tensor<1,dim,real>,nstate> Euler<dim, nstate, real>
-::convective_numerical_split_flux_chandrashekar(const std::array<real,nstate> &conservative_soln1,
-                                                const std::array<real,nstate> &conservative_soln2) const
+template<typename adtype>
+std::array<dealii::Tensor<1,dim,adtype>,nstate> Euler<dim, nstate, real>
+::convective_numerical_split_flux_chandrashekar(const std::array<adtype,nstate> &conservative_soln1,
+                                                const std::array<adtype,nstate> &conservative_soln2) const
 {
 
-    std::array<dealii::Tensor<1,dim,real>,nstate> conv_num_split_flux;
-    const real rho_log = compute_ismail_roe_logarithmic_mean(conservative_soln1[0], conservative_soln2[0]);
-    const real pressure1 = compute_pressure<real>(conservative_soln1);
-    const real pressure2 = compute_pressure<real>(conservative_soln2);
+    std::array<dealii::Tensor<1,dim,adtype>,nstate> conv_num_split_flux;
+    const adtype rho_log = compute_ismail_roe_logarithmic_mean<adtype>(conservative_soln1[0], conservative_soln2[0]);
+    const adtype pressure1 = compute_pressure<adtype>(conservative_soln1);
+    const adtype pressure2 = compute_pressure<adtype>(conservative_soln2);
 
-    const real beta1 = conservative_soln1[0]/(2.0*pressure1);
-    const real beta2 = conservative_soln2[0]/(2.0*pressure2);
+    const adtype beta1 = conservative_soln1[0]/(2.0*pressure1);
+    const adtype beta2 = conservative_soln2[0]/(2.0*pressure2);
 
-    const real beta_log = compute_ismail_roe_logarithmic_mean(beta1, beta2);
-    const dealii::Tensor<1,dim,real> vel1 = compute_velocities<real>(conservative_soln1);
-    const dealii::Tensor<1,dim,real> vel2 = compute_velocities<real>(conservative_soln2);
+    const adtype beta_log = compute_ismail_roe_logarithmic_mean<adtype>(beta1, beta2);
+    const dealii::Tensor<1,dim,adtype> vel1 = compute_velocities<adtype>(conservative_soln1);
+    const dealii::Tensor<1,dim,adtype> vel2 = compute_velocities<adtype>(conservative_soln2);
 
-    const real pressure_hat = 0.5*(conservative_soln1[0] + conservative_soln2[0])/(2.0*0.5*(beta1+beta2));
+    const adtype pressure_hat = 0.5*(conservative_soln1[0] + conservative_soln2[0])/(2.0*0.5*(beta1+beta2));
 
-    dealii::Tensor<1,dim,real> vel_avg;
-    real vel_square_avg = 0.0;;
+    dealii::Tensor<1,dim,adtype> vel_avg;
+    adtype vel_square_avg = 0.0;;
     for(int idim=0; idim<dim; idim++){
         vel_avg[idim] = 0.5*(vel1[idim]+vel2[idim]);
         vel_square_avg += (0.5 *(vel1[idim]+vel2[idim])) * (0.5 *(vel1[idim]+vel2[idim]));
     }
 
-    real enthalpy_hat = 1.0/(2.0*beta_log*gamm1) + vel_square_avg + pressure_hat/rho_log;
+    adtype enthalpy_hat = 1.0/(2.0*beta_log*gamm1) + vel_square_avg + pressure_hat/rho_log;
 
     for(int idim=0; idim<dim; idim++){
         enthalpy_hat -= 0.5*(0.5*(vel1[idim]*vel1[idim] + vel2[idim]*vel2[idim]));
@@ -628,33 +642,34 @@ std::array<dealii::Tensor<1,dim,real>,nstate> Euler<dim, nstate, real>
 }
 
 template <int dim, int nstate, typename real>
-std::array<dealii::Tensor<1,dim,real>,nstate> Euler<dim, nstate, real>
-::convective_numerical_split_flux_ranocha(const std::array<real,nstate> &conservative_soln1,
-                                                const std::array<real,nstate> &conservative_soln2) const
+template<typename adtype>
+std::array<dealii::Tensor<1,dim,adtype>,nstate> Euler<dim, nstate, real>
+::convective_numerical_split_flux_ranocha(const std::array<adtype,nstate> &conservative_soln1,
+                                                const std::array<adtype,nstate> &conservative_soln2) const
 {
 
-    std::array<dealii::Tensor<1,dim,real>,nstate> conv_num_split_flux;
-    const real rho_log = compute_ismail_roe_logarithmic_mean(conservative_soln1[0], conservative_soln2[0]);
-    const real pressure1 = compute_pressure<real>(conservative_soln1);
-    const real pressure2 = compute_pressure<real>(conservative_soln2);
+    std::array<dealii::Tensor<1,dim,adtype>,nstate> conv_num_split_flux;
+    const adtype rho_log = compute_ismail_roe_logarithmic_mean<adtype>(conservative_soln1[0], conservative_soln2[0]);
+    const adtype pressure1 = compute_pressure<adtype>(conservative_soln1);
+    const adtype pressure2 = compute_pressure<adtype>(conservative_soln2);
 
-    const real beta1 = conservative_soln1[0]/(pressure1);
-    const real beta2 = conservative_soln2[0]/(pressure2);
+    const adtype beta1 = conservative_soln1[0]/(pressure1);
+    const adtype beta2 = conservative_soln2[0]/(pressure2);
 
-    const real beta_log = compute_ismail_roe_logarithmic_mean(beta1, beta2);
-    const dealii::Tensor<1,dim,real> vel1 = compute_velocities<real>(conservative_soln1);
-    const dealii::Tensor<1,dim,real> vel2 = compute_velocities<real>(conservative_soln2);
+    const adtype beta_log = compute_ismail_roe_logarithmic_mean<adtype>(beta1, beta2);
+    const dealii::Tensor<1,dim,adtype> vel1 = compute_velocities<adtype>(conservative_soln1);
+    const dealii::Tensor<1,dim,adtype> vel2 = compute_velocities<adtype>(conservative_soln2);
 
-    const real pressure_hat = 0.5*(pressure1+pressure2);
+    const adtype pressure_hat = 0.5*(pressure1+pressure2);
 
-    dealii::Tensor<1,dim,real> vel_avg;
-    real vel_square_avg = 0.0;;
+    dealii::Tensor<1,dim,adtype> vel_avg;
+    adtype vel_square_avg = 0.0;;
     for(int idim=0; idim<dim; idim++){
         vel_avg[idim] = 0.5*(vel1[idim]+vel2[idim]);
         vel_square_avg += (0.5 *(vel1[idim]+vel2[idim])) * (0.5 *(vel1[idim]+vel2[idim]));
     }
 
-    real enthalpy_hat = 1.0/(beta_log*gamm1) + vel_square_avg + 2.0*pressure_hat/rho_log;
+    adtype enthalpy_hat = 1.0/(beta_log*gamm1) + vel_square_avg + 2.0*pressure_hat/rho_log;
 
     for(int idim=0; idim<dim; idim++){
         enthalpy_hat -= 0.5*(0.5*(vel1[idim]*vel1[idim] + vel2[idim]*vel2[idim]));
@@ -676,6 +691,133 @@ std::array<dealii::Tensor<1,dim,real>,nstate> Euler<dim, nstate, real>
 
    return conv_num_split_flux; 
 
+}
+
+template <int dim, int nstate, typename real>
+std::array<std::array<std::array<double,nstate>,nstate>,2> Euler<dim,nstate,real> :: convective_numerical_split_flux_derivative(
+    const std::array<real,nstate> &conservative_soln1,
+    const std::array<real,nstate> &conservative_soln2,
+    const dealii::Tensor<2,dim,real> &metric_cofactor_split,
+    const dealii::Tensor<1,dim,real> &normal) const
+{
+    using typename adtype = codi_JacobianComputationType;
+    
+    using TH = codi::TapeHelper<adtype>;
+    TH th;
+    typename adtype::TapeType &tape =  adtype::getGlobalTape(); 
+    th.startRecording();
+
+    std::array<adtype,nstate> conservative_soln1_ad;
+    std::array<adtype,nstate> conservative_soln2_ad;
+
+    for(unsigned int s=0; s<nstate; ++s)
+    {
+        conservative_soln1_ad[s] = conservative_soln1[s];
+        th.registerInput(conservative_soln1_ad[s]);
+    }
+    for(unsigned int s=0; s<nstate; ++s)
+    {
+        conservative_soln2_ad[s] = conservative_soln2[s];
+        th.registerInput(conservative_soln2_ad[s]);
+    }
+    
+    std::array<dealii::Tensor<1,dim,adtype>,nstate> F_phys = convective_numerical_split_flux_templated<adtype>(conservative_soln1_ad, conservative_soln2_ad);
+    
+    std::array<adtype,nstate> F_ref_dot_n;
+    for(unsigned int s=0; s<nstate; ++s)
+    {
+        F_ref_dot_n[s] = 0;
+        for(unsigned int d1 = 0; d1<dim; ++d1)
+        {
+            for(unsigned int d2=0; d2<dim; ++d2)
+            {
+                F_ref_dot_n[s] += metric_cofactor_split[d1][d2]*F_phys[s][d1]*normal[d2];
+            }
+        }
+    }
+    for(unsigned int s=0; s<nstate; ++s)
+    {
+        th.registerOutput(F_ref_dot_n[s]);
+    }
+    
+    th.stopRecording();
+    typename TH::JacobianType& jac = th.createJacobian();
+    th.evalJacobian(jac);
+
+    std::array<std::array<std::array<double,nstate>,nstate>,2> dF_du;
+
+    for(unsigned int s1=0; s1<nstate; ++s1)
+    {
+        for(unsigned int s2=0; s2<nstate; ++s2)
+        {
+            dF_du[0][s1][s2] = jac(s1,s2);
+            dF_du[1][s1][s2] = jac(s1,s2+nstate);
+        }
+    }
+    
+    th.deleteJacobian(jac);
+    return dF_du;
+}
+
+
+template <int dim, int nstate, typename real>
+std::array<std::array<double,nstate>,nstate> Euler<dim, nstate, real>
+::compute_d_solnbc_d_u(
+    const std::array<real,nstate> &conservative_soln,
+    const dealii::Tensor<1,dim,real> &normal_int,
+    const unsigned int boundary_id) const
+{
+   using typename adtype = codi_JacobianComputationType;
+    
+    using TH = codi::TapeHelper<adtype>;
+    TH th;
+    typename adtype::TapeType &tape =  adtype::getGlobalTape(); 
+    th.startRecording();
+
+    std::array<adtype,nstate> conservative_soln_ad;
+    for(unsigned int s=0; s<nstate; ++s)
+    {
+        conservative_soln_ad[s] = conservative_soln[s];
+        th.registerInput(conservative_soln_ad[s]);
+    }
+
+    std::array<adtype,nstate> conservative_soln_bc;
+    if(boundary_id==1006)
+    {
+        std::array<dealii::Tensor<1,dim,real>,nstate> soln_grad_int_dummy,
+        std::array<dealii::Tensor<1,dim,real>,nstate> soln_grad_bc_dummy,
+        // Slip wall boundary condition
+        boundary_slip_wall<adtype>(normal_int, conservative_soln_ad, soln_grad_int_dummy, conservative_soln_bc, soln_grad_bc_dummy);
+    }
+    else if(boundary_id==1004)
+    {
+        boundary_riemann<adtype>(normal_int, conservative_soln_ad, conservative_soln_bc);
+    }
+    else
+    {
+        std::cout<<"AD dubc_duh is not implemented for this Euler BC. Aborting..."<<std::endl;
+        std::abort();
+    }
+
+    for(unsigned int s=0; s<nstate; ++s)
+    {
+        th.registerOutput(conservative_soln_bc[s]);
+    }
+    
+    th.stopRecording();
+    typename TH::JacobianType& jac = th.createJacobian();
+    th.evalJacobian(jac);
+
+    std::array<std::array<double,nstate>,nstate> dubc_duh;
+    for(unsigned int s1=0; s1<nstate; ++s1)
+    {
+        for(unsigned int s2=0; s2<nstate; ++s2)
+        {
+            dubc_duh[s1][s2] = jac(s1,s2);
+        }
+    }
+    th.deleteJacobian(jac);
+    return dubc_duh;
 }
 
 template <int dim, int nstate, typename real>
@@ -1069,39 +1211,40 @@ void Euler<dim,nstate,real>
 }
 
 template <int dim, int nstate, typename real>
+template<typename adtype>
 void Euler<dim,nstate,real>
 ::boundary_riemann (
    const dealii::Tensor<1,dim,real> &normal_int,
-   const std::array<real,nstate> &soln_int,
-   std::array<real,nstate> &soln_bc) const
+   const std::array<adtype,nstate> &soln_int,
+   std::array<adtype,nstate> &soln_bc) const
 {
-    std::array<real,nstate> primitive_int = convert_conservative_to_primitive<real>(soln_int);
-    std::array<real,nstate> primitive_ext;
+    std::array<adtype,nstate> primitive_int = convert_conservative_to_primitive<adtype>(soln_int);
+    std::array<adtype,nstate> primitive_ext;
     primitive_ext[0] = density_inf;
     for (int d=0;d<dim;d++) { primitive_ext[1+d] = velocities_inf[d]; }
     primitive_ext[nstate-1] = pressure_inf;
 
-    const dealii::Tensor<1,dim,real> velocities_int = extract_velocities_from_primitive<real>(primitive_int);
-    const dealii::Tensor<1,dim,real> velocities_ext = extract_velocities_from_primitive<real>(primitive_ext);
+    const dealii::Tensor<1,dim,adtype> velocities_int = extract_velocities_from_primitive<adtype>(primitive_int);
+    const dealii::Tensor<1,dim,adtype> velocities_ext = extract_velocities_from_primitive<adtype>(primitive_ext);
 
-    const real sound_int  = compute_sound ( primitive_int[0], primitive_int[nstate-1] );
-    const real sound_ext  = compute_sound ( primitive_ext[0], primitive_ext[nstate-1] );
+    const adtype sound_int  = compute_sound<adtype>( primitive_int[0], primitive_int[nstate-1] );
+    const adtype sound_ext  = compute_sound<adtype>( primitive_ext[0], primitive_ext[nstate-1] );
 
-    real vel_int_dot_normal = 0.0;
-    real vel_ext_dot_normal = 0.0;
+    adtype vel_int_dot_normal = 0.0;
+    adtype vel_ext_dot_normal = 0.0;
     for (int d=0; d<dim; d++) {
         vel_int_dot_normal = vel_int_dot_normal + velocities_int[d]*normal_int[d];
         vel_ext_dot_normal = vel_ext_dot_normal + velocities_ext[d]*normal_int[d];
     }
 
     // Riemann invariants
-    const real out_riemann_invariant = vel_int_dot_normal + 2.0/gamm1*sound_int, // Outgoing
+    const adtype out_riemann_invariant = vel_int_dot_normal + 2.0/gamm1*sound_int, // Outgoing
                inc_riemann_invariant = vel_ext_dot_normal - 2.0/gamm1*sound_ext; // Incoming
 
-    const real normal_velocity_bc = 0.5*(out_riemann_invariant+inc_riemann_invariant),
+    const adtype normal_velocity_bc = 0.5*(out_riemann_invariant+inc_riemann_invariant),
                sound_bc  = 0.25*gamm1*(out_riemann_invariant-inc_riemann_invariant);
 
-    std::array<real,nstate> primitive_bc;
+    std::array<adtype,nstate> primitive_bc;
     if (abs(normal_velocity_bc) >= abs(sound_bc)) { // Supersonic
         if (normal_velocity_bc < 0.0) { // Inlet
             primitive_bc = primitive_ext;
@@ -1110,19 +1253,19 @@ void Euler<dim,nstate,real>
         }
     } else { // Subsonic
 
-        real density_bc;
-        dealii::Tensor<1,dim,real> velocities_bc;
-        real pressure_bc;
+        adtype density_bc;
+        dealii::Tensor<1,dim,adtype> velocities_bc;
+        adtype pressure_bc;
 
-        dealii::Tensor<1,dim,real> velocities_tangential;
+        dealii::Tensor<1,dim,adtype> velocities_tangential;
         if (normal_velocity_bc < 0.0) { // Inlet
-            const real entropy_ext = compute_entropy_measure(primitive_ext[0], primitive_ext[nstate-1]);
+            const adtype entropy_ext = compute_entropy_measure<adtype>(primitive_ext[0], primitive_ext[nstate-1]);
             density_bc = pow( 1.0/gam * sound_bc * sound_bc / entropy_ext, 1.0/gamm1 );
             for (int d=0; d<dim; ++d) {
                 velocities_tangential[d] = velocities_ext[d] - vel_ext_dot_normal * normal_int[d];
             }
         } else { // Outlet
-            const real entropy_int = compute_entropy_measure(primitive_int[0], primitive_int[nstate-1]);
+            const adtype entropy_int = compute_entropy_measure<adtype>(primitive_int[0], primitive_int[nstate-1]);
             density_bc = pow( 1.0/gam * sound_bc * sound_bc / entropy_int, 1.0/gamm1 );
             for (int d=0; d<dim; ++d) {
                 velocities_tangential[d] = velocities_int[d] - vel_int_dot_normal * normal_int[d];
@@ -1139,16 +1282,17 @@ void Euler<dim,nstate,real>
         primitive_bc[nstate-1] = pressure_bc;
     }
 
-    soln_bc = convert_primitive_to_conservative(primitive_bc);
+    soln_bc = convert_primitive_to_conservative<adtype>(primitive_bc);
 }
 
 template <int dim, int nstate, typename real>
+template<typename adtype>
 void Euler<dim,nstate,real>
 ::boundary_slip_wall (
    const dealii::Tensor<1,dim,real> &normal_int,
-   const std::array<real,nstate> &soln_int,
+   const std::array<adtype,nstate> &soln_int,
    const std::array<dealii::Tensor<1,dim,real>,nstate> &soln_grad_int,
-   std::array<real,nstate> &soln_bc,
+   std::array<adtype,nstate> &soln_bc,
    std::array<dealii::Tensor<1,dim,real>,nstate> &soln_grad_bc) const
 {
     // Slip wall boundary conditions (No penetration)
@@ -1156,21 +1300,21 @@ void Euler<dim,nstate,real>
     // Krivodonova, L., and Berger, M.,
     // “High-order accurate implementation of solid wall boundary conditions in curved geometries,”
     // Journal of Computational Physics, vol. 211, 2006, pp. 492–512.
-    const std::array<real,nstate> primitive_interior_values = convert_conservative_to_primitive<real>(soln_int);
+    const std::array<adtype,nstate> primitive_interior_values = convert_conservative_to_primitive<adtype>(soln_int);
 
     // Copy density and pressure
-    std::array<real,nstate> primitive_boundary_values;
+    std::array<adtype,nstate> primitive_boundary_values;
     primitive_boundary_values[0] = primitive_interior_values[0];
     primitive_boundary_values[nstate-1] = primitive_interior_values[nstate-1];
 
     const dealii::Tensor<1,dim,real> surface_normal = -normal_int;
-    const dealii::Tensor<1,dim,real> velocities_int = extract_velocities_from_primitive<real>(primitive_interior_values);
+    const dealii::Tensor<1,dim,adtype> velocities_int = extract_velocities_from_primitive<adtype>(primitive_interior_values);
     //const dealii::Tensor<1,dim,real> velocities_bc = velocities_int - 2.0*(velocities_int*surface_normal)*surface_normal;
-    real vel_int_dot_normal = 0.0;
+    adtype vel_int_dot_normal = 0.0;
     for (int d=0; d<dim; d++) {
         vel_int_dot_normal = vel_int_dot_normal + velocities_int[d]*surface_normal[d];
     }
-    dealii::Tensor<1,dim,real> velocities_bc;
+    dealii::Tensor<1,dim,adtype> velocities_bc;
     for (int d=0; d<dim; d++) {
         velocities_bc[d] = velocities_int[d] - 2.0*(vel_int_dot_normal)*surface_normal[d];
         //velocities_bc[d] = velocities_int[d] - (vel_int_dot_normal)*surface_normal[d];
@@ -1180,7 +1324,7 @@ void Euler<dim,nstate,real>
         primitive_boundary_values[1+d] = velocities_bc[d];
     }
 
-    const std::array<real,nstate> modified_conservative_boundary_values = convert_primitive_to_conservative(primitive_boundary_values);
+    const std::array<adtype,nstate> modified_conservative_boundary_values = convert_primitive_to_conservative<adtype>(primitive_boundary_values);
     for (int istate=0; istate<nstate; ++istate) {
         soln_bc[istate] = modified_conservative_boundary_values[istate];
     }
@@ -1200,7 +1344,7 @@ void Euler<dim,nstate,real>
    std::array<dealii::Tensor<1,dim,real>,nstate> &soln_grad_bc) const
 {
     // Slip wall boundary for Euler
-    boundary_slip_wall(normal_int, soln_int, soln_grad_int, soln_bc, soln_grad_bc);
+    boundary_slip_wall<real>(normal_int, soln_int, soln_grad_int, soln_bc, soln_grad_bc);
 }
 
 template <int dim, int nstate, typename real>
@@ -1515,7 +1659,7 @@ void Euler<dim,nstate,real>
     } 
     else if (boundary_type == 1004) {
         // Riemann-based farfield boundary condition
-        boundary_riemann (normal_int, soln_int, soln_bc);
+        boundary_riemann<real>(normal_int, soln_int, soln_bc);
         // Characteristics-based farfield boundary condition
         //boundary_characteristics (normal_int, soln_int, soln_bc);
         for(unsigned int s=0; s<nstate; ++s)
@@ -1529,7 +1673,7 @@ void Euler<dim,nstate,real>
     } 
     else if (boundary_type == 1006) {
         // Slip wall boundary condition
-        boundary_slip_wall (normal_int, soln_int, soln_grad_int, soln_bc, soln_grad_bc);
+        boundary_slip_wall<real>(normal_int, soln_int, soln_grad_int, soln_bc, soln_grad_bc);
     }
     else if (boundary_type == 1007) {
         // Do nothing bc, p0 interpolation

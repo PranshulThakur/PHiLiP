@@ -735,6 +735,10 @@ public:
         const unsigned int max_degree_input,
         const unsigned int grid_degree_input);
 
+    dealii::FullMatrix<double>  oneD_G_operator_vol;
+    dealii::FullMatrix<double>  oneD_DG_operator_vol;
+    std::array<dealii::FullMatrix<double>,2>  oneD_G_operator_surf;
+
     ///Stores the degree of the current poly degree.
     unsigned int current_degree;
 
@@ -758,6 +762,11 @@ public:
         OPERATOR::basis_functions<dim,2*dim>          &soln_basis,
         OPERATOR::vol_projection_operator<dim,2*dim>  &soln_basis_projection_oper,
         const std::vector<real> & det_Jac_vol);
+
+    void build_1D_G_operator_vol(const dealii::FullMatrix<double> &P, const dealii::FullMatrix<double> &phi);
+    void build_1D_DG_operator_vol(const dealii::FullMatrix<double> &P, const dealii::FullMatrix<double> &D_phi);
+    
+    void build_1D_G_operator_face(const dealii::FullMatrix<double> &P, const std::array<dealii::FullMatrix<double>,2> &phi_face);
 };
 
 ///Projection operator corresponding to basis functions onto \f$(M+K)\f$-norm.

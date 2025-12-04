@@ -297,6 +297,17 @@ public:
     std::array<dealii::Tensor<1,dim,real>,nstate> convective_numerical_split_flux (
         const std::array<real,nstate> &conservative_soln1,
         const std::array<real,nstate> &conservative_soln2) const override;
+    
+    std::array<std::array<std::array<double,nstate>,nstate>,2> convective_numerical_split_flux_derivative(
+        const std::array<real,nstate> &conservative_soln1,
+        const std::array<real,nstate> &conservative_soln2,
+        const dealii::Tensor<2,dim,real> &metric_cofactor_split,
+        const dealii::Tensor<1,dim,real> &normal) const override;
+    
+    std::array<std::array<double,nstate>,nstate> compute_d_solnbc_d_u(
+    const std::array<real,nstate> &conservative_soln1,
+    const dealii::Tensor<1,dim,real> &normal_int,
+    const unsigned int boundary_id) const override;
 
     /// Computes the entropy variables.
     /// Given conservative variables [density, [momentum], total energy],

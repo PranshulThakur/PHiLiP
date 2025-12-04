@@ -264,6 +264,10 @@ public:
    dissipative_flux_entropy_based (
         const std::array<real,nstate> &entropy_var,
         const std::array<dealii::Tensor<1,dim,real>,nstate> &entropy_var_gradient) const override;
+
+    void get_K_matrix(
+        std::array<std::array<dealii::Tensor<2,dim,real>,nstate>,nstate> &K,
+        const std::array<real,nstate> &entropy_var) const;
     
     void boundary_face_values_entropy_var(
         const dealii::Point<dim,real> &pos,
@@ -274,6 +278,24 @@ public:
         std::array<dealii::Tensor<1,dim,real>,nstate> &sigma_bc_at_q, 
         const dealii::Tensor<1,dim,real> &unit_phys_normal,
         const unsigned int boundary_id) const override;
+    
+    void compute_dsigmabc_and_dvbc_derivatives(
+    const std::array<real,nstate> &v_at_q,
+    const std::array<dealii::Tensor<1,dim,real>,nstate> &sigma_h_at_q, 
+    const std::array<dealii::Tensor<1,dim,real>,nstate> &grad_v_at_q, 
+    std::array<std::array<std::array<std::array<double,dim>,nstate>,dim>,nstate> &d_sigmabc_d_sigmah,
+    std::array<std::array<std::array<std::array<double,dim>,nstate>,dim>,nstate> &d_sigmabc_d_gradv,
+    std::array<std::array<std::array<double,nstate>,nstate>,dim> &d_sigmabc_dvh,
+    std::array<std::array<double,nstate>,nstate> &d_vbc_dvh,
+    const unsigned int boundary_id) const override;
+    
+    void get_d_entropy_var_d_conservative_var(
+        std::array<std::array<real,nstate>,nstate> &dv_du,
+        const std::array<real,nstate> &entropy_var) const override;
+    
+    void get_d_conservative_var_d_entropy_var(
+        std::array<std::array<real,nstate>,nstate> &du_dv,
+        const std::array<real,nstate> &entropy_var) const override;
 
     std::array<dealii::Tensor<1,dim,real>,nstate>
     apply_d_conservative_var_d_entropy_var(
