@@ -554,18 +554,19 @@ std::array<dealii::Tensor<1,dim,real>,nstate> NavierStokes<dim,nstate,real>
 }
 
 template <int dim, int nstate, typename real>
-std::array<dealii::Tensor<1,dim,real>,nstate> NavierStokes<dim,nstate,real>
-::dissipative_flux_entropy_based (
-    const std::array<real,nstate> &entropy_var,
-    const std::array<dealii::Tensor<1,dim,real>,nstate> &entropy_var_gradient) const
+template<typename adtype>
+std::array<dealii::Tensor<1,dim,adtype>,nstate> NavierStokes<dim,nstate,real>
+::dissipative_flux_entropy_based_templated (
+    const std::array<adtype,nstate> &entropy_var,
+    const std::array<dealii::Tensor<1,dim,adtype>,nstate> &entropy_var_gradient) const
 {
 
-    std::array<std::array<dealii::Tensor<2,dim,real>,nstate>,nstate> K;
-    get_K_matrix(
+    std::array<std::array<dealii::Tensor<2,dim,adtype>,nstate>,nstate> K;
+    get_K_matrix<adtype>(
     K,
     entropy_var);
     // Compute viscous flux
-    std::array<dealii::Tensor<1,dim,real>,nstate> viscous_flux; // initialized to zero by default
+    std::array<dealii::Tensor<1,dim,adtype>,nstate> viscous_flux; // initialized to zero by default
     for(unsigned int d1 =0; d1<dim; ++d1)
     {
         for(unsigned int d2 =0; d2<dim; ++d2)
@@ -584,31 +585,72 @@ std::array<dealii::Tensor<1,dim,real>,nstate> NavierStokes<dim,nstate,real>
 }
 
 template <int dim, int nstate, typename real>
+template<typename adtype>
+std::array<dealii::Tensor<1,dim,adtype>,nstate> NavierStokes<dim,nstate,real>
+::dissipative_flux_entropy_based_templated2 (
+    const std::array<adtype,nstate> &entropy_var,
+    const std::array<dealii::Tensor<1,dim,real>,nstate> &entropy_var_gradient) const
+{
+
+    std::array<std::array<dealii::Tensor<2,dim,adtype>,nstate>,nstate> K;
+    get_K_matrix<adtype>(
+    K,
+    entropy_var);
+    // Compute viscous flux
+    std::array<dealii::Tensor<1,dim,adtype>,nstate> viscous_flux; // initialized to zero by default
+    for(unsigned int d1 =0; d1<dim; ++d1)
+    {
+        for(unsigned int d2 =0; d2<dim; ++d2)
+        {   
+            for(unsigned int s1 =0; s1<nstate; ++s1)
+            {
+                for(unsigned int s2=0; s2<nstate; ++s2)
+                {
+                    viscous_flux[s1][d1] += K[s1][s2][d1][d2]*entropy_var_gradient[s2][d2];
+                }
+            }
+        }
+    }
+
+    return viscous_flux;
+}
+
+template <int dim, int nstate, typename real>
+std::array<dealii::Tensor<1,dim,real>,nstate> NavierStokes<dim,nstate,real>
+::dissipative_flux_entropy_based (
+    const std::array<real,nstate> &entropy_var,
+    const std::array<dealii::Tensor<1,dim,real>,nstate> &entropy_var_gradient) const
+{
+    return dissipative_flux_entropy_based_templated<real>(entropy_var,entropy_var_gradient);
+}
+
+template <int dim, int nstate, typename real>
+template<typename adtype>
 void NavierStokes<dim,nstate,real>
 ::get_K_matrix(
-    std::array<std::array<dealii::Tensor<2,dim,real>,nstate>,nstate> &K,
-    const std::array<real,nstate> &entropy_var) const
+    std::array<std::array<dealii::Tensor<2,dim,adtype>,nstate>,nstate> &K,
+    const std::array<adtype,nstate> &entropy_var) const
 {
-    const std::array<real,nstate> conservative_soln_from_entropy_var = this->compute_conservative_variables_from_entropy_variables (entropy_var);
-    const std::array<real,nstate> primitive_soln = this->template convert_conservative_to_primitive<real>(conservative_soln_from_entropy_var);
+    const std::array<adtype,nstate> conservative_soln_from_entropy_var = this->template compute_conservative_variables_from_entropy_variables_templated<adtype>(entropy_var);
+    const std::array<adtype,nstate> primitive_soln = this->template convert_conservative_to_primitive<adtype>(conservative_soln_from_entropy_var);
     //const real scaled_viscosity_coefficient = compute_scaled_viscosity_coefficient<real>(primitive_soln); // \mu
     //const real scaled_2nd_viscosity_coefficient = (-2.0/3.0)*scaled_viscosity_coefficient; // \lambda from Stokes' hypothesis
-    const real mu = compute_scaled_viscosity_coefficient<real>(primitive_soln); // \mu
-    const real lambda = (-2.0/3.0)*mu; // \lambda from Stokes' hypothesis
+    const adtype mu = compute_scaled_viscosity_coefficient<adtype>(primitive_soln); // \mu
+    const adtype lambda = (-2.0/3.0)*mu; // \lambda from Stokes' hypothesis
 
     if constexpr(dim==3)
     {
-        //const real v1 = entropy_var[0];
-        const real v2 = entropy_var[1];
-        const real v3 = entropy_var[2];
-        const real v4 = entropy_var[3];
-        const real v5 = entropy_var[4];
-        const real e1 = v2*v5;
-        const real e2 = v3*v5;
-        const real e3 = v4*v5;
-        const real d1 = -v2*v3;
-        const real d2 = -v2*v4;
-        const real d3 = -v3*v4;
+        //const adtype v1 = entropy_var[0];
+        const adtype v2 = entropy_var[1];
+        const adtype v3 = entropy_var[2];
+        const adtype v4 = entropy_var[3];
+        const adtype v5 = entropy_var[4];
+        const adtype e1 = v2*v5;
+        const adtype e2 = v3*v5;
+        const adtype e3 = v4*v5;
+        const adtype d1 = -v2*v3;
+        const adtype d2 = -v2*v4;
+        const adtype d3 = -v3*v4;
 
         // K11
         K[1][1][0][0] = -(lambda+2.0*mu)*pow(v5,2); 
@@ -689,10 +731,10 @@ void NavierStokes<dim,nstate,real>
     }
     else if constexpr(dim==2)
     {
-        //const real v1 = entropy_var[0];
-        const real v2 = entropy_var[1];
-        const real v3 = entropy_var[2];
-        const real v4 = entropy_var[3];
+        //const adtype v1 = entropy_var[0];
+        const adtype v2 = entropy_var[1];
+        const adtype v3 = entropy_var[2];
+        const adtype v4 = entropy_var[3];
         // K11
         K[1][1][0][0] = -(lambda+2.0*mu)*pow(v4,2);
         K[3][1][0][0] = (lambda + 2.0*mu)*v2*v4;
@@ -755,44 +797,54 @@ void NavierStokes<dim,nstate,real>
 ::get_d_entropy_var_d_conservative_var(
     std::array<std::array<real,nstate>,nstate> &dVdU,
     const std::array<real,nstate> &entropy_var) const
+{
+    get_d_entropy_var_d_conservative_var_templated<real>(dVdU,entropy_var);
+}
+
+template <int dim, int nstate, typename real>
+template<typename adtype>
+void NavierStokes<dim,nstate,real>
+::get_d_entropy_var_d_conservative_var_templated(
+    std::array<std::array<adtype,nstate>,nstate> &dVdU,
+    const std::array<adtype,nstate> &entropy_var) const
 { 
     if constexpr(dim==3)
     {
-        const real v1 = entropy_var[0];
-        const real v2 = entropy_var[1];
-        const real v3 = entropy_var[2];
-        const real v4 = entropy_var[3];
-        const real v5 = entropy_var[4];
-        const real entrops = this->gam - v1 + 0.5*(v2*v2 + v3*v3 + v4*v4)/v5;
-        const real rhoe = pow(this->gamm1/pow(-v5,this->gam),1/this->gamm1)*exp(-entrops/this->gamm1);
+        const adtype v1 = entropy_var[0];
+        const adtype v2 = entropy_var[1];
+        const adtype v3 = entropy_var[2];
+        const adtype v4 = entropy_var[3];
+        const adtype v5 = entropy_var[4];
+        const adtype entrops = this->gam - v1 + 0.5*(v2*v2 + v3*v3 + v4*v4)/v5;
+        const adtype rhoe = pow(this->gamm1/pow(-v5,this->gam),1/this->gamm1)*exp(-entrops/this->gamm1);
 
 
-        const real e1 = v2*v5;
+        const adtype e1 = v2*v5;
 
-        const real e2 = v3*v5;
+        const adtype e2 = v3*v5;
 
-        const real e3 = v4*v5;
+        const adtype e3 = v4*v5;
 
-        const real k1 = 0.5*(v2*v2 + v3*v3 + v4*v4)/v5;
+        const adtype k1 = 0.5*(v2*v2 + v3*v3 + v4*v4)/v5;
 
-        //const real k2 = k1-this->gam;
+        //const adtype k2 = k1-this->gam;
 
-        //const real k3 = k1*k1 - 2*this->gam*k1 + this->gam;
+        //const adtype k3 = k1*k1 - 2*this->gam*k1 + this->gam;
 
-        //const real c1 = this->gamm1*v5 - v2*v2;
-        //const real c2 = this->gamm1*v5 - v3*v3;
-        //const real c3 = this->gamm1*v5 - v4*v4;
+        //const adtype c1 = this->gamm1*v5 - v2*v2;
+        //const adtype c2 = this->gamm1*v5 - v3*v3;
+        //const adtype c3 = this->gamm1*v5 - v4*v4;
 
-        const real d1 = -v2*v3;
-        const real d2 = -v2*v4;
-        const real d3 = -v3*v4;
+        const adtype d1 = -v2*v3;
+        const adtype d2 = -v2*v4;
+        const adtype d3 = -v3*v4;
 
         dVdU[0][0] = k1*k1 + this->gam; dVdU[0][1] = k1*v2; dVdU[0][2] = k1*v3; dVdU[0][3] = k1*v4; dVdU[0][4] = (k1+1)*v5;
         dVdU[1][1] = v2*v2-v5; dVdU[1][2] = -d1; dVdU[1][3] = -d2; dVdU[1][4] = e1;
         dVdU[2][2] = v3*v3-v5; dVdU[2][3] = -d3; dVdU[2][4] = e2;
         dVdU[3][3] = v4*v4-v5; dVdU[3][4] = e3;
         dVdU[4][4] = v5*v5;
-        const real factor_dVdU =  -1.0/(rhoe*v5);
+        const adtype factor_dVdU =  -1.0/(rhoe*v5);
 
         for(unsigned int i=0; i<nstate; ++i)
         {
@@ -813,34 +865,34 @@ void NavierStokes<dim,nstate,real>
     }
     else if constexpr(dim==2)
     {
-        const real v1 = entropy_var[0];
-        const real v2 = entropy_var[1];
-        const real v3 = entropy_var[2];
-        const real v4 = entropy_var[3];
-        const real entrops = this->gam - v1 + 0.5*(v2*v2 + v3*v3)/v4;
-        const real rhoe = pow(this->gamm1/pow(-v4,this->gam),1/this->gamm1)*exp(-entrops/this->gamm1);
+        const adtype v1 = entropy_var[0];
+        const adtype v2 = entropy_var[1];
+        const adtype v3 = entropy_var[2];
+        const adtype v4 = entropy_var[3];
+        const adtype entrops = this->gam - v1 + 0.5*(v2*v2 + v3*v3)/v4;
+        const adtype rhoe = pow(this->gamm1/pow(-v4,this->gam),1/this->gamm1)*exp(-entrops/this->gamm1);
 
 
-        const real e1 = v2*v4;
+        const adtype e1 = v2*v4;
 
-        const real e2 = v3*v4;
+        const adtype e2 = v3*v4;
 
-        const real k1 = 0.5*(v2*v2 + v3*v3)/v4;
+        const adtype k1 = 0.5*(v2*v2 + v3*v3)/v4;
 
-        //const real k2 = k1-this->gam;
+        //const adtype k2 = k1-this->gam;
 
-        //const real k3 = k1*k1 - 2*this->gam*k1 + this->gam;
+        //const adtype k3 = k1*k1 - 2*this->gam*k1 + this->gam;
 
-        //const real c1 = this->gamm1*v4 - v2*v2;
-        //const real c2 = this->gamm1*v4 - v3*v3;
+        //const adtype c1 = this->gamm1*v4 - v2*v2;
+        //const adtype c2 = this->gamm1*v4 - v3*v3;
 
-        const real d1 = -v2*v3;
+        const adtype d1 = -v2*v3;
 
         dVdU[0][0] = k1*k1 + this->gam; dVdU[0][1] = k1*v2; dVdU[0][2] = k1*v3; dVdU[0][3] = (k1+1)*v4;
         dVdU[1][1] = v2*v2-v4; dVdU[1][2] = -d1; dVdU[1][3] = e1;
         dVdU[2][2] = v3*v3-v4; dVdU[2][3] = e2;
         dVdU[3][3] = v4*v4;
-        const real factor_dVdU =  -1.0/(rhoe*v4);
+        const adtype factor_dVdU =  -1.0/(rhoe*v4);
         for(unsigned int i=0; i<nstate; ++i)
         {
             for(unsigned j=0; j<nstate; ++j)
@@ -867,47 +919,59 @@ void NavierStokes<dim,nstate,real>
 
 }
 
-void get_d_conservative_var_d_entropy_var(
+template <int dim, int nstate, typename real>
+void NavierStokes<dim,nstate,real>
+::get_d_conservative_var_d_entropy_var(
     std::array<std::array<real,nstate>,nstate> &dUdV,
     const std::array<real,nstate> &entropy_var) const
 {
+    get_d_conservative_var_d_entropy_var_templated<real>(dUdV,entropy_var);
+}
+
+template <int dim, int nstate, typename real>
+template <typename adtype>
+void NavierStokes<dim,nstate,real>
+::get_d_conservative_var_d_entropy_var_templated(
+    std::array<std::array<adtype,nstate>,nstate> &dUdV,
+    const std::array<adtype,nstate> &entropy_var) const
+{
     if constexpr(dim==3)
     {
-        const real v1 = entropy_var[0];
-        const real v2 = entropy_var[1];
-        const real v3 = entropy_var[2];
-        const real v4 = entropy_var[3];
-        const real v5 = entropy_var[4];
-        const real entrops = this->gam - v1 + 0.5*(v2*v2 + v3*v3 + v4*v4)/v5;
-        const real rhoe = pow(this->gamm1/pow(-v5,this->gam),1/this->gamm1)*exp(-entrops/this->gamm1);
+        const adtype v1 = entropy_var[0];
+        const adtype v2 = entropy_var[1];
+        const adtype v3 = entropy_var[2];
+        const adtype v4 = entropy_var[3];
+        const adtype v5 = entropy_var[4];
+        const adtype entrops = this->gam - v1 + 0.5*(v2*v2 + v3*v3 + v4*v4)/v5;
+        const adtype rhoe = pow(this->gamm1/pow(-v5,this->gam),1/this->gamm1)*exp(-entrops/this->gamm1);
 
 
-        const real e1 = v2*v5;
+        const adtype e1 = v2*v5;
 
-        const real e2 = v3*v5;
+        const adtype e2 = v3*v5;
 
-        const real e3 = v4*v5;
+        const adtype e3 = v4*v5;
 
-        const real k1 = 0.5*(v2*v2 + v3*v3 + v4*v4)/v5;
+        const adtype k1 = 0.5*(v2*v2 + v3*v3 + v4*v4)/v5;
 
-        const real k2 = k1-this->gam;
+        const adtype k2 = k1-this->gam;
 
-        const real k3 = k1*k1 - 2*this->gam*k1 + this->gam;
+        const adtype k3 = k1*k1 - 2*this->gam*k1 + this->gam;
 
-        const real c1 = this->gamm1*v5 - v2*v2;
-        const real c2 = this->gamm1*v5 - v3*v3;
-        const real c3 = this->gamm1*v5 - v4*v4;
+        const adtype c1 = this->gamm1*v5 - v2*v2;
+        const adtype c2 = this->gamm1*v5 - v3*v3;
+        const adtype c3 = this->gamm1*v5 - v4*v4;
 
-        const real d1 = -v2*v3;
-        const real d2 = -v2*v4;
-        const real d3 = -v3*v4;
+        const adtype d1 = -v2*v3;
+        const adtype d2 = -v2*v4;
+        const adtype d3 = -v3*v4;
 
         dUdV[0][0] = -v5*v5; dUdV[0][1] = e1; dUdV[0][2] = e2; dUdV[0][3] = e3; dUdV[0][4] = v5*(1-k1);
         dUdV[1][1] = c1; dUdV[1][2] = d1; dUdV[1][3] = d2; dUdV[1][4] = v2*k2;
         dUdV[2][2] = c2; dUdV[2][3] = d3; dUdV[2][4] = v3*k2;
         dUdV[3][3] = c3; dUdV[3][4] = v4*k2;
         dUdV[4][4] = -k3;
-        const real factor_dUdV = rhoe/(this->gamm1*v5);
+        const adtype factor_dUdV = rhoe/(this->gamm1*v5);
 
         for(unsigned int i=0; i<nstate; ++i)
         {
@@ -929,34 +993,34 @@ void get_d_conservative_var_d_entropy_var(
     }
     else if constexpr(dim==2)
     {
-        const real v1 = entropy_var[0];
-        const real v2 = entropy_var[1];
-        const real v3 = entropy_var[2];
-        const real v4 = entropy_var[3];
-        const real entrops = this->gam - v1 + 0.5*(v2*v2 + v3*v3)/v4;
-        const real rhoe = pow(this->gamm1/pow(-v4,this->gam),1/this->gamm1)*exp(-entrops/this->gamm1);
+        const adtype v1 = entropy_var[0];
+        const adtype v2 = entropy_var[1];
+        const adtype v3 = entropy_var[2];
+        const adtype v4 = entropy_var[3];
+        const adtype entrops = this->gam - v1 + 0.5*(v2*v2 + v3*v3)/v4;
+        const adtype rhoe = pow(this->gamm1/pow(-v4,this->gam),1/this->gamm1)*exp(-entrops/this->gamm1);
 
 
-        const real e1 = v2*v4;
+        const adtype e1 = v2*v4;
 
-        const real e2 = v3*v4;
+        const adtype e2 = v3*v4;
 
-        const real k1 = 0.5*(v2*v2 + v3*v3)/v4;
+        const adtype k1 = 0.5*(v2*v2 + v3*v3)/v4;
 
-        const real k2 = k1-this->gam;
+        const adtype k2 = k1-this->gam;
 
-        const real k3 = k1*k1 - 2*this->gam*k1 + this->gam;
+        const adtype k3 = k1*k1 - 2*this->gam*k1 + this->gam;
 
-        const real c1 = this->gamm1*v4 - v2*v2;
-        const real c2 = this->gamm1*v4 - v3*v3;
+        const adtype c1 = this->gamm1*v4 - v2*v2;
+        const adtype c2 = this->gamm1*v4 - v3*v3;
 
-        const real d1 = -v2*v3;
+        const adtype d1 = -v2*v3;
 
         dUdV[0][0] = -v4*v4; dUdV[0][1] = e1; dUdV[0][2] = e2; dUdV[0][3] = v4*(1-k1);
         dUdV[1][1] = c1; dUdV[1][2] = d1; dUdV[1][3] = v2*k2;
         dUdV[2][2] = c2; dUdV[2][3] = v3*k2;
         dUdV[3][3] = -k3;
-        const real factor_dUdV = rhoe/(this->gamm1*v4);
+        const adtype factor_dUdV = rhoe/(this->gamm1*v4);
         for(unsigned int i=0; i<nstate; ++i)
         {
             for(unsigned j=0; j<nstate; ++j)
@@ -981,14 +1045,15 @@ void get_d_conservative_var_d_entropy_var(
 }
 
 template <int dim, int nstate, typename real>
-std::array<dealii::Tensor<1,dim,real>,nstate> NavierStokes<dim,nstate,real>
+template <typename adtype>
+std::array<dealii::Tensor<1,dim,adtype>,nstate> NavierStokes<dim,nstate,real>
 ::apply_d_entropy_var_d_conservative_var(
-    const std::array<dealii::Tensor<1,dim,real>,nstate> & in_vector,
-    const std::array<real,nstate> & entropy_var) const
+    const std::array<dealii::Tensor<1,dim,adtype>,nstate> & in_vector,
+    const std::array<adtype,nstate> & entropy_var) const
 {
-    std::array<std::array<real,nstate>,nstate> dVdU;
-    get_d_entropy_var_d_conservative_var(dVdU,entropy_var);
-    std::array<dealii::Tensor<1,dim,real>,nstate> out_vector;
+    std::array<std::array<adtype,nstate>,nstate> dVdU;
+    get_d_entropy_var_d_conservative_var_templated<adtype>(dVdU,entropy_var);
+    std::array<dealii::Tensor<1,dim,adtype>,nstate> out_vector;
     for(unsigned int i=0; i<nstate; ++i)
     {
         for(unsigned int j=0; j<nstate; ++j)
@@ -1003,14 +1068,15 @@ std::array<dealii::Tensor<1,dim,real>,nstate> NavierStokes<dim,nstate,real>
 }
 
 template <int dim, int nstate, typename real>
-std::array<dealii::Tensor<1,dim,real>,nstate> NavierStokes<dim,nstate,real>
+template <typename adtype>
+std::array<dealii::Tensor<1,dim,adtype>,nstate> NavierStokes<dim,nstate,real>
 ::apply_d_conservative_var_d_entropy_var(
     const std::array<dealii::Tensor<1,dim,real>,nstate> & in_vector,
-    const std::array<real,nstate> & entropy_var) const
+    const std::array<adtype,nstate> & entropy_var) const
 {
-    std::array<std::array<real,nstate>,nstate> dUdV;
-    get_d_conservative_var_d_entropy_var(dUdV,entropy_var);
-    std::array<dealii::Tensor<1,dim,real>,nstate> out_vector;
+    std::array<std::array<adtype,nstate>,nstate> dUdV;
+    get_d_conservative_var_d_entropy_var_templated<adtype>(dUdV,entropy_var);
+    std::array<dealii::Tensor<1,dim,adtype>,nstate> out_vector;
     for(unsigned int i=0; i<nstate; ++i)
     {
         for(unsigned int j=0; j<nstate; ++j)
@@ -1091,8 +1157,8 @@ void NavierStokes<dim,nstate,real>
     }
     else
     {
-        const std::array<real,nstate> soln_int = this->compute_conservative_variables_from_entropy_variables (v_int_at_q);
-        const std::array<dealii::Tensor<1,dim,real>,nstate> soln_grad_int = apply_d_conservative_var_d_entropy_var(grad_entropy_var_int_at_q, v_int_at_q);
+        const std::array<real,nstate> soln_int = this->compute_conservative_variables_from_entropy_variables(v_int_at_q);
+        const std::array<dealii::Tensor<1,dim,real>,nstate> soln_grad_int = apply_d_conservative_var_d_entropy_var<real>(grad_entropy_var_int_at_q, v_int_at_q);
         /*
         //=============================================================================
         // Test flux
@@ -1134,155 +1200,267 @@ void NavierStokes<dim,nstate,real>
 template <int dim, int nstate, typename real>
 void NavierStokes<dim,nstate,real>::
 compute_dsigmabc_and_dvbc_derivatives(
-    const std::array<real,nstate> &v_at_q,
+    const std::array<real,nstate> &v_int_at_q,
     const dealii::Tensor<1,dim,real> &normal_int,
-    const std::array<dealii::Tensor<1,dim,real>,nstate> &sigma_h_at_q, 
-    const std::array<dealii::Tensor<1,dim,real>,nstate> &grad_v_at_q, 
+    const std::array<dealii::Tensor<1,dim,real>,nstate> &/*sigma_h_at_q*/, 
+    const std::array<dealii::Tensor<1,dim,real>,nstate> &grad_entropy_var_int_at_q, 
     std::array<std::array<std::array<std::array<double,dim>,nstate>,dim>,nstate> &d_sigmabc_d_sigmah,
     std::array<std::array<std::array<std::array<double,dim>,nstate>,dim>,nstate> &d_sigmabc_d_gradv,
     std::array<std::array<std::array<double,nstate>,nstate>,dim> &d_sigmabc_dvh,
     std::array<std::array<double,nstate>,nstate> &d_vbc_dvh,
     const unsigned int boundary_id) const
 {
-    if(boundary_id==1001)
-    {
-        for(unsigned int s1=0; s1<nstate; ++s1)
+    if constexpr(std::is_same<real,double>::value) {
+        if(boundary_id==1001)
         {
-            for(unsigned int d1=0; d1<dim; ++d1)
+            for(unsigned int s1=0; s1<nstate; ++s1)
             {
-                for(unsigned int s2=0; s2<nstate; ++s2)
+                for(unsigned int d1=0; d1<dim; ++d1)
                 {
-                    for(unsigned int d2=0; d2<dim; ++d2)
+                    for(unsigned int s2=0; s2<nstate; ++s2)
                     {
-                        d_sigmabc_d_gradv[s1][d1][s2][d2] = 0.0;
-                        d_sigmabc_d_sigmah[s1][d1][s2][d2] = 0.0;
+                        for(unsigned int d2=0; d2<dim; ++d2)
+                        {
+                            d_sigmabc_d_gradv[s1][d1][s2][d2] = 0.0;
+                            d_sigmabc_d_sigmah[s1][d1][s2][d2] = 0.0;
+                        }
                     }
                 }
             }
-        }
 
-        for(unsigned int d=0; d<dim; ++d)
-        {
+            for(unsigned int d=0; d<dim; ++d)
+            {
+                for(unsigned int s1=0; s1<nstate; ++s1)
+                {
+                    for(unsigned int s2=0; s2<nstate; ++s2)
+                    {
+                        d_sigmabc_dvh[d][s1][s2] = 0.0;
+                    }
+                }
+            }
+
+            for(unsigned int s=0; s<nstate-1; ++s)
+            {
+                for(unsigned int d=0; d<dim; ++d)
+                {
+                    d_sigmabc_d_sigmah[s][d][s][d] = 1.0;
+                }
+            }
+
             for(unsigned int s1=0; s1<nstate; ++s1)
             {
                 for(unsigned int s2=0; s2<nstate; ++s2)
                 {
-                    d_sigmabc_dvh[d][s1][s2] = 0.0;
+                    d_vbc_dvh[s1][s2] = 0.0;
                 }
             }
+            d_vbc_dvh[0][0] = 1.0;
+            d_vbc_dvh[nstate-1][nstate-1] = 1.0;
         }
-
-        for(unsigned int s=0; s<nstate-1; ++s)
+        else if(boundary_id==1004)
         {
-            for(unsigned int d=0; d<dim; ++d)
+            for(unsigned int s1=0; s1<nstate; ++s1)
             {
-                d_sigmabc_d_sigmah[s][d][s][d] = 1.0;
+                for(unsigned int d1=0; d1<dim; ++d1)
+                {
+                    for(unsigned int s2=0; s2<nstate; ++s2)
+                    {
+                        for(unsigned int d2=0; d2<dim; ++d2)
+                        {
+                            d_sigmabc_d_sigmah[s1][d1][s2][d2] = 0.0;
+                        }
+                    }
+                }
             }
-        }
 
-        for(unsigned int s1=0; s1<nstate; ++s1)
-        {
-            for(unsigned int s2=0; s2<nstate; ++s2)
-            {
-                d_vbc_dvh[s1][s2] = 0.0;
-            }
-        }
-        d_vbc_dvh[0][0] = 1.0;
-        d_vbc_dvh[nstate-1][nstate-1] = 1.0;
-    }
-    else if(boundary_id==1004)
-    {
-        for(unsigned int s1=0; s1<nstate; ++s1)
-        {
-            for(unsigned int d1=0; d1<dim; ++d1)
+            // Compute d_vbc_dvh
+            const std::array<real,nstate> soln_int = this->compute_conservative_variables_from_entropy_variables(v_int_at_q);
+            const std::array<dealii::Tensor<1,dim,real>,nstate> soln_grad_int_dummy;
+            std::array<real,nstate> soln_bc;
+            std::array<dealii::Tensor<1,dim,real>,nstate> soln_grad_bc_dummy;
+            dealii::Point<dim,real> pos_dummy;
+            this->boundary_face_values (
+               boundary_id,
+               pos_dummy,
+               normal_int,
+               soln_int,
+               soln_grad_int_dummy,
+               soln_bc,
+               soln_grad_bc_dummy);
+            
+            const std::array<real,nstate> v_bc_at_q = this->compute_entropy_variables(soln_bc);
+
+            std::array<std::array<real,nstate>,nstate> dv_du_bc;
+            get_d_entropy_var_d_conservative_var(
+            dv_du_bc,
+            v_bc_at_q);
+            
+            std::array<std::array<real,nstate>,nstate> dubc_duh = this->compute_d_solnbc_d_u(
+            soln_int,
+            normal_int,
+            boundary_id);
+
+            std::array<std::array<real,nstate>,nstate> du_dv_int;
+            get_d_conservative_var_d_entropy_var(
+            du_dv_int,
+            v_int_at_q);
+
+            for(unsigned int s1=0; s1<nstate; ++s1)
             {
                 for(unsigned int s2=0; s2<nstate; ++s2)
                 {
-                    for(unsigned int d2=0; d2<dim; ++d2)
+                    d_vbc_dvh[s1][s2] = 0;
+                    for(unsigned int sk=0; sk<nstate; ++sk)
                     {
-                        d_sigmabc_d_sigmah[s1][d1][s2][d2] = 0.0;
+                        for(unsigned int sl=0; sl<nstate; ++sl)
+                        {
+                            d_vbc_dvh[s1][s2]+= dv_du_bc[s1][sk]*dubc_duh[sk][sl]*du_dv_int[sl][s2];
+                        }
                     }
                 }
             }
-        }
 
-        // Compute d_vbc_dvh
-        const std::array<real,nstate> soln_int = this->compute_conservative_variables_from_entropy_variables (v_int_at_q);
-        const std::array<dealii::Tensor<1,dim,real>,nstate> soln_grad_int_dummy;
-        std::array<real,nstate> soln_bc;
-        std::array<dealii::Tensor<1,dim,real>,nstate> soln_grad_bc_dummy;
-        this->boundary_face_values (
-           boundary_id,
-           pos,
-           unit_phys_normal,
-           soln_int,
-           soln_grad_int_dummy,
-           soln_bc,
-           soln_grad_bc_dummy);
-        
-        v_bc_at_q = this->compute_entropy_variables(soln_bc);
+            std::array<std::array<dealii::Tensor<2,dim,real>,nstate>,nstate> K;
+            get_K_matrix<real>(
+            K,
+            v_bc_at_q);
 
-        std::array<std::array<real,nstate>,nstate> dv_du_bc;
-        get_d_entropy_var_d_conservative_var(
-        dv_du_bc,
-        v_bc_at_q);
-        
-        std::array<std::array<real,nstate>,nstate> dubc_duh;
-        this->compute_d_solnbc_d_u(
-        soln_int,
-        normal_int,
-        boundary_id);
-
-        std::array<std::array<real,nstate>,nstate> du_dv_int;
-        get_d_conservative_var_d_entropy_var(
-        du_dv_int,
-        v_int_at_q);
-
-        for(unsigned int s1=0; s1<nstate; ++s1)
-        {
-            for(unsigned int s2=0; s2<nstate; ++s2)
+            // Form d_sigmabc_d_gradv
+            for(unsigned int s=0; s<nstate; ++s)
             {
-                d_vbc_dvh[s1][s2] = 0;
-                for(unsigned int sk=0; sk<nstate; ++sk)
+                for(unsigned int d=0; d<dim; ++d)
                 {
                     for(unsigned int sl=0; sl<nstate; ++sl)
                     {
-                        d_vbc_dvh[s1][s2]+= dv_du_bc[s1][sk]*dubc_duh[sk][sl]*du_dv_int[sl][s2];
-                    }
-                }
-            }
-        }
-
-        // Form d_sigmabc_d_gradv
-        for(unsigned int s=0; s<nstate; ++s)
-        {
-            for(unsigned int d=0; d<dim; ++d)
-            {
-                for(unsigned int sl=0; sl<nstate; ++sl)
-                {
-                    for(unsigned int d1=0; d1<dim; ++d1)
-                    {
-                        d_sigmabc_d_gradv[s][d][sl][d1]=0.0;
-
-                        for(unsigned int s1=0; s1<nstate; ++s1)
+                        for(unsigned int d1=0; d1<dim; ++d1)
                         {
-                            for(unsigned int sk=0; sk<nstate; ++sk)
+                            d_sigmabc_d_gradv[s][d][sl][d1]=0.0;
+
+                            for(unsigned int s1=0; s1<nstate; ++s1)
                             {
-                                d_sigmabc_d_gradv[s][d][sl][d1]+= K[s][s1][d][d1]*dv_du_bc[s1][sk]*du_dv_int[sk][sl];
+                                for(unsigned int sk=0; sk<nstate; ++sk)
+                                {
+                                    d_sigmabc_d_gradv[s][d][sl][d1]+= K[s][s1][d][d1]*dv_du_bc[s1][sk]*du_dv_int[sk][sl];
+                                }
                             }
                         }
                     }
                 }
             }
+
+            // Form d_sigmabc_dvh
+            {
+                using adtype = codi_JacobianComputationType;
+                using TH = codi::TapeHelper<adtype>;
+                TH th;
+                th.startRecording();
+                std::array<adtype,nstate> v_int_ad;
+                for(unsigned int s=0; s<nstate; ++s)
+                {
+                    v_int_ad[s] = v_int_at_q[s];
+                    th.registerInput(v_int_ad[s]);
+                }
+                const std::array<adtype,nstate> soln_int_ad = this->template compute_conservative_variables_from_entropy_variables_templated<adtype>(v_int_ad);
+                const std::array<dealii::Tensor<1,dim,adtype>,nstate> soln_grad_int_ad = apply_d_conservative_var_d_entropy_var<adtype>(grad_entropy_var_int_at_q, v_int_ad);
+                std::array<adtype,nstate> soln_bc_ad;
+                this->template boundary_riemann<adtype>(normal_int, soln_int_ad, soln_bc_ad);
+            
+                std::array<adtype,nstate> v_bc_ad = this->template compute_entropy_variables_templated<adtype>(soln_bc_ad);
+                std::array<dealii::Tensor<1,dim,adtype>,nstate> grad_entropyvar_bc_ad = apply_d_entropy_var_d_conservative_var<adtype>(soln_grad_int_ad,v_bc_ad);
+                std::array<dealii::Tensor<1,dim,adtype>,nstate> sigma_bc_ad = dissipative_flux_entropy_based_templated<adtype> (v_bc_ad, grad_entropyvar_bc_ad);    
+
+                for(unsigned int s=0; s<nstate; ++s)
+                {
+                    for(unsigned int d=0; d<dim; ++d)
+                    {
+                        th.registerOutput(sigma_bc_ad[s][d]);
+                    }
+                }
+                th.stopRecording();
+                typename TH::JacobianType& jac = th.createJacobian();
+                th.evalJacobian(jac);
+
+                for(unsigned int s1=0; s1<nstate; ++s1)
+                {
+                    for(unsigned int d1=0; d1<dim; ++d1)
+                    {
+                        const int out_index = d1 + s1*dim;
+                        for(unsigned int s2=0; s2<nstate; ++s2)
+                        {
+                            d_sigmabc_dvh[d1][s1][s2] = jac(out_index,s2);
+                        }
+                    }
+                }
+
+                th.deleteJacobian(jac);
+            }
+
         }
-
-        // Form d_sigmabc_dvh
-
+        else
+        {
+            std::cout<<"AD NavierStokes::compute_dsigmabc_and_dvbc_derivatives() is not implemented for this BC. Aborting..."<<std::endl;
+            std::abort(); 
+        }
     }
     else
     {
-        std::cout<<"AD NavierStokes::compute_dsigmabc_and_dvbc_derivatives() is not implemented for this BC. Aborting..."<<std::endl;
-        std::abort(); 
+        std::cout<<"Shouldn't have reached here in NavierStokes::compute_dsigmabc_and_dvbc_derivatives. Aborting..."<<std::endl;
+        std::abort();
+    }
+}
+
+template <int dim, int nstate, typename real>
+void NavierStokes<dim,nstate,real>
+::compute_dKT_dvtilde(
+   std::array<std::array<std::array<double,nstate>,nstate>,dim> &dKT_dvtilde,
+   const std::array<real,nstate> &entropy_var,
+   const std::array<dealii::Tensor<1,dim,double>,nstate> &T) const
+{
+    if constexpr(std::is_same<real,double>::value)
+    {
+        using adtype = codi_JacobianComputationType;
+        using TH = codi::TapeHelper<adtype>;
+        TH th;
+        th.startRecording();
+        std::array<adtype,nstate> vtilde;
+        for(unsigned int s=0; s<nstate; ++s)
+        {
+            vtilde[s] = entropy_var[s];
+            th.registerInput(vtilde[s]);
+        }
+
+        std::array<dealii::Tensor<1,dim,adtype>,nstate> sigma = dissipative_flux_entropy_based_templated2<adtype> (vtilde, T);
+
+        for(unsigned int s=0; s<nstate; ++s)
+        {
+            for(unsigned int d=0; d<dim; ++d)
+            {
+                th.registerOutput(sigma[s][d]);
+            }
+        }
+                
+        th.stopRecording();
+        typename TH::JacobianType& jac = th.createJacobian();
+        th.evalJacobian(jac);
+
+        for(unsigned int s1=0; s1<nstate; ++s1)
+        {
+            for(unsigned int d1=0; d1<dim; ++d1)
+            {
+                const int out_index = d1 + s1*dim;
+                for(unsigned int s2=0; s2<nstate; ++s2)
+                {
+                    dKT_dvtilde[d1][s1][s2] = jac(out_index,s2);
+                }
+            }
+        }
+
+        th.deleteJacobian(jac);
+    }
+    else
+    {
+        std::cout<<"Shouldn't have reached here in NavierStokes::compute_dKT_dvtilde. Aborting..."<<std::endl;
+        std::abort();
     }
 }
 
@@ -1672,7 +1850,7 @@ void NavierStokes<dim,nstate,real>
 
     // Apply boundary conditions:
     // -- solution at boundary
-    const std::array<real,nstate> modified_conservative_boundary_values = this->convert_primitive_to_conservative(primitive_boundary_values);
+    const std::array<real,nstate> modified_conservative_boundary_values = this->template convert_primitive_to_conservative<real>(primitive_boundary_values);
     for (int istate=0; istate<nstate; ++istate) {
         soln_bc[istate] = modified_conservative_boundary_values[istate];
     }
@@ -1768,6 +1946,12 @@ template dealii::Tensor<2,PHILIP_DIM,FadType   > NavierStokes<PHILIP_DIM,PHILIP_
 template dealii::Tensor<2,PHILIP_DIM,FadType   > NavierStokes<PHILIP_DIM,PHILIP_DIM+2,RadType   >::extract_velocities_gradient_from_primitive_solution_gradient<FadType   > (const std::array<dealii::Tensor<1,PHILIP_DIM,FadType   >,PHILIP_DIM+2> &primitive_soln_gradient) const;
 template dealii::Tensor<2,PHILIP_DIM,FadType   > NavierStokes<PHILIP_DIM,PHILIP_DIM+2,FadFadType>::extract_velocities_gradient_from_primitive_solution_gradient<FadType   > (const std::array<dealii::Tensor<1,PHILIP_DIM,FadType   >,PHILIP_DIM+2> &primitive_soln_gradient) const;
 template dealii::Tensor<2,PHILIP_DIM,FadType   > NavierStokes<PHILIP_DIM,PHILIP_DIM+2,RadFadType>::extract_velocities_gradient_from_primitive_solution_gradient<FadType   > (const std::array<dealii::Tensor<1,PHILIP_DIM,FadType   >,PHILIP_DIM+2> &primitive_soln_gradient) const;
+
+template dealii::Tensor<2,PHILIP_DIM,RadType   > NavierStokes<PHILIP_DIM,PHILIP_DIM+2,double    >::extract_velocities_gradient_from_primitive_solution_gradient<RadType   > (const std::array<dealii::Tensor<1,PHILIP_DIM,RadType   >,PHILIP_DIM+2> &primitive_soln_gradient) const;
+template dealii::Tensor<2,PHILIP_DIM,RadType   > NavierStokes<PHILIP_DIM,PHILIP_DIM+2,FadType   >::extract_velocities_gradient_from_primitive_solution_gradient<RadType   > (const std::array<dealii::Tensor<1,PHILIP_DIM,RadType   >,PHILIP_DIM+2> &primitive_soln_gradient) const;
+template dealii::Tensor<2,PHILIP_DIM,RadType   > NavierStokes<PHILIP_DIM,PHILIP_DIM+2,FadFadType>::extract_velocities_gradient_from_primitive_solution_gradient<RadType   > (const std::array<dealii::Tensor<1,PHILIP_DIM,RadType   >,PHILIP_DIM+2> &primitive_soln_gradient) const;
+template dealii::Tensor<2,PHILIP_DIM,RadType   > NavierStokes<PHILIP_DIM,PHILIP_DIM+2,RadFadType>::extract_velocities_gradient_from_primitive_solution_gradient<RadType   > (const std::array<dealii::Tensor<1,PHILIP_DIM,RadType   >,PHILIP_DIM+2> &primitive_soln_gradient) const;
+
 // -- compute_viscous_stress_tensor_via_scaled_viscosity_and_strain_rate_tensor()
 template dealii::Tensor<2,PHILIP_DIM,double    > NavierStokes<PHILIP_DIM,PHILIP_DIM+2,double    >::compute_viscous_stress_tensor_via_scaled_viscosity_and_strain_rate_tensor<double    > (const double     scaled_viscosity_coefficient, const dealii::Tensor<2,PHILIP_DIM,double    > &strain_rate_tensor) const;
 template dealii::Tensor<2,PHILIP_DIM,FadType   > NavierStokes<PHILIP_DIM,PHILIP_DIM+2,FadType   >::compute_viscous_stress_tensor_via_scaled_viscosity_and_strain_rate_tensor<FadType   > (const FadType    scaled_viscosity_coefficient, const dealii::Tensor<2,PHILIP_DIM,FadType   > &strain_rate_tensor) const;
@@ -1785,6 +1969,12 @@ template std::array<dealii::Tensor<1,PHILIP_DIM,FadType   >,PHILIP_DIM+2> Navier
 template std::array<dealii::Tensor<1,PHILIP_DIM,FadType   >,PHILIP_DIM+2> NavierStokes<PHILIP_DIM,PHILIP_DIM+2,RadType   >::convert_conservative_gradient_to_primitive_gradient<FadType   >(const std::array<FadType   ,PHILIP_DIM+2> &conservative_soln, const std::array<dealii::Tensor<1,PHILIP_DIM,FadType   >,PHILIP_DIM+2> &conservative_soln_gradient) const;
 template std::array<dealii::Tensor<1,PHILIP_DIM,FadType   >,PHILIP_DIM+2> NavierStokes<PHILIP_DIM,PHILIP_DIM+2,FadFadType>::convert_conservative_gradient_to_primitive_gradient<FadType   >(const std::array<FadType   ,PHILIP_DIM+2> &conservative_soln, const std::array<dealii::Tensor<1,PHILIP_DIM,FadType   >,PHILIP_DIM+2> &conservative_soln_gradient) const;
 template std::array<dealii::Tensor<1,PHILIP_DIM,FadType   >,PHILIP_DIM+2> NavierStokes<PHILIP_DIM,PHILIP_DIM+2,RadFadType>::convert_conservative_gradient_to_primitive_gradient<FadType   >(const std::array<FadType   ,PHILIP_DIM+2> &conservative_soln, const std::array<dealii::Tensor<1,PHILIP_DIM,FadType   >,PHILIP_DIM+2> &conservative_soln_gradient) const;
+
+template std::array<dealii::Tensor<1,PHILIP_DIM,RadType   >,PHILIP_DIM+2> NavierStokes<PHILIP_DIM,PHILIP_DIM+2,double    >::convert_conservative_gradient_to_primitive_gradient<RadType   >(const std::array<RadType   ,PHILIP_DIM+2> &conservative_soln, const std::array<dealii::Tensor<1,PHILIP_DIM,RadType   >,PHILIP_DIM+2> &conservative_soln_gradient) const;
+template std::array<dealii::Tensor<1,PHILIP_DIM,RadType   >,PHILIP_DIM+2> NavierStokes<PHILIP_DIM,PHILIP_DIM+2,FadType   >::convert_conservative_gradient_to_primitive_gradient<RadType   >(const std::array<RadType   ,PHILIP_DIM+2> &conservative_soln, const std::array<dealii::Tensor<1,PHILIP_DIM,RadType   >,PHILIP_DIM+2> &conservative_soln_gradient) const;
+template std::array<dealii::Tensor<1,PHILIP_DIM,RadType   >,PHILIP_DIM+2> NavierStokes<PHILIP_DIM,PHILIP_DIM+2,FadFadType>::convert_conservative_gradient_to_primitive_gradient<RadType   >(const std::array<RadType   ,PHILIP_DIM+2> &conservative_soln, const std::array<dealii::Tensor<1,PHILIP_DIM,RadType   >,PHILIP_DIM+2> &conservative_soln_gradient) const;
+template std::array<dealii::Tensor<1,PHILIP_DIM,RadType   >,PHILIP_DIM+2> NavierStokes<PHILIP_DIM,PHILIP_DIM+2,RadFadType>::convert_conservative_gradient_to_primitive_gradient<RadType   >(const std::array<RadType   ,PHILIP_DIM+2> &conservative_soln, const std::array<dealii::Tensor<1,PHILIP_DIM,RadType   >,PHILIP_DIM+2> &conservative_soln_gradient) const;
+
 // -- compute_heat_flux_given_scaled_heat_conductivity_and_temperature_gradient()
 template dealii::Tensor<1,PHILIP_DIM,double    > NavierStokes<PHILIP_DIM,PHILIP_DIM+2,double    >::compute_heat_flux_given_scaled_heat_conductivity_and_temperature_gradient<double    > (const double     scaled_heat_conductivity, const dealii::Tensor<1,PHILIP_DIM,double    > &temperature_gradient) const;
 template dealii::Tensor<1,PHILIP_DIM,FadType   > NavierStokes<PHILIP_DIM,PHILIP_DIM+2,FadType   >::compute_heat_flux_given_scaled_heat_conductivity_and_temperature_gradient<FadType   > (const FadType    scaled_heat_conductivity, const dealii::Tensor<1,PHILIP_DIM,FadType   > &temperature_gradient) const;
@@ -1829,6 +2019,13 @@ template dealii::Tensor<1,PHILIP_DIM,FadType   > NavierStokes<PHILIP_DIM,PHILIP_
 template dealii::Tensor<1,PHILIP_DIM,FadType   > NavierStokes<PHILIP_DIM,PHILIP_DIM+2,RadType   >::compute_temperature_gradient<FadType   >(const std::array<FadType   ,PHILIP_DIM+2> &primitive_soln, const std::array<dealii::Tensor<1,PHILIP_DIM,FadType   >,PHILIP_DIM+2> &primitive_soln_gradient) const;
 template dealii::Tensor<1,PHILIP_DIM,FadType   > NavierStokes<PHILIP_DIM,PHILIP_DIM+2,FadFadType>::compute_temperature_gradient<FadType   >(const std::array<FadType   ,PHILIP_DIM+2> &primitive_soln, const std::array<dealii::Tensor<1,PHILIP_DIM,FadType   >,PHILIP_DIM+2> &primitive_soln_gradient) const;
 template dealii::Tensor<1,PHILIP_DIM,FadType   > NavierStokes<PHILIP_DIM,PHILIP_DIM+2,RadFadType>::compute_temperature_gradient<FadType   >(const std::array<FadType   ,PHILIP_DIM+2> &primitive_soln, const std::array<dealii::Tensor<1,PHILIP_DIM,FadType   >,PHILIP_DIM+2> &primitive_soln_gradient) const;
+
+template dealii::Tensor<1,PHILIP_DIM,RadType   > NavierStokes<PHILIP_DIM,PHILIP_DIM+2,double    >::compute_temperature_gradient<RadType   >(const std::array<RadType   ,PHILIP_DIM+2> &primitive_soln, const std::array<dealii::Tensor<1,PHILIP_DIM,RadType   >,PHILIP_DIM+2> &primitive_soln_gradient) const;
+template dealii::Tensor<1,PHILIP_DIM,RadType   > NavierStokes<PHILIP_DIM,PHILIP_DIM+2,FadType   >::compute_temperature_gradient<RadType   >(const std::array<RadType   ,PHILIP_DIM+2> &primitive_soln, const std::array<dealii::Tensor<1,PHILIP_DIM,RadType   >,PHILIP_DIM+2> &primitive_soln_gradient) const;
+template dealii::Tensor<1,PHILIP_DIM,RadType   > NavierStokes<PHILIP_DIM,PHILIP_DIM+2,FadFadType>::compute_temperature_gradient<RadType   >(const std::array<RadType   ,PHILIP_DIM+2> &primitive_soln, const std::array<dealii::Tensor<1,PHILIP_DIM,RadType   >,PHILIP_DIM+2> &primitive_soln_gradient) const;
+template dealii::Tensor<1,PHILIP_DIM,RadType   > NavierStokes<PHILIP_DIM,PHILIP_DIM+2,RadFadType>::compute_temperature_gradient<RadType   >(const std::array<RadType   ,PHILIP_DIM+2> &primitive_soln, const std::array<dealii::Tensor<1,PHILIP_DIM,RadType   >,PHILIP_DIM+2> &primitive_soln_gradient) const;
+
+
 // -- compute_viscosity_coefficient()
 template double     NavierStokes < PHILIP_DIM, PHILIP_DIM+2, double    >::compute_viscosity_coefficient< double     >(const std::array<double    ,PHILIP_DIM+2> &primitive_soln) const;
 template FadType    NavierStokes < PHILIP_DIM, PHILIP_DIM+2, FadType   >::compute_viscosity_coefficient< FadType    >(const std::array<FadType   ,PHILIP_DIM+2> &primitive_soln) const;
@@ -1840,6 +2037,13 @@ template FadType NavierStokes < PHILIP_DIM, PHILIP_DIM+2, double    >::compute_v
 template FadType NavierStokes < PHILIP_DIM, PHILIP_DIM+2, RadType   >::compute_viscosity_coefficient< FadType >(const std::array<FadType,PHILIP_DIM+2> &primitive_soln) const;
 template FadType NavierStokes < PHILIP_DIM, PHILIP_DIM+2, FadFadType>::compute_viscosity_coefficient< FadType >(const std::array<FadType,PHILIP_DIM+2> &primitive_soln) const;
 template FadType NavierStokes < PHILIP_DIM, PHILIP_DIM+2, RadFadType>::compute_viscosity_coefficient< FadType >(const std::array<FadType,PHILIP_DIM+2> &primitive_soln) const;
+
+
+template RadType NavierStokes < PHILIP_DIM, PHILIP_DIM+2, double    >::compute_viscosity_coefficient< RadType >(const std::array<RadType,PHILIP_DIM+2> &primitive_soln) const;
+template RadType NavierStokes < PHILIP_DIM, PHILIP_DIM+2, FadType   >::compute_viscosity_coefficient< RadType >(const std::array<RadType,PHILIP_DIM+2> &primitive_soln) const;
+template RadType NavierStokes < PHILIP_DIM, PHILIP_DIM+2, FadFadType>::compute_viscosity_coefficient< RadType >(const std::array<RadType,PHILIP_DIM+2> &primitive_soln) const;
+template RadType NavierStokes < PHILIP_DIM, PHILIP_DIM+2, RadFadType>::compute_viscosity_coefficient< RadType >(const std::array<RadType,PHILIP_DIM+2> &primitive_soln) const;
+
 // -- compute_vorticity()
 template dealii::Tensor<1,3,double    > NavierStokes < PHILIP_DIM, PHILIP_DIM+2, double    >::compute_vorticity< double     >(const std::array<double    ,PHILIP_DIM+2> &conservative_soln, const std::array<dealii::Tensor<1,PHILIP_DIM,double    >,PHILIP_DIM+2> &conservative_soln_gradient) const;
 template dealii::Tensor<1,3,FadType   > NavierStokes < PHILIP_DIM, PHILIP_DIM+2, FadType   >::compute_vorticity< FadType    >(const std::array<FadType   ,PHILIP_DIM+2> &conservative_soln, const std::array<dealii::Tensor<1,PHILIP_DIM,FadType   >,PHILIP_DIM+2> &conservative_soln_gradient) const;

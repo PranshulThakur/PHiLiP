@@ -52,15 +52,9 @@ class AdjointMarch
     double simpson_integration(const std::vector<double> &integrand, const int n, const double h ) const; // Integration using n+1 points
 
     void advance_in_time_hom(const std::array<VectorType,n_subspace_vectors> & psi_n, 
-                             std::array<VectorType,n_subspace_vectors> &psi_nminus);
-    //void advance_in_time_nonhom(const VectorType & psi_n, 
-    //                            VectorType &psi_nminus);
-    void advance_in_time_hom_and_nonhom(const std::array<VectorType,n_subspace_vectors> & Y_n,
-                                        const VectorType &v_n,
-                                        std::array<VectorType,n_subspace_vectors> & Y_nminus,
-                                        VectorType &v_nminus);
-
-    void apply_f_u_transposed(const std::array<VectorType,n_subspace_vectors+1> &in_vec, std::array<VectorType,n_subspace_vectors+1> &out_vec);
+                             std::array<VectorType,n_subspace_vectors> &psi_nminus)const;
+    void advance_in_time_nonhom(const VectorType & psi_n, 
+                                VectorType &psi_nminus)const;
 
 public:
     AdjointMarch(std::shared_ptr<DGBase<dim,double,MeshType>> _dg,

@@ -80,10 +80,10 @@ public:
         const std::array<real,nstate> &conservative_soln2) const;
                         
     virtual std::array<std::array<std::array<double,nstate>,nstate>,2> convective_numerical_split_flux_derivative(
-        const std::array<real,nstate> &conservative_soln1,
-        const std::array<real,nstate> &conservative_soln2,
-        const dealii::Tensor<2,dim,real> &metric_cofactor_split,
-        const dealii::Tensor<1,dim,real> &normal) const
+        [[maybe_unused]]const std::array<real,nstate> &conservative_soln1,
+        [[maybe_unused]]const std::array<real,nstate> &conservative_soln2,
+        [[maybe_unused]]const dealii::Tensor<2,dim,real> &metric_cofactor_split,
+        [[maybe_unused]]const dealii::Tensor<1,dim,real> &normal) const
     {
         // Does nothing.
         std::cout<<"Not implemented for this PDE. Aborting.."<<std::endl;
@@ -91,9 +91,9 @@ public:
     }
     
     virtual std::array<std::array<double,nstate>,nstate> compute_d_solnbc_d_u(
-    const std::array<real,nstate> &conservative_soln1,
-    const dealii::Tensor<1,dim,real> &normal_int,
-    const unsigned int boundary_id) const
+    [[maybe_unused]]const std::array<real,nstate> &conservative_soln1,
+    [[maybe_unused]]const dealii::Tensor<1,dim,real> &normal_int,
+    [[maybe_unused]]const unsigned int boundary_id) const
     {
         // Does nothing.
         std::cout<<"Not implemented for this PDE. Aborting.."<<std::endl;
@@ -101,14 +101,15 @@ public:
     }
     
     virtual void compute_dsigmabc_and_dvbc_derivatives(
-    const std::array<real,nstate> &v_at_q,
-    const std::array<dealii::Tensor<1,dim,real>,nstate> &sigma_h_at_q, 
-    const std::array<dealii::Tensor<1,dim,real>,nstate> &grad_v_at_q, 
-    std::array<std::array<std::array<std::array<double,dim>,nstate>,dim>,nstate> &d_sigmabc_d_sigmah,
-    std::array<std::array<std::array<std::array<double,dim>,nstate>,dim>,nstate> &d_sigmabc_d_gradv,
-    std::array<std::array<std::array<double,nstate>,nstate>,dim> &d_sigmabc_dvh,
-    std::array<std::array<double,nstate>,nstate> &d_vbc_dvh,
-    const unsigned int boundary_id) const
+    [[maybe_unused]]const std::array<real,nstate> &v_at_q,
+    [[maybe_unused]]const dealii::Tensor<1,dim,real> &normal_int,
+    [[maybe_unused]]const std::array<dealii::Tensor<1,dim,real>,nstate> &sigma_h_at_q, 
+    [[maybe_unused]]const std::array<dealii::Tensor<1,dim,real>,nstate> &grad_v_at_q, 
+    [[maybe_unused]]std::array<std::array<std::array<std::array<double,dim>,nstate>,dim>,nstate> &d_sigmabc_d_sigmah,
+    [[maybe_unused]]std::array<std::array<std::array<std::array<double,dim>,nstate>,dim>,nstate> &d_sigmabc_d_gradv,
+    [[maybe_unused]]std::array<std::array<std::array<double,nstate>,nstate>,dim> &d_sigmabc_dvh,
+    [[maybe_unused]]std::array<std::array<double,nstate>,nstate> &d_vbc_dvh,
+    [[maybe_unused]]const unsigned int boundary_id) const
     {
         // Does nothing.
         std::cout<<"Not implemented for this PDE. Aborting.."<<std::endl;
@@ -116,8 +117,8 @@ public:
     }
 
     virtual void get_d_entropy_var_d_conservative_var(
-        std::array<std::array<real,nstate>,nstate> &dv_du,
-        const std::array<real,nstate> &entropy_var) const
+      [[maybe_unused]]  std::array<std::array<real,nstate>,nstate> &dv_du,
+      [[maybe_unused]]  const std::array<real,nstate> &entropy_var) const
     {
         // Does nothing.
         std::cout<<"Not implemented for this PDE. Aborting.."<<std::endl;
@@ -125,18 +126,23 @@ public:
     }
     
     virtual void get_d_conservative_var_d_entropy_var(
-        std::array<std::array<real,nstate>,nstate> &du_dv,
-        const std::array<real,nstate> &entropy_var) const
+       [[maybe_unused]] std::array<std::array<real,nstate>,nstate> &du_dv,
+        [[maybe_unused]]const std::array<real,nstate> &entropy_var) const
     {
         // Does nothing.
         std::cout<<"Not implemented for this PDE. Aborting.."<<std::endl;
         std::abort();
     }
-    virtual void get_K_matrix(
-    std::array<std::array<dealii::Tensor<2,dim,real>,nstate>,nstate> &K
-        const std::array<real,nstate> &entropy_var) const
-    std::array<std::array<real,nstate>,nstate> dVdU;
-    get_d_entropy_var_d_conservative_var(dVdU,entropy_var);
+    
+    virtual void compute_dKT_dvtilde(
+      [[maybe_unused]] std::array<std::array<std::array<double,nstate>,nstate>,dim> &dKT_dvtilde,
+      [[maybe_unused]] const std::array<real,nstate> &entropy_var,
+      [[maybe_unused]] const std::array<dealii::Tensor<1,dim,double>,nstate> &T) const
+    {
+        // Does nothing.
+        std::cout<<"Not implemented for this PDE. Aborting.."<<std::endl;
+        std::abort();
+    }
 
 
     /// Computes the entropy variables.

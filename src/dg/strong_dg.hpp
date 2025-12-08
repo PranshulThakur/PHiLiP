@@ -947,16 +947,6 @@ protected:
         std::vector<adtype>                                                &integral_val) const;
 
     template <typename adtype>
-    void compute_gradbasis_T_vol_integral(
-        const unsigned int                                                 n_quad_pts,
-        const unsigned int                                                 n_dofs_cell,
-        OPERATOR::basis_functions<dim,2*dim>                               &soln_basis,
-        OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper,
-        const std::vector<double>                                          &weight_vect,
-        const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>   &T,
-        std::vector<adtype>                                                &integral_val) const;
-
-    template <typename adtype>
     void compute_physical_grad_entropy_var(
         const std::array<std::vector<adtype>,nstate>                       &entropy_var_coeff,
         OPERATOR::basis_functions<dim,2*dim>                               &soln_basis,
@@ -993,68 +983,226 @@ protected:
         const unsigned int n_face_quad_pts,
         std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &T_at_face) const;
 
+template <typename adtype>
+void compute_gradbasis_T_vol_integral(
+    const unsigned int                                                 n_quad_pts,
+    const unsigned int                                                 n_dofs_cell,
+    OPERATOR::basis_functions<dim,2*dim>                               &soln_basis,
+    OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper,
+    const std::vector<double>                                          &weight_vect,
+    const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>   &T,
+    std::vector<adtype>                                                &integral_val) const;
+
+template <typename adtype>
+void compute_gradbasis_dT_duh_vol_integral(
+    const unsigned int                                                 n_quad_pts_vol,
+    const unsigned int                                                 n_dofs_cell,
+    OPERATOR::basis_functions<dim,2*dim>                               &soln_basis,
+    OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper,
+    const std::vector<double>                                          &weight_vect,
+    const std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> &dT_duh_vol,
+    dealii::FullMatrix<double> &integral_val) const;
+
+template<typename adtype>
+void evaluate_face_integral_dsigma_duh(
+    const unsigned int iface,
+    const std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> &dsigma_duh_face,
+    const std::vector<adtype> &JxW_face,
+    const std::vector<dealii::Tensor<1,dim,adtype>> &unit_phys_normal,
+    OPERATOR::basis_functions<dim,2*dim> &soln_basis,
+    const unsigned int n_dofs_cell,
+    const unsigned int n_face_quad_pts,
+    dealii::FullMatrix<double> &integral_val) const;
+
+void sum_dRduh( 
+    const double a,
+    const dealii::FullMatrix<double> &dRduh1,
+    const double b,
+    const dealii::FullMatrix<double> &dRduh2,
+    dealii::FullMatrix<double> &dRduh_sum)const;
+
+void sum_dTduh( 
+    const double a,
+    const std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> &dTduh1,
+    const double b,
+    const std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> &dTduh2,
+    std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim>  &dTduh_sum)const;
+
+void interpolate_dT_duh_to_face(
+    const unsigned int iface,
+    const std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> &dT_duh_at_vol,
+    OPERATOR::basis_functions<dim,2*dim> &flux_basis,
+    const unsigned int n_face_quad_pts,
+    const unsigned int n_vol_quad_pts,
+    const unsigned int n_dofs_cell,
+    std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> &dT_duh_at_face)const;
+
+template <typename adtype>
+void compute_dKreT_duh(
+    std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> &dKreT_duh,
+    const std::vector<dealii::Tensor<1,dim,adtype>>                    &unit_phys_normal,
+    const std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>    &dT_duh_face,
+    const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>   &re_T,
+    OPERATOR::basis_functions<dim,2*dim> &flux_basis,
+    const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
+    const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_vol_quads,
+    const std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate> &dvtilde_duh_vol,
+    const unsigned int n_face_quad_pts,
+    const unsigned int n_vol_quads_1D,
+    const unsigned int n_shape_fns_1D,
+    const bool is_interior_face,
+    const std::vector<adtype> &JxW_face,
+    const std::vector<adtype> &JxW_vol,
+    const unsigned int iface,
+    const bool compute_derivative_K) const;
+
+template <typename adtype>
+void compute_dK_gradientropyvar_duh_vol(
+    const xt::xarray<double> &H_mat, 
+    const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
+    const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_q,
+    const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>   &grad_entropy_var_at_q,
+    const std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate> &dvtilde_duh_vol,
+    const dealii::FullMatrix<double> & G_oper,
+    const dealii::FullMatrix<double> & DG_oper,
+    const unsigned int n_shape_fns_1D,
+    const unsigned int n_vol_quads_1D,
+    OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper,
+    std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> &d_K_nablavtilde_d_uh)const;
+
+template <typename adtype>
+void compute_dgradientropyvar_duh(
+    const xt::xarray<double> &H_mat, 
+    const dealii::FullMatrix<double> & G_oper,
+    const dealii::FullMatrix<double> & DG_oper,
+    const unsigned int n_shape_fns_1D,
+    const unsigned int n_vol_quads_1D,
+    OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper,
+    std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> &d_nablavtilde_d_uh) const;
+
+template <typename adtype>
+void compute_dKT_duh_vol(
+    const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
+    const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_q,
+    const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>   &T,
+    const std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate> &dvtilde_duh_vol,
+    const std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> &dT_duh_vol,
+    std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> &dKT_duh,
+    const unsigned int n_quad_pts_1D,
+    const unsigned int n_shape_fns_1D,
+    bool compute_derivative_K) const;
+
+template <typename adtype>
+void compute_dvbc_duh_and_dsigmabc_duh(
+    const unsigned int iface,
+    const unsigned int boundary_id,
+    const std::vector<dealii::Tensor<1,dim,adtype> >                                &normal_int,
+    const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
+    const std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate> &dvtilde_duh_face,
+    const std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate> &dvtilde_duh_vol,
+    const unsigned int                                                 n_face_quad_pts,  
+    const unsigned int                                                 n_dofs_cell,
+    const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>       &entropy_var_phys_grad_at_vol,
+    const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>       &poly_K_nabla_v_at_face,
+    const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>       &entropy_var_phys_grad_at_face,
+    const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_vol_quads,
+    const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_surf_quads,
+    const xt::xarray<double> &H_mat, 
+    const dealii::FullMatrix<double> & G_oper_vol,
+    const dealii::FullMatrix<double> & DG_oper_vol,
+    const unsigned int n_shape_fns_1D,
+    const unsigned int n_vol_quads_1D,
+    OPERATOR::basis_functions<dim,2*dim> &flux_basis,
+    OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper,
+    std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> &dsigmabc_duh,
+    std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate> &dvbc_duh) const;
+    
     template <typename adtype>
     void assemble_volume_term_entropystable_br2(
-        const unsigned int                                                 poly_degree,
-        const std::array<std::vector<adtype>,nstate>                       &entropy_var_coeff,
-        const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_q,
-        const unsigned int                                                  n_quad_pts,  
-        const unsigned int                                                  n_dofs_cell, 
-        OPERATOR::basis_functions<dim,2*dim>                               &soln_basis,
-        OPERATOR::basis_functions<dim,2*dim>                               &flux_basis,
-        OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper,
-        const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
-        const xt::xarray<double>                                           &H_mat, 
-        std::vector<adtype>                                                &vol_term) const;
+    const unsigned int                                                 poly_degree,
+    const std::array<std::vector<adtype>,nstate>                       &entropy_var_coeff,
+    const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_q,
+    const unsigned int                                                 n_quad_pts,  
+    const unsigned int                                                 n_dofs_cell, 
+    OPERATOR::basis_functions<dim,2*dim>                               &soln_basis,
+    OPERATOR::basis_functions<dim,2*dim>                               &/*flux_basis*/,
+    OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper,
+    const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
+    const xt::xarray<double>                                           &H_mat, 
+    const dealii::FullMatrix<double> & G_oper,
+    const dealii::FullMatrix<double> & DG_oper,
+    const std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate> &dvtilde_duh_vol,
+    const unsigned int n_shape_fns_1D,
+    const unsigned int n_vol_quads_1D,
+    std::vector<adtype>                                                &vol_term);
 
     template <typename adtype>
     void assemble_face_term_entropystable_br2(
-        const unsigned int                                                 iface_int,
-        const unsigned int                                                 iface_ext,
-        const std::array<std::vector<adtype>,nstate>                       &entropy_var_coeff_int,
-        const std::array<std::vector<adtype>,nstate>                       &entropy_var_coeff_ext,
-        const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_vol_int,
-        const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_vol_ext,
-        const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_surf_int,
-        const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_surf_ext,
-        const std::vector<dealii::Tensor<1,dim,adtype>>                    &unit_phys_normal_int,
-        const std::vector<adtype>                                          &JxW_face,
-        const unsigned int                                                  poly_degree_int,  
-        const unsigned int                                                  poly_degree_ext,  
-        const unsigned int                                                  n_vol_quad_pts_int,  
-        const unsigned int                                                  n_vol_quad_pts_ext,  
-        const unsigned int                                                  n_dofs_cell_int, 
-        const unsigned int                                                  n_dofs_cell_ext, 
-        const unsigned int                                                  n_face_quad_pts, 
-        OPERATOR::basis_functions<dim,2*dim>                               &soln_basis_int,
-        OPERATOR::basis_functions<dim,2*dim>                               &soln_basis_ext,
-        OPERATOR::basis_functions<dim,2*dim>                               &flux_basis_int,
-        OPERATOR::basis_functions<dim,2*dim>                               &flux_basis_ext,
-        OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper_int,
-        OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper_ext,
-        const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
-        std::vector<adtype>                                                &face_term_int,
-        std::vector<adtype>                                                &face_term_ext) const;
+    const unsigned int                                                 iface_int,
+    const unsigned int                                                 iface_ext,
+    const std::array<std::vector<adtype>,nstate>                       &entropy_var_coeff_int,
+    const std::array<std::vector<adtype>,nstate>                       &entropy_var_coeff_ext,
+    const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_vol_int,
+    const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_vol_ext,
+    const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_surf_int,
+    const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_surf_ext,
+    const std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate> &dvtilde_duh_vol_int,
+    const std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate> &dvtilde_duh_vol_ext,
+    const std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate> &dvtilde_duh_surf_int,
+    const std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate> &dvtilde_duh_surf_ext,
+    const std::vector<dealii::Tensor<1,dim,adtype>>                    &unit_phys_normal_int,
+    const std::vector<adtype>                                          &JxW_face,
+    const unsigned int                                                  poly_degree_int,  
+    const unsigned int                                                  poly_degree_ext,  
+    const unsigned int                                                  n_vol_quad_pts_int,  
+    const unsigned int                                                  n_vol_quad_pts_ext,  
+    const unsigned int                                                  n_dofs_cell_int, 
+    const unsigned int                                                  n_dofs_cell_ext, 
+    const unsigned int                                                  n_face_quad_pts, 
+    const unsigned int n_vol_quads_1D,
+    const unsigned int n_shape_fns_1D,
+    OPERATOR::basis_functions<dim,2*dim>                               &soln_basis_int,
+    OPERATOR::basis_functions<dim,2*dim>                               &soln_basis_ext,
+    OPERATOR::basis_functions<dim,2*dim>                               &flux_basis_int,
+    OPERATOR::basis_functions<dim,2*dim>                               &flux_basis_ext,
+    OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper_int,
+    OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper_ext,
+    const xt::xarray<double> &H_mat_int, 
+    const xt::xarray<double> &H_mat_ext, 
+    const dealii::FullMatrix<double> & G_oper_int,
+    const dealii::FullMatrix<double> & DG_oper_int,
+    const dealii::FullMatrix<double> & G_oper_ext,
+    const dealii::FullMatrix<double> & DG_oper_ext,
+    const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
+    std::vector<adtype>                                                &face_term_int,
+    std::vector<adtype>                                                &face_term_ext);
 
 
     template <typename adtype>
     void assemble_boundary_term_entropystable_br2(
-        const unsigned int                                                 iface,
-        const unsigned int                                                 boundary_id,
-        const unsigned int                                                 poly_degree,
-        const std::array<std::vector<adtype>,nstate>                       &entropy_var_coeff,
-        const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_vol_quads,
-        const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_surf_quads,
-        const unsigned int                                                  n_vol_quad_pts,  
-        const unsigned int                                                  n_face_quad_pts,  
-        const unsigned int                                                  n_dofs_cell, 
-        OPERATOR::basis_functions<dim,2*dim>                               &soln_basis,
-        OPERATOR::basis_functions<dim,2*dim>                               &flux_basis,
-        OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper,
-        const std::vector<dealii::Tensor<1,dim,adtype>>                    &unit_phys_normal,
-        const std::vector<adtype>                                          &JxW_face,
-        const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
-        std::vector<adtype>                                                &boundary_term) const;
+    const unsigned int                                                 iface,
+    const unsigned int                                                 boundary_id,
+    const unsigned int                                                 poly_degree,
+    const std::array<std::vector<adtype>,nstate>                       &entropy_var_coeff,
+    const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_vol_quads,
+    const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_surf_quads,
+    const std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate> &dvtilde_duh_face,
+    const std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate> &dvtilde_duh_vol,
+    const xt::xarray<double> &H_mat, 
+    const dealii::FullMatrix<double> & G_oper_vol,
+    const dealii::FullMatrix<double> & DG_oper_vol,
+    const unsigned int n_shape_fns_1D,
+    const unsigned int n_vol_quads_1D,
+    const unsigned int                                                  n_vol_quad_pts,  
+    const unsigned int                                                  n_face_quad_pts,  
+    const unsigned int                                                  n_dofs_cell, 
+    OPERATOR::basis_functions<dim,2*dim>                               &soln_basis,
+    OPERATOR::basis_functions<dim,2*dim>                               &flux_basis,
+    OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper,
+    const std::vector<dealii::Tensor<1,dim,adtype>>                    &unit_phys_normal,
+    const std::vector<adtype>                                          &JxW_face,
+    const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
+    std::vector<adtype>                                                &boundary_term);
 
     template <typename adtype>
     void check_same_coords_face_strong(
@@ -1065,6 +1213,21 @@ protected:
         const unsigned int iface_ext, 
         const unsigned int poly_degree_int) const;
 
+    void compute_H_mat(
+        const dealii::FullMatrix<double> & G_oper, 
+        const dealii::FullMatrix<double> & basis, 
+        const std::vector<double> &jac_det_vol,
+        const std::vector<std::array<std::array<real,nstate>,nstate>> &dv_du, 
+        xt::xarray<double> &H) const; // H[s1][s2][i][j][k][Ltilde][Mtilde][Ntilde]
+
+    void compute_dvtilde_duh(
+    const dealii::FullMatrix<double> & G_operl, 
+    const dealii::FullMatrix<double> & G_operm, 
+    const dealii::FullMatrix<double> & G_opern, 
+    const xt::xarray<double> &H,
+    const unsigned int n_shape_fns_1D,
+    const unsigned int n_vol_quads_1D,
+    std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate> &dvtilde_duh) const;
 protected:
     /// Evaluate the integral over the cell volume
     void assemble_volume_term_explicit(
@@ -1076,9 +1239,7 @@ protected:
         const unsigned int poly_degree,
         const unsigned int grid_degree,
         dealii::Vector<real> &current_cell_rhs,
-        const dealii::FEValues<dim,dim> &fe_values_lagrange);
-    
-    
+        const dealii::FEValues<dim,dim> &fe_values_lagrange);    
 
     using DGBase<dim,real,MeshType>::pcout; ///< Parallel std::cout that only outputs on mpi_rank==0
 

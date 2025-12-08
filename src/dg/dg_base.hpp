@@ -453,6 +453,15 @@ public:
     bool compute_only_dissipative_residual = false;
     bool check_same_coords_strongdg = true;
 
+    bool compute_dRdW_strong = false;
+
+    dealii::FullMatrix<double> dRdW_vol_cell;
+    dealii::FullMatrix<double> dRdW_boundary;
+    dealii::FullMatrix<double> dRint_dWint_face;
+    dealii::FullMatrix<double> dRint_dWext_face;
+    dealii::FullMatrix<double> dRext_dWext_face;
+    dealii::FullMatrix<double> dRext_dWint_face;
+
     /// Time it takes for the maximum wavespeed to cross the cell domain.
     /** Uses evaluate_CFL() which would be defined in the subclasses.
      *  This is because DGBase isn't templated on nstate and therefore, can't use
@@ -480,9 +489,8 @@ public:
     /** This is used to evaluate the dot-product between the dual and the 2nd derivatives of the residual
      *  since storing the 2nd order partials of the residual is a very large 3rd order tensor.
      */
-    static const unsigned int n_duals = 13;
-    std::array<dealii::LinearAlgebra::distributed::Vector<real>,n_duals> duals;
-    std::array<dealii::LinearAlgebra::distributed::Vector<real>,n_duals> duals_transpose_dRdW;
+    dealii::LinearAlgebra::distributed::Vector<double> dual;
+    std::array<dealii::LinearAlgebra::distributed::Vector<real>,13> duals;
 
     /// Sets the stored dual variables used to compute the dual dotted with the residual Hessians
     void set_dual(const dealii::LinearAlgebra::distributed::Vector<real> &dual_input);

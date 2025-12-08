@@ -341,7 +341,38 @@ template FadType PhysicsBase < PHILIP_DIM, 4, RadFadType >::handle_non_physical_
 template FadType PhysicsBase < PHILIP_DIM, 5, RadFadType >::handle_non_physical_result<FadType>(const std::string message) const;
 template FadType PhysicsBase < PHILIP_DIM, 6, RadFadType >::handle_non_physical_result<FadType>(const std::string message) const;
 template FadType PhysicsBase < PHILIP_DIM, 8, RadFadType >::handle_non_physical_result<FadType>(const std::string message) const;
+//===============================================================================================================================
+template RadType PhysicsBase < PHILIP_DIM, 1, double >::handle_non_physical_result<RadType>(const std::string message) const;
+template RadType PhysicsBase < PHILIP_DIM, 2, double >::handle_non_physical_result<RadType>(const std::string message) const;
+template RadType PhysicsBase < PHILIP_DIM, 3, double >::handle_non_physical_result<RadType>(const std::string message) const;
+template RadType PhysicsBase < PHILIP_DIM, 4, double >::handle_non_physical_result<RadType>(const std::string message) const;
+template RadType PhysicsBase < PHILIP_DIM, 5, double >::handle_non_physical_result<RadType>(const std::string message) const;
+template RadType PhysicsBase < PHILIP_DIM, 6, double >::handle_non_physical_result<RadType>(const std::string message) const;
+template RadType PhysicsBase < PHILIP_DIM, 8, double >::handle_non_physical_result<RadType>(const std::string message) const;
 
+template RadType PhysicsBase < PHILIP_DIM, 1, FadType >::handle_non_physical_result<RadType>(const std::string message) const;
+template RadType PhysicsBase < PHILIP_DIM, 2, FadType >::handle_non_physical_result<RadType>(const std::string message) const;
+template RadType PhysicsBase < PHILIP_DIM, 3, FadType >::handle_non_physical_result<RadType>(const std::string message) const;
+template RadType PhysicsBase < PHILIP_DIM, 4, FadType >::handle_non_physical_result<RadType>(const std::string message) const;
+template RadType PhysicsBase < PHILIP_DIM, 5, FadType >::handle_non_physical_result<RadType>(const std::string message) const;
+template RadType PhysicsBase < PHILIP_DIM, 6, FadType >::handle_non_physical_result<RadType>(const std::string message) const;
+template RadType PhysicsBase < PHILIP_DIM, 8, FadType >::handle_non_physical_result<RadType>(const std::string message) const;
+
+template RadType PhysicsBase < PHILIP_DIM, 1, FadFadType >::handle_non_physical_result<RadType>(const std::string message) const;
+template RadType PhysicsBase < PHILIP_DIM, 2, FadFadType >::handle_non_physical_result<RadType>(const std::string message) const;
+template RadType PhysicsBase < PHILIP_DIM, 3, FadFadType >::handle_non_physical_result<RadType>(const std::string message) const;
+template RadType PhysicsBase < PHILIP_DIM, 4, FadFadType >::handle_non_physical_result<RadType>(const std::string message) const;
+template RadType PhysicsBase < PHILIP_DIM, 5, FadFadType >::handle_non_physical_result<RadType>(const std::string message) const;
+template RadType PhysicsBase < PHILIP_DIM, 6, FadFadType >::handle_non_physical_result<RadType>(const std::string message) const;
+template RadType PhysicsBase < PHILIP_DIM, 8, FadFadType >::handle_non_physical_result<RadType>(const std::string message) const;
+
+template RadType PhysicsBase < PHILIP_DIM, 1, RadFadType >::handle_non_physical_result<RadType>(const std::string message) const;
+template RadType PhysicsBase < PHILIP_DIM, 2, RadFadType >::handle_non_physical_result<RadType>(const std::string message) const;
+template RadType PhysicsBase < PHILIP_DIM, 3, RadFadType >::handle_non_physical_result<RadType>(const std::string message) const;
+template RadType PhysicsBase < PHILIP_DIM, 4, RadFadType >::handle_non_physical_result<RadType>(const std::string message) const;
+template RadType PhysicsBase < PHILIP_DIM, 5, RadFadType >::handle_non_physical_result<RadType>(const std::string message) const;
+template RadType PhysicsBase < PHILIP_DIM, 6, RadFadType >::handle_non_physical_result<RadType>(const std::string message) const;
+template RadType PhysicsBase < PHILIP_DIM, 8, RadFadType >::handle_non_physical_result<RadType>(const std::string message) const;
 } // Physics namespace
 } // PHiLiP namespace
 

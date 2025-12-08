@@ -1929,7 +1929,7 @@ void vol_projection_operator<dim,n_faces>::build_1D_G_operator_vol(
             oneD_G_operator_vol[Ltilde][L] = 0;
             for(unsigned int i=0; i<phi.n(); ++i)
             {
-                oneD_G_operator_vol[Ltilde][L] += phi[Ltilde][i]*P[i][l];
+                oneD_G_operator_vol[Ltilde][L] += phi[Ltilde][i]*P[i][L];
             }
         }
     }
@@ -1962,14 +1962,14 @@ void vol_projection_operator<dim,n_faces>::build_1D_G_operator_face(
     const unsigned int n_dofs = P.m();
     for(unsigned int iface=0; iface<2; ++iface)
     {
-        const int n_quads_face = phi_face[iface].m();
+        const unsigned int n_quads_face = phi_face[iface].m();
         assert(n_quads_face==1);
-        oneD_G_operator_face[iface].reinit(n_quads_face,n_quads_vol);
+        oneD_G_operator_surf[iface].reinit(n_quads_face,n_quads_vol);
         for(unsigned int l=0; l<n_quads_face; ++l)
         {
             for(unsigned int Ltilde = 0; Ltilde<n_quads_vol; ++Ltilde)
             {
-                oneD_G_operator_face[iface][l][Ltilde]=0;
+                oneD_G_operator_surf[iface][l][Ltilde]=0;
                 for(unsigned int i=0; i<n_dofs; ++i)
                 {
                     oneD_G_operator_surf[iface][l][Ltilde]+= phi_face[iface][l][i]*P[i][Ltilde];

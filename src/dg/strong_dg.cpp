@@ -89,7 +89,7 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_volume_term_and_build_operator
     const dealii::Tensor<1,dim,std::vector<adtype>>        &/*aux_soln_coeffs*/,
     const std::vector<adtype>                              &/*metric_coeffs*/,
     const std::vector<real>                                &local_dual,
-    const std::vector<dealii::types::global_dof_index>     &soln_dofs_indices,
+    const std::vector<dealii::types::global_dof_index>     &/*soln_dofs_indices*/,
     const std::vector<dealii::types::global_dof_index>     &/*metric_dofs_indices*/,
     const unsigned int                                     poly_degree,
     const unsigned int                                     grid_degree,
@@ -164,8 +164,6 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_volume_term_and_build_operator
             local_auxiliary_RHS);
     }
     else{
-        if(this->compute_dRdW_strong){dRdW_vol_cell.reinit(n_dofs_cell,n_dofs_cell);}
-
         assemble_volume_term_strong<adtype>(
             cell,
             current_cell_index,
@@ -181,16 +179,6 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_volume_term_and_build_operator
             rhs);
         for(unsigned int idof=0; idof<n_dofs_cell; idof++){
             dual_dot_residual += rhs[idof] * local_dual[idof];
-        }
-
-        if(this->compute_dRdW_strong){
-            for(unsigned int idof1=0; idof1<n_dofs_cell; ++idof1)
-            {
-                for(unsigned int idof2=0; idof2<n_dofs_cell; ++idof2)
-                {
-                    this->system_matrix[soln_dofs_indices[idof1]][soln_dofs_indices[idof2]] += dRdW_vol_cell[idof1][idof2];
-                }
-            }
         }
     }
 }
@@ -277,7 +265,6 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_boundary_term_and_build_operat
             local_auxiliary_RHS);
     }
     else{
-        if(this->compute_dRdW_strong){dRdW_boundary.reinit(n_dofs_cell,n_dofs_cell);}
         assemble_boundary_term_strong<adtype> (
             face_number,
             current_cell_index,
@@ -291,16 +278,6 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_boundary_term_and_build_operat
             rhs);
         for(unsigned int idof=0; idof<n_dofs_cell; idof++){
             dual_dot_residual += rhs[idof] * local_dual[idof];
-        }
-        if(this->compute_dRdW_strong)
-        {
-            for(unsigned int idof1=0; idof1<n_dofs_cell; ++idof1)
-            {
-                for(unsigned int idof2=0; idof2<n_dofs_cell; ++idof2)
-                {
-                    this->system_matrix[soln_dofs_indices[idof1]][soln_dofs_indices[idof2]] += dRdW_boundary[idof1][idof2];
-                }                
-            }
         }
     }
 
@@ -477,13 +454,6 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_face_term_and_build_operators_
             aux_rhs_int, aux_rhs_ext);
     }
     else{
-        if(compute_dRdW_strong)
-        {
-            dRint_dWint_face.reinit(n_dofs_int,n_dofs_int);
-            dRint_dWext_face.reinit(n_dofs_int,n_dofs_ext);
-            dRext_dWext_face.reinit(n_dofs_ext,n_dofs_ext);
-            dRext_dWint_face.reinit(n_dofs_ext,n_dofs_int);
-        }
         assemble_face_term_strong<adtype> (
             iface, neighbor_iface, 
             current_cell_index,
@@ -503,38 +473,6 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_face_term_and_build_operators_
         }
         for(unsigned int idof=0; idof<n_dofs_ext; idof++){
             dual_dot_residual += rhs_ext[idof] * dual_ext[idof];
-        }
-
-        if(compute_dRdW_strong)
-        {
-            for(unsigned int idof1 = 0; idof1< n_dofs_int; ++idof1)
-            {
-                for(unsigned int idof2 = 0; idof2< n_dofs_int; ++idof2)
-                {
-                    this->system_matrix[soln_dofs_indices_int[idof1]][soln_dofs_indices_int[idof2]] += dRint_dWint_face[idof1][idof2];
-                }
-            }
-            for(unsigned int idof1 = 0; idof1< n_dofs_int; ++idof1)
-            {
-                for(unsigned int idof2 = 0; idof2< n_dofs_ext; ++idof2)
-                {
-                    this->system_matrix[soln_dofs_indices_int[idof1]][soln_dofs_indices_ext[idof2]] += dRint_dWext_face[idof1][idof2];
-                }
-            }
-            for(unsigned int idof1 = 0; idof1< n_dofs_ext; ++idof1)
-            {
-                for(unsigned int idof2 = 0; idof2< n_dofs_ext; ++idof2)
-                {
-                    this->system_matrix[soln_dofs_indices_ext[idof1]][soln_dofs_indices_ext[idof2]] += dRext_dWext_face[idof1][idof2];
-                }
-            }
-            for(unsigned int idof1 = 0; idof1< n_dofs_ext; ++idof1)
-            {
-                for(unsigned int idof2 = 0; idof2< n_dofs_int; ++idof2)
-                {
-                    this->system_matrix[soln_dofs_indices_ext[idof1]][soln_dofs_indices_int[idof2]] += dRext_dWint_face[idof1][idof2];
-                }
-            }
         }
     }
 
@@ -1154,9 +1092,12 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_volume_term_strong(
             }
             std::array<adtype,nstate> entropy_var;
             entropy_var = pde_physics.compute_entropy_variables(soln_state);
-            if(compute_dRdW_strong)
+            if constexpr(std::is_same<adtype,double>::value)
             {
-                pde_physics.get_d_entropy_var_d_conservative_var(dv_du[iquad],entropy_var); 
+                if(this->compute_dRdW_strong)
+                {
+                    pde_physics.get_d_entropy_var_d_conservative_var(dv_du[iquad],entropy_var); 
+                }
             }
             for(int istate=0; istate<nstate; istate++){
                 entropy_var_at_q[istate][iquad] = entropy_var[istate];
@@ -1181,10 +1122,13 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_volume_term_strong(
 
     std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate> dvtilde_duh;
     xt::xarray<double> H_mat;
-    if(this->compute_dRdW_strong)
+    if constexpr(std::is_same<adtype,double>::value)
     {
-        compute_H_mat(soln_basis_projection_oper.oneD_G_operator_vol, soln_basis.oneD_vol_operator, metric_oper.det_Jac_vol, dv_du, H_mat);
-        compute_dvtilde_duh(soln_basis_projection_oper.oneD_G_operator_vol,soln_basis_projection_oper.oneD_G_operator_vol,soln_basis_projection_oper.oneD_G_operator_vol,H_mat, soln_basis.oneD_vol_operator.n(),n_quad_pts_1D,dvtilde_duh);
+        if(this->compute_dRdW_strong)
+        {
+            compute_H_mat(soln_basis_projection_oper.oneD_G_operator_vol, soln_basis.oneD_vol_operator, metric_oper.det_Jac_vol, dv_du, H_mat);
+            compute_dvtilde_duh(soln_basis_projection_oper.oneD_G_operator_vol,soln_basis_projection_oper.oneD_G_operator_vol,soln_basis_projection_oper.oneD_G_operator_vol,H_mat, soln_basis.oneD_vol_operator.n(),n_quad_pts_1D,dvtilde_duh);
+        }
     }
 
 
@@ -1215,23 +1159,26 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_volume_term_strong(
     }
 
     std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate> dQF_duh;
-    if(compute_dRdW_strong)
+    if constexpr(std::is_same<adtype,double>::value)
     {
-        if constexpr (dim==3)
+        if(this->compute_dRdW_strong)
         {
-           for(unsigned int s1=0; s1<nstate; ++s1)
-           {
-                for(unsigned int s2=0; s2<nstate; ++s2)
-                {
-                    dQF_duh[s1][s2].reinit(n_quad_pts,n_shape_fns); 
-                    dQF_duh[s1][s2] = 0;
-                }
-           }
-        }
-        else
-        {
-            std::cout<<"dRdW_strong is not yet implemented for dim<3. Aborting..."<<std::endl;
-            std::abort();
+            if constexpr (dim==3)
+            {
+               for(unsigned int s1=0; s1<nstate; ++s1)
+               {
+                    for(unsigned int s2=0; s2<nstate; ++s2)
+                    {
+                        dQF_duh[s1][s2].reinit(n_quad_pts,n_shape_fns); 
+                        dQF_duh[s1][s2] = 0;
+                    }
+               }
+            }
+            else
+            {
+                std::cout<<"dRdW_strong is not yet implemented for dim<3. Aborting..."<<std::endl;
+                std::abort();
+            }
         }
     }
 
@@ -1273,9 +1220,12 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_volume_term_strong(
             }
             soln_state = pde_physics.compute_conservative_variables_from_entropy_variables (entropy_var);
             std::array<std::array<double,nstate>,nstate> dutilde_dvtilde_iquad;
-            if(compute_dRdW_strong)
+            if constexpr(std::is_same<adtype,double>::value)
             {
-                pde_physics.get_d_conservative_var_d_entropy_var(dutilde_dvtilde_iquad, entropy_var);
+                if(this->compute_dRdW_strong)
+                {
+                    pde_physics.get_d_conservative_var_d_entropy_var(dutilde_dvtilde_iquad, entropy_var);
+                }
             }
             
             //loop over all the non-zero entries for "sum-factorized" Hadamard product that corresponds to the iquad.
@@ -1309,24 +1259,27 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_volume_term_strong(
                     }
                     soln_state_flux_basis = pde_physics.compute_conservative_variables_from_entropy_variables (entropy_var_flux_basis);
                     std::array<std::array<double,nstate>,nstate> dutilde_dvtilde_fluxquad;
-                    if(compute_dRdW_strong)
+                    if constexpr(std::is_same<adtype,double>::value)
                     {
-                        pde_physics.get_d_conservative_var_d_entropy_var(dutilde_dvtilde_fluxquad, entropy_var_flux_basis);
+                        if(this->compute_dRdW_strong)
+                        {
+                            pde_physics.get_d_conservative_var_d_entropy_var(dutilde_dvtilde_fluxquad, entropy_var_flux_basis);
+                        }
                     }
 
                     //Compute the physical flux
                     std::array<dealii::Tensor<1,dim,adtype>,nstate> conv_phys_flux_2pt;
                     conv_phys_flux_2pt = pde_physics.convective_numerical_split_flux(soln_state, soln_state_flux_basis);
                      
+                    dealii::Tensor<2,dim,adtype> metric_cofactor_split;
+                    for(int idim=0; idim<dim; idim++){
+                        for(int jdim=0; jdim<dim; jdim++){
+                            metric_cofactor_split[idim][jdim] = 0.5 * (metric_cofactor[idim][jdim] + metric_cofactor_flux_basis[idim][jdim]);
+                        }
+                    }
                     for(int istate=0; istate<nstate; istate++){
                         dealii::Tensor<1,dim,adtype> conv_ref_flux_2pt;
                         //For each state, transform the physical flux to a reference flux.
-                        dealii::Tensor<2,dim,adtype> metric_cofactor_split;
-                        for(int idim=0; idim<dim; idim++){
-                            for(int jdim=0; jdim<dim; jdim++){
-                                metric_cofactor_split[idim][jdim] = 0.5 * (metric_cofactor[idim][jdim] + metric_cofactor_flux_basis[idim][jdim]);
-                            }
-                        }
                         metric_oper.transform_physical_to_reference(
                             conv_phys_flux_2pt[istate],
                             metric_cofactor_split,
@@ -1335,38 +1288,41 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_volume_term_strong(
                         conv_ref_2pt_flux_at_q[istate][ref_dim][iquad * n_quad_pts_1D + column_index] = conv_ref_flux_2pt[ref_dim];
                     }
 
-                    if(compute_dRdW_strong)
+                    if constexpr(std::is_same<adtype,double>::value)
                     {
-                        dealii::Tensor<1,dim,double> component = 0; 
-                        component[ref_dim] = 1.0;
-                        std::array<std::array<std::array<double,nstate>,nstate>,2> dFsplit_dutilde = pde_physics.convective_numerical_split_flux_derivative(soln_state, soln_state_flux_basis, metric_cofactor_split, component);
-                        double mult_factor = 0;
-                        if(ref_dim==0)
+                        if(this->compute_dRdW_strong)
                         {
-                            const int p_ = flux_quad % n_quad_pts_1D;
-                            mult_factor = flux_basis_stiffness.oneD_skew_symm_vol_oper[l_][p_]*oneD_vol_quad_weights[m_]*oneD_vol_quad_weights[n_];
-                        }
-                        else if(ref_dim==1)
-                        {
-                            const int q_ = (flux_quad/n_quad_pts_1D) % n_quad_pts_1D;
-                            mult_factor = flux_basis_stiffness.oneD_skew_symm_vol_oper[m_][q_]*oneD_vol_quad_weights[l_]*oneD_vol_quad_weights[n_];
-                        }
-                        else if(dim==3)
-                        {
-                            const int r_ = (flux_quad/n_quad_pts_1D) / n_quad_pts_1D;
-                            mult_factor = flux_basis_stiffness.oneD_skew_symm_vol_oper[n_][r_]*oneD_vol_quad_weights[l_]*oneD_vol_quad_weights[m_];
-                        }
-                        for(unsigned int s1 = 0; s1<nstate; ++s1)
-                        {
-                            for(unsigned int s2=0; s2<nstate; ++s2)
+                            dealii::Tensor<1,dim,double> component; 
+                            component[ref_dim] = 1.0;
+                            std::array<std::array<std::array<double,nstate>,nstate>,2> dFsplit_dutilde = pde_physics.convective_numerical_split_flux_derivative(soln_state, soln_state_flux_basis, metric_cofactor_split, component);
+                            double mult_factor = 0;
+                            if(ref_dim==0)
                             {
-                                for(unsigned int sk=0; sk<nstate; ++sk)
+                                const int p_ = flux_quad % n_quad_pts_1D;
+                                mult_factor = flux_basis_stiffness.oneD_skew_symm_vol_oper[l_][p_]*oneD_vol_quad_weights[m_]*oneD_vol_quad_weights[n_];
+                            }
+                            else if(ref_dim==1)
+                            {
+                                const int q_ = (flux_quad/n_quad_pts_1D) % n_quad_pts_1D;
+                                mult_factor = flux_basis_stiffness.oneD_skew_symm_vol_oper[m_][q_]*oneD_vol_quad_weights[l_]*oneD_vol_quad_weights[n_];
+                            }
+                            else if(dim==3)
+                            {
+                                const int r_ = (flux_quad/n_quad_pts_1D) / n_quad_pts_1D;
+                                mult_factor = flux_basis_stiffness.oneD_skew_symm_vol_oper[n_][r_]*oneD_vol_quad_weights[l_]*oneD_vol_quad_weights[m_];
+                            }
+                            for(unsigned int s1 = 0; s1<nstate; ++s1)
+                            {
+                                for(unsigned int s2=0; s2<nstate; ++s2)
                                 {
-                                    for(unsigned int sl=0; sl<nstate; ++sl)
+                                    for(unsigned int sk=0; sk<nstate; ++sk)
                                     {
-                                        for(unsigned int idof=0; idof<n_shape_fns; ++idof)
+                                        for(unsigned int sl=0; sl<nstate; ++sl)
                                         {
-                                            dQF_duh[s1][s2][iquad][idof] += mult_factor*(dFsplit_dutilde[0][s1][sk]*dutilde_dvtilde_iquad[sk][sl]*dvtilde_duh[sl][s2][iquad][idof] + dFsplit_dutilde[1][s1][sk]*dutilde_dvtilde_fluxquad[sk][sl]*dvtilde_duh[sl][s2][flux_quad][idof]);
+                                            for(unsigned int idof=0; idof<n_shape_fns; ++idof)
+                                            {
+                                                dQF_duh[s1][s2][iquad][idof] += mult_factor*(dFsplit_dutilde[0][s1][sk]*dutilde_dvtilde_iquad[sk][sl]*dvtilde_duh[sl][s2][iquad][idof] + dFsplit_dutilde[1][s1][sk]*dutilde_dvtilde_fluxquad[sk][sl]*dvtilde_duh[sl][s2][flux_quad][idof]);
+                                            }
                                         }
                                     }
                                 }
@@ -1576,30 +1532,33 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_volume_term_strong(
 
     }
     
-    if(compute_dRdW_strong)
+    if constexpr(std::is_same<adtype,double>::value)
     {
-        for(unsigned int s1=0; s1<nstate; ++s1)
+        if(this->compute_dRdW_strong)
         {
-            for(unsigned int s2=0; s2<nstate; ++s2)
+            for(unsigned int s1=0; s1<nstate; ++s1)
             {
-                for(unsigned int idof_sol = 0; idof_sol<n_shape_fns; ++idof_sol)
+                for(unsigned int s2=0; s2<nstate; ++s2)
                 {
-                    std::vector<adtype> rhs_dRdW(n_shape_fns);
-                    std::vector<real> ones(n_quad_pts, 1.0);
-                    std::vector<real> dQFduh_at_quads(n_quad_pts);
-                    for(unsigned int q_=0; q_<n_quad_pts; ++q_)
+                    for(unsigned int idof_sol = 0; idof_sol<n_shape_fns; ++idof_sol)
                     {
-                        dQFduh_at_quads[q_] = dQF_duh[s1][s2][q_][idof_sol];
-                    }
-                    soln_basis.inner_product_1D(dQFduh_at_quads, ones, rhs_dRdW, soln_basis.oneD_vol_operator, false, -1.0);
-                    const unsigned int idof_sol_global = s2*n_shape_fns + idof_sol;
-                    for(unsigned int idof_res = 0; idof_res<n_shape_fns; ++idof_res)
-                    {
-                        const unsigned int idof_res_global = s1*n_shape_fns + idof_res;
+                        std::vector<adtype> rhs_dRdW(n_shape_fns);
+                        std::vector<real> ones(n_quad_pts, 1.0);
+                        std::vector<real> dQFduh_at_quads(n_quad_pts);
+                        for(unsigned int q_=0; q_<n_quad_pts; ++q_)
+                        {
+                            dQFduh_at_quads[q_] = dQF_duh[s1][s2][q_][idof_sol];
+                        }
+                        soln_basis.inner_product_1D(dQFduh_at_quads, ones, rhs_dRdW, soln_basis.oneD_vol_operator, false, -1.0);
+                        const unsigned int idof_sol_global = s2*n_shape_fns + idof_sol;
+                        for(unsigned int idof_res = 0; idof_res<n_shape_fns; ++idof_res)
+                        {
+                            const unsigned int idof_res_global = s1*n_shape_fns + idof_res;
 
-                        dRdW_vol_cell[idof_res_global][idof_sol_global] = rhs_dRdW[idof_res];
+                            this->dRdW_vol_cell[idof_res_global][idof_sol_global] = rhs_dRdW[idof_res];
+                        }
+                        
                     }
-                    
                 }
             }
         }
@@ -1839,9 +1798,12 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_boundary_term_strong(
         }
         std::array<adtype,nstate> entropy_var;
         entropy_var = pde_physics.compute_entropy_variables(soln_state);
-        if(compute_dRdW_strong)
+        if constexpr(std::is_same<adtype,double>::value)
         {
-            pde_physics.get_d_entropy_var_d_conservative_var(dv_du[iquad],entropy_var); 
+            if(this->compute_dRdW_strong)
+            {
+                pde_physics.get_d_entropy_var_d_conservative_var(dv_du[iquad],entropy_var); 
+            }
         }
         for(int istate=0; istate<nstate; istate++){
             if(iquad==0){
@@ -1853,33 +1815,36 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_boundary_term_strong(
     std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate> dvtilde_duh_vol;
     std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate> dvtilde_duh_surf;
     xt::xarray<double> H_mat;
-    if(this->compute_dRdW_strong)
+    if constexpr(std::is_same<adtype,double>::value)
     {
-        compute_H_mat(soln_basis_projection_oper.oneD_G_operator_vol, soln_basis.oneD_vol_operator, metric_oper.det_Jac_vol, dv_du, H_mat);
-        compute_dvtilde_duh(soln_basis_projection_oper.oneD_G_operator_vol,soln_basis_projection_oper.oneD_G_operator_vol,soln_basis_projection_oper.oneD_G_operator_vol,H_mat, soln_basis.oneD_vol_operator.n(),n_quad_pts_1D,dvtilde_duh_vol);
-        if(iface==0)
+        if(this->compute_dRdW_strong)
         {
-            compute_dvtilde_duh(soln_basis_projection_oper.oneD_G_operator_surf[0],soln_basis_projection_oper.oneD_G_operator_vol,soln_basis_projection_oper.oneD_G_operator_vol,H_mat, soln_basis.oneD_vol_operator.n(),n_quad_pts_1D,dvtilde_duh_surf);
-        }
-        else if(iface==1)
-        {
-            compute_dvtilde_duh(soln_basis_projection_oper.oneD_G_operator_surf[1],soln_basis_projection_oper.oneD_G_operator_vol,soln_basis_projection_oper.oneD_G_operator_vol,H_mat, soln_basis.oneD_vol_operator.n(),n_quad_pts_1D,dvtilde_duh_surf);
-        }
-        else if(iface==2)
-        {
-            compute_dvtilde_duh(soln_basis_projection_oper.oneD_G_operator_vol,soln_basis_projection_oper.oneD_G_operator_surf[0],soln_basis_projection_oper.oneD_G_operator_vol,H_mat, soln_basis.oneD_vol_operator.n(),n_quad_pts_1D,dvtilde_duh_surf);
-        }
-        else if(iface==3)
-        {
-            compute_dvtilde_duh(soln_basis_projection_oper.oneD_G_operator_vol,soln_basis_projection_oper.oneD_G_operator_surf[1],soln_basis_projection_oper.oneD_G_operator_vol,H_mat, soln_basis.oneD_vol_operator.n(),n_quad_pts_1D,dvtilde_duh_surf);
-        }
-        else if(iface==4)
-        {
-            compute_dvtilde_duh(soln_basis_projection_oper.oneD_G_operator_vol,soln_basis_projection_oper.oneD_G_operator_vol,soln_basis_projection_oper.oneD_G_operator_surf[0],H_mat, soln_basis.oneD_vol_operator.n(),n_quad_pts_1D,dvtilde_duh_surf);
-        }
-        else if(iface==5)
-        {
-            compute_dvtilde_duh(soln_basis_projection_oper.oneD_G_operator_vol,soln_basis_projection_oper.oneD_G_operator_vol,soln_basis_projection_oper.oneD_G_operator_surf[1],H_mat, soln_basis.oneD_vol_operator.n(),n_quad_pts_1D,dvtilde_duh_surf);
+            compute_H_mat(soln_basis_projection_oper.oneD_G_operator_vol, soln_basis.oneD_vol_operator, metric_oper.det_Jac_vol, dv_du, H_mat);
+            compute_dvtilde_duh(soln_basis_projection_oper.oneD_G_operator_vol,soln_basis_projection_oper.oneD_G_operator_vol,soln_basis_projection_oper.oneD_G_operator_vol,H_mat, soln_basis.oneD_vol_operator.n(),n_quad_pts_1D,dvtilde_duh_vol);
+            if(iface==0)
+            {
+                compute_dvtilde_duh(soln_basis_projection_oper.oneD_G_operator_surf[0],soln_basis_projection_oper.oneD_G_operator_vol,soln_basis_projection_oper.oneD_G_operator_vol,H_mat, soln_basis.oneD_vol_operator.n(),n_quad_pts_1D,dvtilde_duh_surf);
+            }
+            else if(iface==1)
+            {
+                compute_dvtilde_duh(soln_basis_projection_oper.oneD_G_operator_surf[1],soln_basis_projection_oper.oneD_G_operator_vol,soln_basis_projection_oper.oneD_G_operator_vol,H_mat, soln_basis.oneD_vol_operator.n(),n_quad_pts_1D,dvtilde_duh_surf);
+            }
+            else if(iface==2)
+            {
+                compute_dvtilde_duh(soln_basis_projection_oper.oneD_G_operator_vol,soln_basis_projection_oper.oneD_G_operator_surf[0],soln_basis_projection_oper.oneD_G_operator_vol,H_mat, soln_basis.oneD_vol_operator.n(),n_quad_pts_1D,dvtilde_duh_surf);
+            }
+            else if(iface==3)
+            {
+                compute_dvtilde_duh(soln_basis_projection_oper.oneD_G_operator_vol,soln_basis_projection_oper.oneD_G_operator_surf[1],soln_basis_projection_oper.oneD_G_operator_vol,H_mat, soln_basis.oneD_vol_operator.n(),n_quad_pts_1D,dvtilde_duh_surf);
+            }
+            else if(iface==4)
+            {
+                compute_dvtilde_duh(soln_basis_projection_oper.oneD_G_operator_vol,soln_basis_projection_oper.oneD_G_operator_vol,soln_basis_projection_oper.oneD_G_operator_surf[0],H_mat, soln_basis.oneD_vol_operator.n(),n_quad_pts_1D,dvtilde_duh_surf);
+            }
+            else if(iface==5)
+            {
+                compute_dvtilde_duh(soln_basis_projection_oper.oneD_G_operator_vol,soln_basis_projection_oper.oneD_G_operator_vol,soln_basis_projection_oper.oneD_G_operator_surf[1],H_mat, soln_basis.oneD_vol_operator.n(),n_quad_pts_1D,dvtilde_duh_surf);
+            }
         }
     }
 
@@ -1928,15 +1893,18 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_boundary_term_strong(
     std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate> dterm3_duh;
     std::array<std::array<double,nstate>,nstate> dutilde_dvtilde_face;
     std::array<std::array<double,nstate>,nstate> dutilde_dvtilde_vol;
-    if(compute_dRdW_strong)
+    if constexpr(std::is_same<adtype,double>::value)
     {
-        for(unsigned int s1=0; s1<nstate; ++s1)
+        if(this->compute_dRdW_strong)
         {
-            for(unsigned int s2=0; s2<nstate; ++s2)
+            for(unsigned int s1=0; s1<nstate; ++s1)
             {
-                dterm1_duh[s1][s2].reinit(n_quad_pts_vol,n_shape_fns);
-                dterm2_duh[s1][s2].reinit(n_face_quad_pts,n_shape_fns);
-                dterm3_duh[s1][s2].reinit(n_face_quad_pts,n_shape_fns);
+                for(unsigned int s2=0; s2<nstate; ++s2)
+                {
+                    dterm1_duh[s1][s2].reinit(n_quad_pts_vol,n_shape_fns);
+                    dterm2_duh[s1][s2].reinit(n_face_quad_pts,n_shape_fns);
+                    dterm3_duh[s1][s2].reinit(n_face_quad_pts,n_shape_fns);
+                }
             }
         }
     }
@@ -1965,9 +1933,12 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_boundary_term_strong(
             }
             std::array<adtype,nstate> soln_state_face;
             soln_state_face= pde_physics.compute_conservative_variables_from_entropy_variables (entropy_var_face);
-            if(compute_dRdW_strong)
+            if constexpr(std::is_same<adtype,double>::value)
             {
-                pde_physics.get_d_conservative_var_d_entropy_var(dutilde_dvtilde_face, entropy_var_face);
+                if(this->compute_dRdW_strong)
+                {
+                    pde_physics.get_d_conservative_var_d_entropy_var(dutilde_dvtilde_face, entropy_var_face);
+                }
             }
 
             //only do the n_quad_1D vol points that give non-zero entries from Hadamard product.
@@ -2002,9 +1973,12 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_boundary_term_strong(
                 }
                 std::array<adtype,nstate> soln_state;
                 soln_state = pde_physics.compute_conservative_variables_from_entropy_variables (entropy_var);
-                if(compute_dRdW_strong)
+                if constexpr(std::is_same<adtype,double>::value)
                 {
-                    pde_physics.get_d_conservative_var_d_entropy_var(dutilde_dvtilde_vol, entropy_var);
+                    if(this->compute_dRdW_strong)
+                    {
+                        pde_physics.get_d_conservative_var_d_entropy_var(dutilde_dvtilde_vol, entropy_var);
+                    }
                 }
                 //Note that the flux basis is collocated on the volume cubature set so we don't need to evaluate the entropy variables
                 //on the volume set then transform back to the conservative variables since the flux basis volume
@@ -2023,52 +1997,49 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_boundary_term_strong(
                     //only store the dim not zero in reference space bc dot product with unit ref normal later.
                     surface_ref_2pt_flux[istate][iquad_face * n_quad_pts_1D + column_index] = conv_ref_flux_2pt[dim_not_zero];
                 }
-                if(compute_dRdW_strong)
+                if constexpr(std::is_same<adtype,double>::value)
                 {
-                    std::array<std::array<std::array<double,nstate>,nstate>,2> dFsplit_dutilde = pde_physics.convective_numerical_split_flux_derivative(soln_state, soln_state_face, metric_cofactor_split, unit_ref_normal_int);
-                    double mult_factor=0;
-                    const int iface_1D = iface % 2;//the reference face number
-                    if(iface==0 || iface==1)
+                    if(this->compute_dRdW_strong)
                     {
-                        const int m = iquad_face % n_quad_pts_1D;
-                        const int n = iquad_face/n_quad_pts_1D;
-                        const int L = iquad_vol % n_quad_pts_1D;
-                        mult_factor = flux_basis.oneD_surf_operator[iface_1D][0][L]*face_quad_weights[iquad_face];
-                    }
-                    else if(iface==2 || iface==3)
-                    {
-                        const int l = iquad_face % n_quad_pts_1D;
-                        const int n = iquad_face/n_quad_pts_1D;
-                        const int M = (iquad_vol/n_quad_pts_1D) % n_quad_pts_1D;
-                        mult_factor = flux_basis.oneD_surf_operator[iface_1D][0][M]*face_quad_weights[iquad_face];
-                    }
-                    else if(iface==4 || iface==5)
-                    {
-                        const int l = iquad_face % n_quad_pts_1D;
-                        const int m = iquad_face/n_quad_pts_1D;
-                        const int N = (iquad_vol/n_quad_pts_1D) / n_quad_pts_1D;
-                        mult_factor = flux_basis.oneD_surf_operator[iface_1D][0][N]*face_quad_weights[iquad_face];
-                    }
-                    // Form term1 and term2
-                    for(unsigned int s1=0; s1<nstate; ++s1)
-                    {
-                        for(unsigned int s2=0; s2<nstate; ++s2)
+                        std::array<std::array<std::array<double,nstate>,nstate>,2> dFsplit_dutilde = pde_physics.convective_numerical_split_flux_derivative(soln_state, soln_state_face, metric_cofactor_split, unit_ref_normal_int);
+                        double mult_factor=0;
+                        const int iface_1D = iface % 2;//the reference face number
+                        if(iface==0 || iface==1)
                         {
-                            for(unsigned int idof = 0; idof<n_shape_fns; ++idof)
+                            const int L = iquad_vol % n_quad_pts_1D;
+                            mult_factor = flux_basis.oneD_surf_operator[iface_1D][0][L]*face_quad_weights[iquad_face];
+                        }
+                        else if(iface==2 || iface==3)
+                        {
+                            const int M = (iquad_vol/n_quad_pts_1D) % n_quad_pts_1D;
+                            mult_factor = flux_basis.oneD_surf_operator[iface_1D][0][M]*face_quad_weights[iquad_face];
+                        }
+                        else if(iface==4 || iface==5)
+                        {
+                            const int N = (iquad_vol/n_quad_pts_1D) / n_quad_pts_1D;
+                            mult_factor = flux_basis.oneD_surf_operator[iface_1D][0][N]*face_quad_weights[iquad_face];
+                        }
+                        // Form term1 and term2
+                        for(unsigned int s1=0; s1<nstate; ++s1)
+                        {
+                            for(unsigned int s2=0; s2<nstate; ++s2)
                             {
-                                dterm1_duh[s1][s2][iquad_vol][idof]=0;
-                                for(unsigned int sk=0; sk<nstate; ++sk)
+                                for(unsigned int idof = 0; idof<n_shape_fns; ++idof)
                                 {
-                                    for(unsigned int sl=0; sl<nstate; ++sl)
+                                    dterm1_duh[s1][s2][iquad_vol][idof]=0;
+                                    for(unsigned int sk=0; sk<nstate; ++sk)
                                     {
-                                        dterm1_duh[s1][s2][iquad_vol][idof]+= mult_factor*(dFsplit_dutilde[0][s1][sk]*dutilde_dvtilde_vol[sk][sl]*dvtilde_duh_vol[sl][s2][iquad_vol][idof] + dFsplit_dutilde[1][s1][sk]*dutilde_dvtilde_face[sk][sl]*dvtilde_duh_surf[sl][s2][iquad_face][idof]);
-                                        dterm2_duh[s1][s2][iquad_face][idof] -= mult_factor*(dFsplit_dutilde[0][s1][sk]*dutilde_dvtilde_vol[sk][sl]*dvtilde_duh_vol[sl][s2][iquad_vol][idof] + dFsplit_dutilde[1][s1][sk]*dutilde_dvtilde_face[sk][sl]*dvtilde_duh_surf[sl][s2][iquad_face][idof]);
+                                        for(unsigned int sl=0; sl<nstate; ++sl)
+                                        {
+                                            dterm1_duh[s1][s2][iquad_vol][idof]+= mult_factor*(dFsplit_dutilde[0][s1][sk]*dutilde_dvtilde_vol[sk][sl]*dvtilde_duh_vol[sl][s2][iquad_vol][idof] + dFsplit_dutilde[1][s1][sk]*dutilde_dvtilde_face[sk][sl]*dvtilde_duh_surf[sl][s2][iquad_face][idof]);
+                                            dterm2_duh[s1][s2][iquad_face][idof] -= mult_factor*(dFsplit_dutilde[0][s1][sk]*dutilde_dvtilde_vol[sk][sl]*dvtilde_duh_vol[sl][s2][iquad_vol][idof] + dFsplit_dutilde[1][s1][sk]*dutilde_dvtilde_face[sk][sl]*dvtilde_duh_surf[sl][s2][iquad_face][idof]);
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
-                } // if dRdW_strong
+                    } // if dRdW_strong
+                }
             }
         }
         //get the surface basis operator from Hadamard sparsity pattern
@@ -2161,9 +2132,12 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_boundary_term_strong(
         //extract solution on surface from projected entropy variables
         std::array<adtype,nstate> soln_state_int;
         soln_state_int = pde_physics.compute_conservative_variables_from_entropy_variables (entropy_var_face_int);
-        if(compute_dRdW_strong)
+        if constexpr(std::is_same<adtype,double>::value)
         {
-            pde_physics.get_d_conservative_var_d_entropy_var(dutilde_dvtilde_face, entropy_var_face_int);
+            if(this->compute_dRdW_strong)
+            {
+                pde_physics.get_d_conservative_var_d_entropy_var(dutilde_dvtilde_face, entropy_var_face_int);
+            }
         }
 
         if(!this->all_parameters->use_split_form && !this->all_parameters->use_curvilinear_split_form){
@@ -2188,40 +2162,43 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_boundary_term_strong(
         // Convective numerical flux.
         std::array<adtype,nstate> conv_num_flux_dot_n_at_q;
         conv_num_flux_dot_n_at_q = conv_num_flux.evaluate_flux(soln_state_int, soln_boundary, unit_phys_normal_int);
-        if(compute_dRdW_strong)
+        if constexpr(std::is_same<adtype,double>::value)
         {
-            std::array<std::array<double,nstate>,nstate> d_ubc_d_utilde = pde_physics.compute_d_solnbc_d_u(soln_state_int, unit_phys_normal_int,boundary_id_passed_conv);
-            dealii::Tensor<1,dim,double> metric_identity = 0;
-            for(unsigned int d=0; d<dim; ++d)
+            if(this->compute_dRdW_strong)
             {
-                metric_identity[d][d]=1.0;
-            }
-            std::array<std::array<std::array<double,nstate>,nstate>,2> dFsplit_dutilde = pde_physics.convective_numerical_split_flux_derivative(soln_state_int, soln_boundary, metric_identity, unit_phys_normal_int);
-
-            for(unsigned int s1=0; s1<nstate; ++s1)
-            {
-                for(unsigned int s2=0; s2<nstate; ++s2)
+                std::array<std::array<double,nstate>,nstate> d_ubc_d_utilde = pde_physics.compute_d_solnbc_d_u(soln_state_int, unit_phys_normal_int,boundary_id_passed_conv);
+                dealii::Tensor<2,dim,double> metric_identity;
+                for(unsigned int d=0; d<dim; ++d)
                 {
-                    for(unsigned int idof=0; idof<n_shape_fns; ++idof)
+                    metric_identity[d][d]=1.0;
+                }
+                std::array<std::array<std::array<double,nstate>,nstate>,2> dFsplit_dutilde = pde_physics.convective_numerical_split_flux_derivative(soln_state_int, soln_boundary, metric_identity, unit_phys_normal_int);
+
+                for(unsigned int s1=0; s1<nstate; ++s1)
+                {
+                    for(unsigned int s2=0; s2<nstate; ++s2)
                     {
-                        double sum1 = 0;
-                        double sum2 = 0;
-                        for(unsigned int sk=0; sk<nstate; ++sk)
+                        for(unsigned int idof=0; idof<n_shape_fns; ++idof)
                         {
-                            for(unsigned int sl=0; sl<nstate; ++sl)
+                            double sum1 = 0;
+                            double sum2 = 0;
+                            for(unsigned int sk=0; sk<nstate; ++sk)
                             {
-                                sum1 += dFsplit_dutilde[0][s1][sk]*dutilde_dvtilde_face[sk][sl]*dvtilde_duh_surf[sl][s2][iquad][idof];
-                                for(unsigned int sm=0; sm<nstate; ++sm)
+                                for(unsigned int sl=0; sl<nstate; ++sl)
                                 {
-                                    sum2 += dFsplit_dutilde[1][s1][sk]*d_ubc_d_utilde[sk][sl]*dutilde_dvtilde_face[sl][sm]*dvtilde_duh_surf[sm][s2][iquad][idof];
+                                    sum1 += dFsplit_dutilde[0][s1][sk]*dutilde_dvtilde_face[sk][sl]*dvtilde_duh_surf[sl][s2][iquad][idof];
+                                    for(unsigned int sm=0; sm<nstate; ++sm)
+                                    {
+                                        sum2 += dFsplit_dutilde[1][s1][sk]*d_ubc_d_utilde[sk][sl]*dutilde_dvtilde_face[sl][sm]*dvtilde_duh_surf[sm][s2][iquad][idof];
+                                    }
                                 }
                             }
+                            dterm3_duh[s1][s2][iquad][idof] = JxW_face[iquad]*(sum1 + sum2);
                         }
-                        dterm3_duh[s1][s2][iquad][idof] = JxW_face[iquad]*(sum1 + sum2);
                     }
                 }
-            }
-        } // compute_dRdW_strong
+            } // compute_dRdW_strong
+        }
        /* 
         // Dissipative numerical flux
         std::array<adtype,nstate> diss_auxi_num_flux_dot_n_at_q;
@@ -2292,39 +2269,42 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_boundary_term_strong(
         }
     }
     
-    if(compute_dRdW_strong)
+    if constexpr(std::is_same<adtype,double>::value)
     {
-        std::vector<real> ones_vol(n_quad_pts_vol, 1.0);
-        std::vector<real> ones_face(n_face_quad_pts, 1.0);
-        for(unsigned int s1=0; s1<nstate; ++s1)
+        if(this->compute_dRdW_strong)
         {
-            for(unsigned int s2=0; s2<nstate; ++s2)
+            std::vector<real> ones_vol(n_quad_pts_vol, 1.0);
+            std::vector<real> ones_face(n_face_quad_pts, 1.0);
+            for(unsigned int s1=0; s1<nstate; ++s1)
             {
-                for(unsigned int idof_sol = 0; idof_sol<n_shape_fns; ++idof_sol)
+                for(unsigned int s2=0; s2<nstate; ++s2)
                 {
-                    std::vector<adtype> rhs_dRdW(n_shape_fns);
-                    std::vector<real> dterm1_at_quads(n_quad_pts_vol);
-                    std::vector<real> dterm23_at_quads(n_face_quad_pts);
-                    for(unsigned int q_=0; q_<n_quad_pts_vol; ++q_)
+                    for(unsigned int idof_sol = 0; idof_sol<n_shape_fns; ++idof_sol)
                     {
-                        dterm1_at_quads[q_] = dterm1_duh[s1][s2][q_][idof_sol];
+                        std::vector<adtype> rhs_dRdW(n_shape_fns);
+                        std::vector<real> dterm1_at_quads(n_quad_pts_vol);
+                        std::vector<real> dterm23_at_quads(n_face_quad_pts);
+                        for(unsigned int q_=0; q_<n_quad_pts_vol; ++q_)
+                        {
+                            dterm1_at_quads[q_] = dterm1_duh[s1][s2][q_][idof_sol];
+                        }
+                        for(unsigned int q_=0; q_<n_face_quad_pts; ++q_)
+                        {
+                            dterm23_at_quads[q_] = dterm2_duh[s1][s2][q_][idof_sol] + dterm3_duh[s1][s2][q_][idof_sol];
+                        }
+                        soln_basis.inner_product_1D(dterm1_at_quads, ones_vol, rhs_dRdW, soln_basis.oneD_vol_operator, false, -1.0);
+                        soln_basis.inner_product_surface_1D(iface, dterm23_at_quads, 
+                                                            ones_face, rhs_dRdW, 
+                                                            soln_basis.oneD_surf_operator, 
+                                                            soln_basis.oneD_vol_operator,
+                                                            true, -1.0);//adding=true, scaled by factor=-1.0 bc subtract it
+                        const unsigned int idof_sol_global = s2*n_shape_fns + idof_sol;
+                        for(unsigned int idof_res = 0; idof_res<n_shape_fns; ++idof_res)
+                        {
+                            const unsigned int idof_res_global = s1*n_shape_fns + idof_res;
+                            this->dRdW_boundary[idof_res_global][idof_sol_global] = rhs_dRdW[idof_res];
+                        }                    
                     }
-                    for(unsigned int q_=0; q_<n_face_quad_pts; ++q_)
-                    {
-                        dterm23_at_quads[q_] = dterm2_duh[s1][s2][q_][idof_sol] + dterm3_duh[s1][s2][q_][idof_sol];
-                    }
-                    soln_basis.inner_product_1D(dterm1_at_quads, ones_vol, rhs_dRdW, soln_basis.oneD_vol_operator, false, -1.0);
-                    soln_basis.inner_product_surface_1D(iface, dterm23_at_quads, 
-                                                        ones_face, rhs_dRdW, 
-                                                        soln_basis.oneD_surf_operator, 
-                                                        soln_basis.oneD_vol_operator,
-                                                        true, -1.0);//adding=true, scaled by factor=-1.0 bc subtract it
-                    const unsigned int idof_sol_global = s2*n_shape_fns + idof_sol;
-                    for(unsigned int idof_res = 0; idof_res<n_shape_fns; ++idof_res)
-                    {
-                        const unsigned int idof_res_global = s1*n_shape_fns + idof_res;
-                        dRdW_boundary[idof_res_global][idof_sol_global] = rhs_dRdW[idof_res];
-                    }                    
                 }
             }
         }
@@ -2705,9 +2685,12 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_face_term_strong(
         }
         std::array<adtype,nstate> entropy_var;
         entropy_var = pde_physics.compute_entropy_variables(soln_state);
-        if(compute_dRdW_strong)
+        if constexpr(std::is_same<adtype,double>::value)
         {
-            pde_physics.get_d_entropy_var_d_conservative_var(dv_du_int[iquad],entropy_var); 
+            if(this->compute_dRdW_strong)
+            {
+                pde_physics.get_d_entropy_var_d_conservative_var(dv_du_int[iquad],entropy_var); 
+            }
         }
         for(int istate=0; istate<nstate; istate++){
             if(iquad==0){
@@ -2725,9 +2708,12 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_face_term_strong(
         }
         std::array<adtype,nstate> entropy_var;
         entropy_var = pde_physics.compute_entropy_variables(soln_state);
-        if(compute_dRdW_strong)
+        if constexpr(std::is_same<adtype,double>::value)
         {
-            pde_physics.get_d_entropy_var_d_conservative_var(dv_du_ext[iquad],entropy_var); 
+            if(this->compute_dRdW_strong)
+            {
+                pde_physics.get_d_entropy_var_d_conservative_var(dv_du_ext[iquad],entropy_var); 
+            }
         }
         for(int istate=0; istate<nstate; istate++){
             if(iquad==0){
@@ -2743,59 +2729,62 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_face_term_strong(
     std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate> dvtilde_duh_surf_ext;
     xt::xarray<double> H_mat_int;
     xt::xarray<double> H_mat_ext;
-    if(this->compute_dRdW_strong)
+    if constexpr(std::is_same<adtype,double>::value)
     {
-        compute_H_mat(soln_basis_projection_oper_int.oneD_G_operator_vol, soln_basis_int.oneD_vol_operator, metric_oper_int.det_Jac_vol, dv_du_int, H_mat_int);
-        compute_H_mat(soln_basis_projection_oper_ext.oneD_G_operator_vol, soln_basis_ext.oneD_vol_operator, metric_oper_ext.det_Jac_vol, dv_du_ext, H_mat_ext);
-        compute_dvtilde_duh(soln_basis_projection_oper_int.oneD_G_operator_vol,soln_basis_projection_oper_int.oneD_G_operator_vol,soln_basis_projection_oper_int.oneD_G_operator_vol,H_mat_int, soln_basis_int.oneD_vol_operator.n(),n_quad_pts_1D_int,dvtilde_duh_vol_int);
-        compute_dvtilde_duh(soln_basis_projection_oper_ext.oneD_G_operator_vol,soln_basis_projection_oper_ext.oneD_G_operator_vol,soln_basis_projection_oper_ext.oneD_G_operator_vol,H_mat_ext, soln_basis_ext.oneD_vol_operator.n(),n_quad_pts_1D_ext,dvtilde_duh_vol_ext);
-        if(iface==0)
+        if(this->compute_dRdW_strong)
         {
-            compute_dvtilde_duh(soln_basis_projection_oper_int.oneD_G_operator_surf[0],soln_basis_projection_oper_int.oneD_G_operator_vol,soln_basis_projection_oper_int.oneD_G_operator_vol,H_mat_int, soln_basis_int.oneD_vol_operator.n(),n_quad_pts_1D_int,dvtilde_duh_surf_int);
-        }
-        else if(iface==1)
-        {
-            compute_dvtilde_duh(soln_basis_projection_oper_int.oneD_G_operator_surf[1],soln_basis_projection_oper_int.oneD_G_operator_vol,soln_basis_projection_oper_int.oneD_G_operator_vol,H_mat_int, soln_basis_int.oneD_vol_operator.n(),n_quad_pts_1D_int,dvtilde_duh_surf_int);
-        }
-        else if(iface==2)
-        {
-            compute_dvtilde_duh(soln_basis_projection_oper_int.oneD_G_operator_vol,soln_basis_projection_oper_int.oneD_G_operator_surf[0],soln_basis_projection_oper_int.oneD_G_operator_vol,H_mat_int, soln_basis_int.oneD_vol_operator.n(),n_quad_pts_1D_int,dvtilde_duh_surf_int);
-        }
-        else if(iface==3)
-        {
-            compute_dvtilde_duh(soln_basis_projection_oper_int.oneD_G_operator_vol,soln_basis_projection_oper_int.oneD_G_operator_surf[1],soln_basis_projection_oper_int.oneD_G_operator_vol,H_mat_int, soln_basis_int.oneD_vol_operator.n(),n_quad_pts_1D_int,dvtilde_duh_surf_int);
-        }
-        else if(iface==4)
-        {
-            compute_dvtilde_duh(soln_basis_projection_oper_int.oneD_G_operator_vol,soln_basis_projection_oper_int.oneD_G_operator_vol,soln_basis_projection_oper_int.oneD_G_operator_surf[0],H_mat_int, soln_basis_int.oneD_vol_operator.n(),n_quad_pts_1D_int,dvtilde_duh_surf_int);
-        }
-        else if(iface==5)
-        {
-            compute_dvtilde_duh(soln_basis_projection_oper_int.oneD_G_operator_vol,soln_basis_projection_oper_int.oneD_G_operator_vol,soln_basis_projection_oper_int.oneD_G_operator_surf[1],H_mat_int, soln_basis_int.oneD_vol_operator.n(),n_quad_pts_1D_int,dvtilde_duh_surf_int);
-        }
-        if(neighbor_iface==0)
-        {
-            compute_dvtilde_duh(soln_basis_projection_oper_ext.oneD_G_operator_surf[0],soln_basis_projection_oper_ext.oneD_G_operator_vol,soln_basis_projection_oper_ext.oneD_G_operator_vol,H_mat_ext, soln_basis_ext.oneD_vol_operator.n(),n_quad_pts_1D_ext,dvtilde_duh_surf_ext);
-        }
-        else if(neighbor_iface==1)
-        {
-            compute_dvtilde_duh(soln_basis_projection_oper_ext.oneD_G_operator_surf[1],soln_basis_projection_oper_ext.oneD_G_operator_vol,soln_basis_projection_oper_ext.oneD_G_operator_vol,H_mat_ext, soln_basis_ext.oneD_vol_operator.n(),n_quad_pts_1D_ext,dvtilde_duh_surf_ext);
-        }
-        else if(neighbor_iface==2)
-        {
-            compute_dvtilde_duh(soln_basis_projection_oper_ext.oneD_G_operator_vol,soln_basis_projection_oper_ext.oneD_G_operator_surf[0],soln_basis_projection_oper_ext.oneD_G_operator_vol,H_mat_ext, soln_basis_ext.oneD_vol_operator.n(),n_quad_pts_1D_ext,dvtilde_duh_surf_ext);
-        }
-        else if(neighbor_iface==3)
-        {
-            compute_dvtilde_duh(soln_basis_projection_oper_ext.oneD_G_operator_vol,soln_basis_projection_oper_ext.oneD_G_operator_surf[1],soln_basis_projection_oper_ext.oneD_G_operator_vol,H_mat_ext, soln_basis_ext.oneD_vol_operator.n(),n_quad_pts_1D_ext,dvtilde_duh_surf_ext);
-        }
-        else if(neighbor_iface==4)
-        {
-            compute_dvtilde_duh(soln_basis_projection_oper_ext.oneD_G_operator_vol,soln_basis_projection_oper_ext.oneD_G_operator_vol,soln_basis_projection_oper_ext.oneD_G_operator_surf[0],H_mat_ext, soln_basis_ext.oneD_vol_operator.n(),n_quad_pts_1D_ext,dvtilde_duh_surf_ext);
-        }
-        else if(neighbor_iface==5)
-        {
-            compute_dvtilde_duh(soln_basis_projection_oper_ext.oneD_G_operator_vol,soln_basis_projection_oper_ext.oneD_G_operator_vol,soln_basis_projection_oper_ext.oneD_G_operator_surf[1],H_mat_ext, soln_basis_ext.oneD_vol_operator.n(),n_quad_pts_1D_ext,dvtilde_duh_surf_ext);
+            compute_H_mat(soln_basis_projection_oper_int.oneD_G_operator_vol, soln_basis_int.oneD_vol_operator, metric_oper_int.det_Jac_vol, dv_du_int, H_mat_int);
+            compute_H_mat(soln_basis_projection_oper_ext.oneD_G_operator_vol, soln_basis_ext.oneD_vol_operator, metric_oper_ext.det_Jac_vol, dv_du_ext, H_mat_ext);
+            compute_dvtilde_duh(soln_basis_projection_oper_int.oneD_G_operator_vol,soln_basis_projection_oper_int.oneD_G_operator_vol,soln_basis_projection_oper_int.oneD_G_operator_vol,H_mat_int, soln_basis_int.oneD_vol_operator.n(),n_quad_pts_1D_int,dvtilde_duh_vol_int);
+            compute_dvtilde_duh(soln_basis_projection_oper_ext.oneD_G_operator_vol,soln_basis_projection_oper_ext.oneD_G_operator_vol,soln_basis_projection_oper_ext.oneD_G_operator_vol,H_mat_ext, soln_basis_ext.oneD_vol_operator.n(),n_quad_pts_1D_ext,dvtilde_duh_vol_ext);
+            if(iface==0)
+            {
+                compute_dvtilde_duh(soln_basis_projection_oper_int.oneD_G_operator_surf[0],soln_basis_projection_oper_int.oneD_G_operator_vol,soln_basis_projection_oper_int.oneD_G_operator_vol,H_mat_int, soln_basis_int.oneD_vol_operator.n(),n_quad_pts_1D_int,dvtilde_duh_surf_int);
+            }
+            else if(iface==1)
+            {
+                compute_dvtilde_duh(soln_basis_projection_oper_int.oneD_G_operator_surf[1],soln_basis_projection_oper_int.oneD_G_operator_vol,soln_basis_projection_oper_int.oneD_G_operator_vol,H_mat_int, soln_basis_int.oneD_vol_operator.n(),n_quad_pts_1D_int,dvtilde_duh_surf_int);
+            }
+            else if(iface==2)
+            {
+                compute_dvtilde_duh(soln_basis_projection_oper_int.oneD_G_operator_vol,soln_basis_projection_oper_int.oneD_G_operator_surf[0],soln_basis_projection_oper_int.oneD_G_operator_vol,H_mat_int, soln_basis_int.oneD_vol_operator.n(),n_quad_pts_1D_int,dvtilde_duh_surf_int);
+            }
+            else if(iface==3)
+            {
+                compute_dvtilde_duh(soln_basis_projection_oper_int.oneD_G_operator_vol,soln_basis_projection_oper_int.oneD_G_operator_surf[1],soln_basis_projection_oper_int.oneD_G_operator_vol,H_mat_int, soln_basis_int.oneD_vol_operator.n(),n_quad_pts_1D_int,dvtilde_duh_surf_int);
+            }
+            else if(iface==4)
+            {
+                compute_dvtilde_duh(soln_basis_projection_oper_int.oneD_G_operator_vol,soln_basis_projection_oper_int.oneD_G_operator_vol,soln_basis_projection_oper_int.oneD_G_operator_surf[0],H_mat_int, soln_basis_int.oneD_vol_operator.n(),n_quad_pts_1D_int,dvtilde_duh_surf_int);
+            }
+            else if(iface==5)
+            {
+                compute_dvtilde_duh(soln_basis_projection_oper_int.oneD_G_operator_vol,soln_basis_projection_oper_int.oneD_G_operator_vol,soln_basis_projection_oper_int.oneD_G_operator_surf[1],H_mat_int, soln_basis_int.oneD_vol_operator.n(),n_quad_pts_1D_int,dvtilde_duh_surf_int);
+            }
+            if(neighbor_iface==0)
+            {
+                compute_dvtilde_duh(soln_basis_projection_oper_ext.oneD_G_operator_surf[0],soln_basis_projection_oper_ext.oneD_G_operator_vol,soln_basis_projection_oper_ext.oneD_G_operator_vol,H_mat_ext, soln_basis_ext.oneD_vol_operator.n(),n_quad_pts_1D_ext,dvtilde_duh_surf_ext);
+            }
+            else if(neighbor_iface==1)
+            {
+                compute_dvtilde_duh(soln_basis_projection_oper_ext.oneD_G_operator_surf[1],soln_basis_projection_oper_ext.oneD_G_operator_vol,soln_basis_projection_oper_ext.oneD_G_operator_vol,H_mat_ext, soln_basis_ext.oneD_vol_operator.n(),n_quad_pts_1D_ext,dvtilde_duh_surf_ext);
+            }
+            else if(neighbor_iface==2)
+            {
+                compute_dvtilde_duh(soln_basis_projection_oper_ext.oneD_G_operator_vol,soln_basis_projection_oper_ext.oneD_G_operator_surf[0],soln_basis_projection_oper_ext.oneD_G_operator_vol,H_mat_ext, soln_basis_ext.oneD_vol_operator.n(),n_quad_pts_1D_ext,dvtilde_duh_surf_ext);
+            }
+            else if(neighbor_iface==3)
+            {
+                compute_dvtilde_duh(soln_basis_projection_oper_ext.oneD_G_operator_vol,soln_basis_projection_oper_ext.oneD_G_operator_surf[1],soln_basis_projection_oper_ext.oneD_G_operator_vol,H_mat_ext, soln_basis_ext.oneD_vol_operator.n(),n_quad_pts_1D_ext,dvtilde_duh_surf_ext);
+            }
+            else if(neighbor_iface==4)
+            {
+                compute_dvtilde_duh(soln_basis_projection_oper_ext.oneD_G_operator_vol,soln_basis_projection_oper_ext.oneD_G_operator_vol,soln_basis_projection_oper_ext.oneD_G_operator_surf[0],H_mat_ext, soln_basis_ext.oneD_vol_operator.n(),n_quad_pts_1D_ext,dvtilde_duh_surf_ext);
+            }
+            else if(neighbor_iface==5)
+            {
+                compute_dvtilde_duh(soln_basis_projection_oper_ext.oneD_G_operator_vol,soln_basis_projection_oper_ext.oneD_G_operator_vol,soln_basis_projection_oper_ext.oneD_G_operator_surf[1],H_mat_ext, soln_basis_ext.oneD_vol_operator.n(),n_quad_pts_1D_ext,dvtilde_duh_surf_ext);
+            }
         }
     }
 
@@ -2883,20 +2872,23 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_face_term_strong(
     std::array<std::array<double,nstate>,nstate> dutilde_dvtilde_vol_int;
     std::array<std::array<double,nstate>,nstate> dutilde_dvtilde_face_ext;
     std::array<std::array<double,nstate>,nstate> dutilde_dvtilde_vol_ext;
-    if(compute_dRdW_strong)
+    if constexpr(std::is_same<adtype,double>::value)
     {
-        for(unsigned int s1=0; s1<nstate; ++s1)
+        if(this->compute_dRdW_strong)
         {
-            for(unsigned int s2=0; s2<nstate; ++s2)
+            for(unsigned int s1=0; s1<nstate; ++s1)
             {
-                dterm1int_duhint[s1][s2].reinit(n_quad_pts_vol_int,n_shape_fns_int);
-                dterm1ext_duhext[s1][s2].reinit(n_quad_pts_vol_ext,n_shape_fns_ext);
-                dterm2int_duhint[s1][s2].reinit(n_face_quad_pts,n_shape_fns_int);
-                dterm2ext_duhext[s1][s2].reinit(n_face_quad_pts,n_shape_fns_ext);
-                dterm3int_duhint[s1][s2].reinit(n_face_quad_pts,n_shape_fns_int);
-                dterm3int_duhext[s1][s2].reinit(n_face_quad_pts,n_shape_fns_ext);
-                dterm3ext_duhint[s1][s2].reinit(n_face_quad_pts,n_shape_fns_int);
-                dterm3ext_duhext[s1][s2].reinit(n_face_quad_pts,n_shape_fns_ext);
+                for(unsigned int s2=0; s2<nstate; ++s2)
+                {
+                    dterm1int_duhint[s1][s2].reinit(n_quad_pts_vol_int,n_shape_fns_int);
+                    dterm1ext_duhext[s1][s2].reinit(n_quad_pts_vol_ext,n_shape_fns_ext);
+                    dterm2int_duhint[s1][s2].reinit(n_face_quad_pts,n_shape_fns_int);
+                    dterm2ext_duhext[s1][s2].reinit(n_face_quad_pts,n_shape_fns_ext);
+                    dterm3int_duhint[s1][s2].reinit(n_face_quad_pts,n_shape_fns_int);
+                    dterm3int_duhext[s1][s2].reinit(n_face_quad_pts,n_shape_fns_ext);
+                    dterm3ext_duhint[s1][s2].reinit(n_face_quad_pts,n_shape_fns_int);
+                    dterm3ext_duhext[s1][s2].reinit(n_face_quad_pts,n_shape_fns_ext);
+                }
             }
         }
     }
@@ -2933,10 +2925,13 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_face_term_strong(
             soln_state_face_int = pde_physics.compute_conservative_variables_from_entropy_variables (entropy_var_face_int);
             std::array<adtype,nstate> soln_state_face_ext;
             soln_state_face_ext = pde_physics.compute_conservative_variables_from_entropy_variables (entropy_var_face_ext);
-            if(compute_dRdW_strong)
+            if constexpr(std::is_same<adtype,double>::value)
             {
-                pde_physics.get_d_conservative_var_d_entropy_var(dutilde_dvtilde_face_int, entropy_var_face_int);
-                pde_physics.get_d_conservative_var_d_entropy_var(dutilde_dvtilde_face_ext, entropy_var_face_ext);
+                if(this->compute_dRdW_strong)
+                {
+                    pde_physics.get_d_conservative_var_d_entropy_var(dutilde_dvtilde_face_int, entropy_var_face_int);
+                    pde_physics.get_d_conservative_var_d_entropy_var(dutilde_dvtilde_face_ext, entropy_var_face_ext);
+                }
             }
 
             //only do the n_quad_1D vol points that give non-zero entries from Hadamard product.
@@ -2965,9 +2960,12 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_face_term_strong(
                 }
                 std::array<adtype,nstate> soln_state;
                 soln_state = pde_physics.compute_conservative_variables_from_entropy_variables (entropy_var);
-                if(compute_dRdW_strong)
+                if constexpr(std::is_same<adtype,double>::value)
                 {
-                    pde_physics.get_d_conservative_var_d_entropy_var(dutilde_dvtilde_vol_int, entropy_var);
+                    if(this->compute_dRdW_strong)
+                    {
+                        pde_physics.get_d_conservative_var_d_entropy_var(dutilde_dvtilde_vol_int, entropy_var);
+                    }
                 }
                 //Note that the flux basis is collocated on the volume cubature set so we don't need to evaluate the entropy variables
                 //on the volume set then transform back to the conservative variables since the flux basis volume
@@ -2993,52 +2991,49 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_face_term_strong(
                     //only store the dim not zero in reference space bc dot product with unit ref normal later.
                     surface_ref_2pt_flux_int[istate][iquad_face * n_quad_pts_1D_int + column_index] = conv_ref_flux_2pt[dim_not_zero_int];
                 }
-                if(compute_dRdW_strong)
+                if constexpr(std::is_same<adtype,double>::value)
                 {
-                    std::array<std::array<std::array<double,nstate>,nstate>,2> dFsplit_dutilde = pde_physics.convective_numerical_split_flux_derivative(soln_state, soln_state_face_int, metric_cofactor_split, unit_ref_normal_int);
-                    double mult_factor=0;
-                    const int iface_1D = iface % 2;//the reference face number
-                    if(iface==0 || iface==1)
+                    if(this->compute_dRdW_strong)
                     {
-                        const int m = iquad_face % n_quad_pts_1D_int;
-                        const int n = iquad_face/n_quad_pts_1D_int;
-                        const int L = iquad_vol % n_quad_pts_1D_int;
-                        mult_factor = flux_basis_int.oneD_surf_operator[iface_1D][0][L]*surf_quad_weights[iquad_face];
-                    }
-                    else if(iface==2 || iface==3)
-                    {
-                        const int l = iquad_face % n_quad_pts_1D_int;
-                        const int n = iquad_face/n_quad_pts_1D_int;
-                        const int M = (iquad_vol/n_quad_pts_1D_int) % n_quad_pts_1D_int;
-                        mult_factor = flux_basis_int.oneD_surf_operator[iface_1D][0][M]*surf_quad_weights[iquad_face];
-                    }
-                    else if(iface==4 || iface==5)
-                    {
-                        const int l = iquad_face % n_quad_pts_1D_int;
-                        const int m = iquad_face/n_quad_pts_1D_int;
-                        const int N = (iquad_vol/n_quad_pts_1D_int) / n_quad_pts_1D_int;
-                        mult_factor = flux_basis_int.oneD_surf_operator[iface_1D][0][N]*surf_quad_weights[iquad_face];
-                    }
-                    // Form term1 and term2
-                    for(unsigned int s1=0; s1<nstate; ++s1)
-                    {
-                        for(unsigned int s2=0; s2<nstate; ++s2)
+                        std::array<std::array<std::array<double,nstate>,nstate>,2> dFsplit_dutilde = pde_physics.convective_numerical_split_flux_derivative(soln_state, soln_state_face_int, metric_cofactor_split, unit_ref_normal_int);
+                        double mult_factor=0;
+                        const int iface_1D = iface % 2;//the reference face number
+                        if(iface==0 || iface==1)
                         {
-                            for(unsigned int idof = 0; idof<n_shape_fns_int; ++idof)
+                            const int L = iquad_vol % n_quad_pts_1D_int;
+                            mult_factor = flux_basis_int.oneD_surf_operator[iface_1D][0][L]*surf_quad_weights[iquad_face];
+                        }
+                        else if(iface==2 || iface==3)
+                        {
+                            const int M = (iquad_vol/n_quad_pts_1D_int) % n_quad_pts_1D_int;
+                            mult_factor = flux_basis_int.oneD_surf_operator[iface_1D][0][M]*surf_quad_weights[iquad_face];
+                        }
+                        else if(iface==4 || iface==5)
+                        {
+                            const int N = (iquad_vol/n_quad_pts_1D_int) / n_quad_pts_1D_int;
+                            mult_factor = flux_basis_int.oneD_surf_operator[iface_1D][0][N]*surf_quad_weights[iquad_face];
+                        }
+                        // Form term1 and term2
+                        for(unsigned int s1=0; s1<nstate; ++s1)
+                        {
+                            for(unsigned int s2=0; s2<nstate; ++s2)
                             {
-                                dterm1int_duhint[s1][s2][iquad_vol][idof]=0;
-                                for(unsigned int sk=0; sk<nstate; ++sk)
+                                for(unsigned int idof = 0; idof<n_shape_fns_int; ++idof)
                                 {
-                                    for(unsigned int sl=0; sl<nstate; ++sl)
+                                    dterm1int_duhint[s1][s2][iquad_vol][idof]=0;
+                                    for(unsigned int sk=0; sk<nstate; ++sk)
                                     {
-                                        dterm1int_duhint[s1][s2][iquad_vol][idof]+= mult_factor*(dFsplit_dutilde[0][s1][sk]*dutilde_dvtilde_vol_int[sk][sl]*dvtilde_duh_vol_int[sl][s2][iquad_vol][idof] + dFsplit_dutilde[1][s1][sk]*dutilde_dvtilde_face_int[sk][sl]*dvtilde_duh_surf_int[sl][s2][iquad_face][idof]);
-                                        dterm2int_duhint[s1][s2][iquad_face][idof] -= mult_factor*(dFsplit_dutilde[0][s1][sk]*dutilde_dvtilde_vol_int[sk][sl]*dvtilde_duh_vol_int[sl][s2][iquad_vol][idof] + dFsplit_dutilde[1][s1][sk]*dutilde_dvtilde_face_int[sk][sl]*dvtilde_duh_surf_int[sl][s2][iquad_face][idof]);
+                                        for(unsigned int sl=0; sl<nstate; ++sl)
+                                        {
+                                            dterm1int_duhint[s1][s2][iquad_vol][idof]+= mult_factor*(dFsplit_dutilde[0][s1][sk]*dutilde_dvtilde_vol_int[sk][sl]*dvtilde_duh_vol_int[sl][s2][iquad_vol][idof] + dFsplit_dutilde[1][s1][sk]*dutilde_dvtilde_face_int[sk][sl]*dvtilde_duh_surf_int[sl][s2][iquad_face][idof]);
+                                            dterm2int_duhint[s1][s2][iquad_face][idof] -= mult_factor*(dFsplit_dutilde[0][s1][sk]*dutilde_dvtilde_vol_int[sk][sl]*dvtilde_duh_vol_int[sl][s2][iquad_vol][idof] + dFsplit_dutilde[1][s1][sk]*dutilde_dvtilde_face_int[sk][sl]*dvtilde_duh_surf_int[sl][s2][iquad_face][idof]);
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
-                } // if dRdW_strong
+                    } // if dRdW_strong
+                }
             }
             for(unsigned int row_index = iquad_face * n_quad_pts_1D_ext, column_index = 0; 
                 column_index < n_quad_pts_1D_ext;
@@ -3071,9 +3066,12 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_face_term_strong(
                 }
                 std::array<adtype,nstate> soln_state;
                 soln_state = pde_physics.compute_conservative_variables_from_entropy_variables (entropy_var);
-                if(compute_dRdW_strong)
+                if constexpr(std::is_same<adtype,double>::value)
                 {
-                    pde_physics.get_d_conservative_var_d_entropy_var(dutilde_dvtilde_vol_ext, entropy_var);
+                    if(this->compute_dRdW_strong)
+                    {
+                        pde_physics.get_d_conservative_var_d_entropy_var(dutilde_dvtilde_vol_ext, entropy_var);
+                    }
                 }
                 //Compute the physical flux
                 std::array<dealii::Tensor<1,dim,adtype>,nstate> conv_phys_flux_2pt;
@@ -3088,52 +3086,49 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_face_term_strong(
                     //only store the dim not zero in reference space bc dot product with unit ref normal later.
                     surface_ref_2pt_flux_ext[istate][iquad_face * n_quad_pts_1D_ext + column_index] = conv_ref_flux_2pt[dim_not_zero_ext];
                 }
-                if(compute_dRdW_strong)
+                if constexpr(std::is_same<adtype,double>::value)
                 {
-                    std::array<std::array<std::array<double,nstate>,nstate>,2> dFsplit_dutilde = pde_physics.convective_numerical_split_flux_derivative(soln_state, soln_state_face_ext, metric_cofactor_split, unit_ref_normal_ext);
-                    double mult_factor=0;
-                    const int iface_1D = neighbor_iface % 2;//the reference face number
-                    if(iface==0 || iface==1)
+                    if(this->compute_dRdW_strong)
                     {
-                        const int m = iquad_face % n_quad_pts_1D_ext;
-                        const int n = iquad_face/n_quad_pts_1D_ext;
-                        const int L = iquad_vol % n_quad_pts_1D_ext;
-                        mult_factor = flux_basis_ext.oneD_surf_operator[iface_1D][0][L]*surf_quad_weights[iquad_face];
-                    }
-                    else if(iface==2 || iface==3)
-                    {
-                        const int l = iquad_face % n_quad_pts_1D_ext;
-                        const int n = iquad_face/n_quad_pts_1D_ext;
-                        const int M = (iquad_vol/n_quad_pts_1D_ext) % n_quad_pts_1D_ext;
-                        mult_factor = flux_basis_ext.oneD_surf_operator[iface_1D][0][M]*surf_quad_weights[iquad_face];
-                    }
-                    else if(iface==4 || iface==5)
-                    {
-                        const int l = iquad_face % n_quad_pts_1D_ext;
-                        const int m = iquad_face/n_quad_pts_1D_ext;
-                        const int N = (iquad_vol/n_quad_pts_1D_ext) / n_quad_pts_1D_ext;
-                        mult_factor = flux_basis_ext.oneD_surf_operator[iface_1D][0][N]*surf_quad_weights[iquad_face];
-                    }
-                    // Form term1 and term2
-                    for(unsigned int s1=0; s1<nstate; ++s1)
-                    {
-                        for(unsigned int s2=0; s2<nstate; ++s2)
+                        std::array<std::array<std::array<double,nstate>,nstate>,2> dFsplit_dutilde = pde_physics.convective_numerical_split_flux_derivative(soln_state, soln_state_face_ext, metric_cofactor_split, unit_ref_normal_ext);
+                        double mult_factor=0;
+                        const int iface_1D = neighbor_iface % 2;//the reference face number
+                        if(iface==0 || iface==1)
                         {
-                            for(unsigned int idof = 0; idof<n_shape_fns_ext; ++idof)
+                            const int L = iquad_vol % n_quad_pts_1D_ext;
+                            mult_factor = flux_basis_ext.oneD_surf_operator[iface_1D][0][L]*surf_quad_weights[iquad_face];
+                        }
+                        else if(iface==2 || iface==3)
+                        {
+                            const int M = (iquad_vol/n_quad_pts_1D_ext) % n_quad_pts_1D_ext;
+                            mult_factor = flux_basis_ext.oneD_surf_operator[iface_1D][0][M]*surf_quad_weights[iquad_face];
+                        }
+                        else if(iface==4 || iface==5)
+                        {
+                            const int N = (iquad_vol/n_quad_pts_1D_ext) / n_quad_pts_1D_ext;
+                            mult_factor = flux_basis_ext.oneD_surf_operator[iface_1D][0][N]*surf_quad_weights[iquad_face];
+                        }
+                        // Form term1 and term2
+                        for(unsigned int s1=0; s1<nstate; ++s1)
+                        {
+                            for(unsigned int s2=0; s2<nstate; ++s2)
                             {
-                                dterm1ext_duhext[s1][s2][iquad_vol][idof]=0;
-                                for(unsigned int sk=0; sk<nstate; ++sk)
+                                for(unsigned int idof = 0; idof<n_shape_fns_ext; ++idof)
                                 {
-                                    for(unsigned int sl=0; sl<nstate; ++sl)
+                                    dterm1ext_duhext[s1][s2][iquad_vol][idof]=0;
+                                    for(unsigned int sk=0; sk<nstate; ++sk)
                                     {
-                                        dterm1ext_duhext[s1][s2][iquad_vol][idof]+= mult_factor*(dFsplit_dutilde[0][s1][sk]*dutilde_dvtilde_vol_ext[sk][sl]*dvtilde_duh_vol_ext[sl][s2][iquad_vol][idof] + dFsplit_dutilde[1][s1][sk]*dutilde_dvtilde_face_ext[sk][sl]*dvtilde_duh_surf_ext[sl][s2][iquad_face][idof]);
-                                        dterm2ext_duhext[s1][s2][iquad_face][idof] -= mult_factor*(dFsplit_dutilde[0][s1][sk]*dutilde_dvtilde_vol_ext[sk][sl]*dvtilde_duh_vol_ext[sl][s2][iquad_vol][idof] + dFsplit_dutilde[1][s1][sk]*dutilde_dvtilde_face_ext[sk][sl]*dvtilde_duh_surf_ext[sl][s2][iquad_face][idof]);
+                                        for(unsigned int sl=0; sl<nstate; ++sl)
+                                        {
+                                            dterm1ext_duhext[s1][s2][iquad_vol][idof]+= mult_factor*(dFsplit_dutilde[0][s1][sk]*dutilde_dvtilde_vol_ext[sk][sl]*dvtilde_duh_vol_ext[sl][s2][iquad_vol][idof] + dFsplit_dutilde[1][s1][sk]*dutilde_dvtilde_face_ext[sk][sl]*dvtilde_duh_surf_ext[sl][s2][iquad_face][idof]);
+                                            dterm2ext_duhext[s1][s2][iquad_face][idof] -= mult_factor*(dFsplit_dutilde[0][s1][sk]*dutilde_dvtilde_vol_ext[sk][sl]*dvtilde_duh_vol_ext[sl][s2][iquad_vol][idof] + dFsplit_dutilde[1][s1][sk]*dutilde_dvtilde_face_ext[sk][sl]*dvtilde_duh_surf_ext[sl][s2][iquad_face][idof]);
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
-                } // if dRdW_strong
+                    } // if dRdW_strong
+                }
             }
         }
 
@@ -3244,10 +3239,13 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_face_term_strong(
         soln_state_int = pde_physics.compute_conservative_variables_from_entropy_variables (entropy_var_face_int);
         std::array<adtype,nstate> soln_state_ext;
         soln_state_ext = pde_physics.compute_conservative_variables_from_entropy_variables (entropy_var_face_ext);
-        if(compute_dRdW_strong)
+        if constexpr(std::is_same<adtype,double>::value)
         {
-            pde_physics.get_d_conservative_var_d_entropy_var(dutilde_dvtilde_face_int, entropy_var_face_int);
-            pde_physics.get_d_conservative_var_d_entropy_var(dutilde_dvtilde_face_ext, entropy_var_face_ext);
+            if(this->compute_dRdW_strong)
+            {
+                pde_physics.get_d_conservative_var_d_entropy_var(dutilde_dvtilde_face_int, entropy_var_face_int);
+                pde_physics.get_d_conservative_var_d_entropy_var(dutilde_dvtilde_face_ext, entropy_var_face_ext);
+            }
         }
 
         if(!this->all_parameters->use_split_form && !this->all_parameters->use_curvilinear_split_form){
@@ -3303,48 +3301,51 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_face_term_strong(
             conv_num_flux_dot_n[istate][iquad] = face_Jac_norm_scaled * conv_num_flux_dot_n_at_q[istate];
            // diss_auxi_num_flux_dot_n[istate][iquad] = face_Jac_norm_scaled * diss_auxi_num_flux_dot_n_at_q[istate];
         }
-        if(compute_dRdW_strong)
+        if constexpr(std::is_same<adtype,double>::value)
         {
-            dealii::Tensor<1,dim,double> metric_identity = 0;
-            for(unsigned int d=0; d<dim; ++d)
+            if(this->compute_dRdW_strong)
             {
-                metric_identity[d][d]=1.0;
-            }
-            std::array<std::array<std::array<double,nstate>,nstate>,2> dFsplit_dutilde = pde_physics.convective_numerical_split_flux_derivative(soln_state_int, soln_state_ext, metric_identity, unit_phys_normal_int);
-
-            for(unsigned int s1=0; s1<nstate; ++s1)
-            {
-                for(unsigned int s2=0; s2<nstate; ++s2)
+                dealii::Tensor<2,dim,double> metric_identity;
+                for(unsigned int d=0; d<dim; ++d)
                 {
-                    for(unsigned int idof=0; idof<n_shape_fns_int; ++idof)
+                    metric_identity[d][d]=1.0;
+                }
+                std::array<std::array<std::array<double,nstate>,nstate>,2> dFsplit_dutilde = pde_physics.convective_numerical_split_flux_derivative(soln_state_int, soln_state_ext, metric_identity, unit_phys_normal_int);
+
+                for(unsigned int s1=0; s1<nstate; ++s1)
+                {
+                    for(unsigned int s2=0; s2<nstate; ++s2)
                     {
-                        double sum_int = 0;
-                        for(unsigned int sk=0; sk<nstate; ++sk)
+                        for(unsigned int idof=0; idof<n_shape_fns_int; ++idof)
                         {
-                            for(unsigned int sl=0; sl<nstate; ++sl)
+                            double sum_int = 0;
+                            for(unsigned int sk=0; sk<nstate; ++sk)
                             {
-                                sum_int += dFsplit_dutilde[0][s1][sk]*dutilde_dvtilde_face_int[sk][sl]*dvtilde_duh_surf_int[sl][s2][iquad][idof];
+                                for(unsigned int sl=0; sl<nstate; ++sl)
+                                {
+                                    sum_int += dFsplit_dutilde[0][s1][sk]*dutilde_dvtilde_face_int[sk][sl]*dvtilde_duh_surf_int[sl][s2][iquad][idof];
+                                }
                             }
+                            dterm3int_duhint[s1][s2][iquad][idof] = JxW_face[iquad]*sum_int;
+                            dterm3ext_duhint[s1][s2][iquad][idof] = -dterm3int_duhint[s1][s2][iquad][idof];
                         }
-                        dterm3int_duhint[s1][s2][iquad][idof] = JxW_face[iquad]*sum_int;
-                        dterm3ext_duhint[s1][s2][iquad][idof] = -dterm3int_duhint[s1][s2][iquad][idof];
-                    }
-                    for(unsigned int idof=0; idof<n_shape_fns_ext; ++idof)
-                    {
-                        double sum_ext = 0;
-                        for(unsigned int sk=0; sk<nstate; ++sk)
+                        for(unsigned int idof=0; idof<n_shape_fns_ext; ++idof)
                         {
-                            for(unsigned int sl=0; sl<nstate; ++sl)
+                            double sum_ext = 0;
+                            for(unsigned int sk=0; sk<nstate; ++sk)
                             {
-                                sum_ext += dFsplit_dutilde[1][s1][sk]*dutilde_dvtilde_face_ext[sk][sl]*dvtilde_duh_surf_ext[sl][s2][iquad][idof];
+                                for(unsigned int sl=0; sl<nstate; ++sl)
+                                {
+                                    sum_ext += dFsplit_dutilde[1][s1][sk]*dutilde_dvtilde_face_ext[sk][sl]*dvtilde_duh_surf_ext[sl][s2][iquad][idof];
+                                }
                             }
+                            dterm3int_duhext[s1][s2][iquad][idof] = JxW_face[iquad]*sum_ext;
+                            dterm3ext_duhext[s1][s2][iquad][idof] = -dterm3int_duhext[s1][s2][iquad][idof];
                         }
-                        dterm3int_duhext[s1][s2][iquad][idof] = JxW_face[iquad]*sum_ext;
-                        dterm3ext_duhext[s1][s2][iquad][idof] = -dterm3int_duhext[s1][s2][iquad][idof];
                     }
                 }
-            }
-        } // compute_dRdW_strong
+            } // compute_dRdW_strong
+        }
     }
 
     // Compute RHS
@@ -3461,126 +3462,129 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_face_term_strong(
         }
     }
     
-    if(compute_dRdW_strong)
+    if constexpr(std::is_same<adtype,double>::value)
     {
-        std::vector<real> ones_vol_int(n_quad_pts_vol_int, 1.0);
-        std::vector<real> ones_vol_int(n_quad_pts_vol_ext, 1.0);
-        std::vector<real> ones_face(n_face_quad_pts, 1.0);
-        for(unsigned int s1=0; s1<nstate; ++s1)
+        if(this->compute_dRdW_strong)
         {
-            for(unsigned int s2=0; s2<nstate; ++s2)
+            std::vector<real> ones_vol_int(n_quad_pts_vol_int, 1.0);
+            std::vector<real> ones_vol_ext(n_quad_pts_vol_ext, 1.0);
+            std::vector<real> ones_face(n_face_quad_pts, 1.0);
+            for(unsigned int s1=0; s1<nstate; ++s1)
             {
-                // Form dRint_dWint
-                for(unsigned int idof_sol = 0; idof_sol<n_shape_fns_int; ++idof_sol)
+                for(unsigned int s2=0; s2<nstate; ++s2)
                 {
-                    std::vector<adtype> rhs_dRdW(n_shape_fns_int);
-                    std::vector<real> dterm1_at_quads(n_quad_pts_vol_int);
-                    std::vector<real> dterm2_at_quads(n_face_quad_pts);
-                    std::vector<real> dterm3_at_quads(n_face_quad_pts);
-                    for(unsigned int q_=0; q_<n_quad_pts_vol_int; ++q_)
+                    // Form dRint_dWint
+                    for(unsigned int idof_sol = 0; idof_sol<n_shape_fns_int; ++idof_sol)
                     {
-                        dterm1_at_quads[q_] = dterm1int_duhint[s1][s2][q_][idof_sol];
+                        std::vector<adtype> rhs_dRdW(n_shape_fns_int);
+                        std::vector<real> dterm1_at_quads(n_quad_pts_vol_int);
+                        std::vector<real> dterm2_at_quads(n_face_quad_pts);
+                        std::vector<real> dterm3_at_quads(n_face_quad_pts);
+                        for(unsigned int q_=0; q_<n_quad_pts_vol_int; ++q_)
+                        {
+                            dterm1_at_quads[q_] = dterm1int_duhint[s1][s2][q_][idof_sol];
+                        }
+                        for(unsigned int q_=0; q_<n_face_quad_pts; ++q_)
+                        {
+                            dterm2_at_quads[q_] = dterm2int_duhint[s1][s2][q_][idof_sol];
+                            dterm3_at_quads[q_] = dterm3int_duhint[s1][s2][q_][idof_sol];
+                        }
+                        soln_basis_int.inner_product_1D(dterm1_at_quads, ones_vol_int, rhs_dRdW, soln_basis_int.oneD_vol_operator, false, -1.0);
+                        soln_basis_int.inner_product_surface_1D(iface, dterm2_at_quads, 
+                                                            ones_face, rhs_dRdW, 
+                                                            soln_basis_int.oneD_surf_operator, 
+                                                            soln_basis_int.oneD_vol_operator,
+                                                            true, -1.0);//adding=true, scaled by factor=-1.0 bc subtract it
+                        soln_basis_int.inner_product_surface_1D(iface, dterm3_at_quads, 
+                                                            ones_face, rhs_dRdW, 
+                                                            soln_basis_int.oneD_surf_operator, 
+                                                            soln_basis_int.oneD_vol_operator,
+                                                            true, -1.0);//adding=true, scaled by factor=-1.0 bc subtract it
+                        const unsigned int idof_sol_global = s2*n_shape_fns_int + idof_sol;
+                        for(unsigned int idof_res = 0; idof_res<n_shape_fns_int; ++idof_res)
+                        {
+                            const unsigned int idof_res_global = s1*n_shape_fns_int + idof_res;
+                            this->dRint_dWint_face[idof_res_global][idof_sol_global] = rhs_dRdW[idof_res];
+                        }                    
                     }
-                    for(unsigned int q_=0; q_<n_face_quad_pts; ++q_)
+                    // Form dRint_dWext
+                    for(unsigned int idof_sol = 0; idof_sol<n_shape_fns_ext; ++idof_sol)
                     {
-                        dterm2_at_quads[q_] = dterm2int_duhint[s1][s2][q_][idof_sol];
-                        dterm3_at_quads[q_] = dterm3int_duhint[s1][s2][q_][idof_sol];
+                        std::vector<adtype> rhs_dRdW(n_shape_fns_int);
+                        std::vector<real> dterm3_at_quads(n_face_quad_pts);
+                        for(unsigned int q_=0; q_<n_face_quad_pts; ++q_)
+                        {
+                            dterm3_at_quads[q_] = dterm3int_duhext[s1][s2][q_][idof_sol];
+                        }
+                        soln_basis_int.inner_product_surface_1D(iface, dterm3_at_quads, 
+                                                            ones_face, rhs_dRdW, 
+                                                            soln_basis_int.oneD_surf_operator, 
+                                                            soln_basis_int.oneD_vol_operator,
+                                                            false, -1.0);//adding=true, scaled by factor=-1.0 bc subtract it
+                        const unsigned int idof_sol_global = s2*n_shape_fns_ext + idof_sol;
+                        for(unsigned int idof_res = 0; idof_res<n_shape_fns_int; ++idof_res)
+                        {
+                            const unsigned int idof_res_global = s1*n_shape_fns_int + idof_res;
+                            this->dRint_dWext_face[idof_res_global][idof_sol_global] = rhs_dRdW[idof_res];
+                        }                    
                     }
-                    soln_basis_int.inner_product_1D(dterm1_at_quads, ones_vol_int, rhs_dRdW, soln_basis_int.oneD_vol_operator, false, -1.0);
-                    soln_basis_int.inner_product_surface_1D(iface, dterm2_at_quads, 
-                                                        ones_face, rhs_dRdW, 
-                                                        soln_basis_int.oneD_surf_operator, 
-                                                        soln_basis_int.oneD_vol_operator,
-                                                        true, -1.0);//adding=true, scaled by factor=-1.0 bc subtract it
-                    soln_basis_int.inner_product_surface_1D(iface, dterm3_at_quads, 
-                                                        ones_face, rhs_dRdW, 
-                                                        soln_basis_int.oneD_surf_operator, 
-                                                        soln_basis_int.oneD_vol_operator,
-                                                        true, -1.0);//adding=true, scaled by factor=-1.0 bc subtract it
-                    const unsigned int idof_sol_global = s2*n_shape_fns_int + idof_sol;
-                    for(unsigned int idof_res = 0; idof_res<n_shape_fns_int; ++idof_res)
-                    {
-                        const unsigned int idof_res_global = s1*n_shape_fns_int + idof_res;
-                        dRint_dWint_face[idof_res_global][idof_sol_global] = rhs_dRdW[idof_res];
-                    }                    
-                }
-                // Form dRint_dWext
-                for(unsigned int idof_sol = 0; idof_sol<n_shape_fns_ext; ++idof_sol)
-                {
-                    std::vector<adtype> rhs_dRdW(n_shape_fns_int);
-                    std::vector<real> dterm3_at_quads(n_face_quad_pts);
-                    for(unsigned int q_=0; q_<n_face_quad_pts; ++q_)
-                    {
-                        dterm3_at_quads[q_] = dterm3int_duhext[s1][s2][q_][idof_sol];
-                    }
-                    soln_basis_int.inner_product_surface_1D(iface, dterm3_at_quads, 
-                                                        ones_face, rhs_dRdW, 
-                                                        soln_basis_int.oneD_surf_operator, 
-                                                        soln_basis_int.oneD_vol_operator,
-                                                        false, -1.0);//adding=true, scaled by factor=-1.0 bc subtract it
-                    const unsigned int idof_sol_global = s2*n_shape_fns_ext + idof_sol;
-                    for(unsigned int idof_res = 0; idof_res<n_shape_fns_int; ++idof_res)
-                    {
-                        const unsigned int idof_res_global = s1*n_shape_fns_int + idof_res;
-                        dRint_dWext_face[idof_res_global][idof_sol_global] = rhs_dRdW[idof_res];
-                    }                    
-                }
-                
+                    
 
-                // Form dRext_dWext
-                for(unsigned int idof_sol = 0; idof_sol<n_shape_fns_ext; ++idof_sol)
-                {
-                    std::vector<adtype> rhs_dRdW(n_shape_fns_ext);
-                    std::vector<real> dterm1_at_quads(n_quad_pts_vol_ext);
-                    std::vector<real> dterm2_at_quads(n_face_quad_pts);
-                    std::vector<real> dterm3_at_quads(n_face_quad_pts);
-                    for(unsigned int q_=0; q_<n_quad_pts_vol_ext; ++q_)
+                    // Form dRext_dWext
+                    for(unsigned int idof_sol = 0; idof_sol<n_shape_fns_ext; ++idof_sol)
                     {
-                        dterm1_at_quads[q_] = dterm1ext_duhext[s1][s2][q_][idof_sol];
+                        std::vector<adtype> rhs_dRdW(n_shape_fns_ext);
+                        std::vector<real> dterm1_at_quads(n_quad_pts_vol_ext);
+                        std::vector<real> dterm2_at_quads(n_face_quad_pts);
+                        std::vector<real> dterm3_at_quads(n_face_quad_pts);
+                        for(unsigned int q_=0; q_<n_quad_pts_vol_ext; ++q_)
+                        {
+                            dterm1_at_quads[q_] = dterm1ext_duhext[s1][s2][q_][idof_sol];
+                        }
+                        for(unsigned int q_=0; q_<n_face_quad_pts; ++q_)
+                        {
+                            dterm2_at_quads[q_] = dterm2ext_duhext[s1][s2][q_][idof_sol];
+                            dterm3_at_quads[q_] = dterm3ext_duhext[s1][s2][q_][idof_sol];
+                        }
+                        soln_basis_ext.inner_product_1D(dterm1_at_quads, ones_vol_ext, rhs_dRdW, soln_basis_ext.oneD_vol_operator, false, -1.0);
+                        soln_basis_ext.inner_product_surface_1D(neighbor_iface, dterm2_at_quads, 
+                                                            ones_face, rhs_dRdW, 
+                                                            soln_basis_ext.oneD_surf_operator, 
+                                                            soln_basis_ext.oneD_vol_operator,
+                                                            true, -1.0);//adding=true, scaled by factor=-1.0 bc subtract it
+                        soln_basis_ext.inner_product_surface_1D(neighbor_iface, dterm3_at_quads, 
+                                                            ones_face, rhs_dRdW, 
+                                                            soln_basis_ext.oneD_surf_operator, 
+                                                            soln_basis_ext.oneD_vol_operator,
+                                                            true, -1.0);//adding=true, scaled by factor=-1.0 bc subtract it
+                        const unsigned int idof_sol_global = s2*n_shape_fns_ext + idof_sol;
+                        for(unsigned int idof_res = 0; idof_res<n_shape_fns_ext; ++idof_res)
+                        {
+                            const unsigned int idof_res_global = s1*n_shape_fns_ext + idof_res;
+                            this->dRext_dWext_face[idof_res_global][idof_sol_global] = rhs_dRdW[idof_res];
+                        }                    
                     }
-                    for(unsigned int q_=0; q_<n_face_quad_pts; ++q_)
+                    // Form dRext_dWint
+                    for(unsigned int idof_sol = 0; idof_sol<n_shape_fns_int; ++idof_sol)
                     {
-                        dterm2_at_quads[q_] = dterm2ext_duhext[s1][s2][q_][idof_sol];
-                        dterm3_at_quads[q_] = dterm3ext_duhext[s1][s2][q_][idof_sol];
+                        std::vector<adtype> rhs_dRdW(n_shape_fns_ext);
+                        std::vector<real> dterm3_at_quads(n_face_quad_pts);
+                        for(unsigned int q_=0; q_<n_face_quad_pts; ++q_)
+                        {
+                            dterm3_at_quads[q_] = dterm3ext_duhint[s1][s2][q_][idof_sol];
+                        }
+                        soln_basis_ext.inner_product_surface_1D(neighbor_iface, dterm3_at_quads, 
+                                                            ones_face, rhs_dRdW, 
+                                                            soln_basis_ext.oneD_surf_operator, 
+                                                            soln_basis_ext.oneD_vol_operator,
+                                                            false, -1.0);
+                        const unsigned int idof_sol_global = s2*n_shape_fns_int + idof_sol;
+                        for(unsigned int idof_res = 0; idof_res<n_shape_fns_ext; ++idof_res)
+                        {
+                            const unsigned int idof_res_global = s1*n_shape_fns_ext + idof_res;
+                            this->dRext_dWint_face[idof_res_global][idof_sol_global] = rhs_dRdW[idof_res];
+                        }                    
                     }
-                    soln_basis_ext.inner_product_1D(dterm1_at_quads, ones_vol_ext, rhs_dRdW, soln_basis_ext.oneD_vol_operator, false, -1.0);
-                    soln_basis_ext.inner_product_surface_1D(neighbor_iface, dterm2_at_quads, 
-                                                        ones_face, rhs_dRdW, 
-                                                        soln_basis_ext.oneD_surf_operator, 
-                                                        soln_basis_ext.oneD_vol_operator,
-                                                        true, -1.0);//adding=true, scaled by factor=-1.0 bc subtract it
-                    soln_basis_ext.inner_product_surface_1D(neighbor_iface, dterm3_at_quads, 
-                                                        ones_face, rhs_dRdW, 
-                                                        soln_basis_ext.oneD_surf_operator, 
-                                                        soln_basis_ext.oneD_vol_operator,
-                                                        true, -1.0);//adding=true, scaled by factor=-1.0 bc subtract it
-                    const unsigned int idof_sol_global = s2*n_shape_fns_ext + idof_sol;
-                    for(unsigned int idof_res = 0; idof_res<n_shape_fns_ext; ++idof_res)
-                    {
-                        const unsigned int idof_res_global = s1*n_shape_fns_ext + idof_res;
-                        dRext_dWext_face[idof_res_global][idof_sol_global] = rhs_dRdW[idof_res];
-                    }                    
-                }
-                // Form dRext_dWint
-                for(unsigned int idof_sol = 0; idof_sol<n_shape_fns_int; ++idof_sol)
-                {
-                    std::vector<adtype> rhs_dRdW(n_shape_fns_ext);
-                    std::vector<real> dterm3_at_quads(n_face_quad_pts);
-                    for(unsigned int q_=0; q_<n_face_quad_pts; ++q_)
-                    {
-                        dterm3_at_quads[q_] = dterm3ext_duhint[s1][s2][q_][idof_sol];
-                    }
-                    soln_basis_ext.inner_product_surface_1D(neighbor_iface, dterm3_at_quads, 
-                                                        ones_face, rhs_dRdW, 
-                                                        soln_basis_ext.oneD_surf_operator, 
-                                                        soln_basis_ext.oneD_vol_operator,
-                                                        false, -1.0);
-                    const unsigned int idof_sol_global = s2*n_shape_fns_int + idof_sol;
-                    for(unsigned int idof_res = 0; idof_res<n_shape_fns_ext; ++idof_res)
-                    {
-                        const unsigned int idof_res_global = s1*n_shape_fns_ext + idof_res;
-                        dRext_dWint_face[idof_res_global][idof_sol_global] = rhs_dRdW[idof_res];
-                    }                    
                 }
             }
         }
@@ -3610,8 +3614,8 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_face_term_strong(
     n_dofs_int, 
     n_dofs_ext, 
     n_face_quad_pts,
-    soln_basis_int.oneD_vol_operator.m();
-    soln_basis_int.oneD_vol_operator.n();
+    soln_basis_int.oneD_vol_operator.m(),
+    soln_basis_int.oneD_vol_operator.n(),
     soln_basis_int,
     soln_basis_ext,
     flux_basis_int,
@@ -3706,7 +3710,7 @@ void DGStrong<dim,nstate,real,MeshType>::apply_K_matrix(
 template <int dim, int nstate, typename real, typename MeshType>
 template <typename adtype>
 void DGStrong<dim,nstate,real,MeshType>::compute_gradbasis_T_vol_integral(
-    const unsigned int                                                 n_quad_pts,
+    const unsigned int                                                 /*n_quad_pts*/,
     const unsigned int                                                 n_dofs_cell,
     OPERATOR::basis_functions<dim,2*dim>                               &soln_basis,
     OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper,
@@ -3791,8 +3795,6 @@ void DGStrong<dim,nstate,real,MeshType>::entropystable_br2_compute_gradbasis_K_T
     const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>   &T,
     std::vector<adtype>                                                &integral_val) const
 {
-    const unsigned int n_shape_fns = n_dofs_cell / nstate; 
-    
     // Form L = K*T
     std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>   L;
     apply_K_matrix(
@@ -3805,7 +3807,7 @@ void DGStrong<dim,nstate,real,MeshType>::entropystable_br2_compute_gradbasis_K_T
     compute_gradbasis_T_vol_integral(
     n_quad_pts,
     n_dofs_cell,
-    &soln_basis,
+    soln_basis,
     metric_oper,
     weight_vect,
     L,
@@ -3835,7 +3837,7 @@ void DGStrong<dim,nstate,real,MeshType>::compute_gradbasis_dT_duh_vol_integral(
             {
                 for(unsigned int d=0; d<dim; ++d)
                 {
-                    dT_duhs2idof[s1][d].reinit(n_quad_pts_vol);
+                    dT_duhs2idof[s1][d].resize(n_quad_pts_vol);
                     for(unsigned int iquad=0; iquad<n_quad_pts_vol; ++iquad)
                     {
                         dT_duhs2idof[s1][d][iquad] = dT_duh_vol[d][s1][s2][iquad][idof];
@@ -4040,13 +4042,12 @@ void DGStrong<dim,nstate,real,MeshType>::evaluate_face_integral_dsigma_duh(
 }
 
 template <int dim, int nstate, typename real, typename MeshType>
-template <typename adtype>
 void DGStrong<dim,nstate,real,MeshType>::sum_dRduh( 
     const double a,
     const dealii::FullMatrix<double> &dRduh1,
     const double b,
     const dealii::FullMatrix<double> &dRduh2,
-    dealii::FullMatrix<double> &dRduh_sum)
+    dealii::FullMatrix<double> &dRduh_sum) const
 {
     dRduh_sum.reinit(dRduh1.m(),dRduh1.n());
     for(unsigned int i=0; i<dRduh1.m(); ++i)
@@ -4059,13 +4060,12 @@ void DGStrong<dim,nstate,real,MeshType>::sum_dRduh(
 }
 
 template <int dim, int nstate, typename real, typename MeshType>
-template <typename adtype>
 void DGStrong<dim,nstate,real,MeshType>::sum_dTduh( 
     const double a,
     const std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> &dTduh1,
     const double b,
     const std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> &dTduh2,
-    std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim>  &dTduh_sum)
+    std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim>  &dTduh_sum) const
 {
     const unsigned int row_length = dTduh1[0][0][0].m(); 
     const unsigned int col_length = dTduh1[0][0][0].n();
@@ -4089,7 +4089,6 @@ void DGStrong<dim,nstate,real,MeshType>::sum_dTduh(
 }
 
 template <int dim, int nstate, typename real, typename MeshType>
-template <typename adtype>
 void DGStrong<dim,nstate,real,MeshType>::interpolate_dT_duh_to_face(
     const unsigned int iface,
     const std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> &dT_duh_at_vol,
@@ -4097,7 +4096,7 @@ void DGStrong<dim,nstate,real,MeshType>::interpolate_dT_duh_to_face(
     const unsigned int n_face_quad_pts,
     const unsigned int n_vol_quad_pts,
     const unsigned int n_dofs_cell,
-    std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> &dT_duh_at_face)
+    std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> &dT_duh_at_face) const
 {
     const unsigned int n_shape_fns = n_dofs_cell/nstate;
 
@@ -4116,7 +4115,7 @@ void DGStrong<dim,nstate,real,MeshType>::interpolate_dT_duh_to_face(
     {
         for(unsigned int idof=0; idof<n_shape_fns; ++idof)
         {
-            std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> dT_duhs2idof_at_vol;
+            std::array<dealii::Tensor<1,dim,std::vector<double>>,nstate> dT_duhs2idof_at_vol;
             for(unsigned int s1=0; s1<nstate; ++s1)
             {
                 for(unsigned int d=0; d<dim; ++d)
@@ -4128,7 +4127,7 @@ void DGStrong<dim,nstate,real,MeshType>::interpolate_dT_duh_to_face(
                     }
                 }
             }
-            std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> dT_duhs2idof_at_face;
+            std::array<dealii::Tensor<1,dim,std::vector<double>>,nstate> dT_duhs2idof_at_face;
             interpolate_to_face(
                 iface,
                 dT_duhs2idof_at_vol,
@@ -4163,7 +4162,7 @@ void DGStrong<dim,nstate,real,MeshType>::interpolate_to_face(
     for(unsigned int s=0; s<nstate; ++s)
     {
         for(unsigned int d=0; d<dim; ++d)
-        >{
+        {
             T_at_face[s][d].resize(n_face_quad_pts);
         }
     }
@@ -4199,7 +4198,7 @@ void DGStrong<dim,nstate,real,MeshType>::compute_dKreT_duh(
     const std::vector<adtype> &JxW_face,
     const std::vector<adtype> &JxW_vol,
     const unsigned int iface,
-    const bool compute_derivative_K)
+    const bool compute_derivative_K) const
 {
     const unsigned int n_vol_quad_pts = n_vol_quads_1D*n_vol_quads_1D*n_vol_quads_1D;
     const unsigned int n_shape_fns = n_shape_fns_1D*n_shape_fns_1D*n_shape_fns_1D;
@@ -4302,10 +4301,10 @@ void DGStrong<dim,nstate,real,MeshType>::compute_dK_gradientropyvar_duh_vol(
     const unsigned int n_shape_fns_1D,
     const unsigned int n_vol_quads_1D,
     OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper,
-    std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> &d_K_nablavtilde_d_uh)
+    std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> &d_K_nablavtilde_d_uh) const
 {
     std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> d_nablavtilde_d_uh_vol;
-    compute_dgradentropyvar_duh(
+    compute_dgradientropyvar_duh(
         H_mat, 
         G_oper,
         DG_oper,
@@ -4336,7 +4335,7 @@ void DGStrong<dim,nstate,real,MeshType>::compute_dgradientropyvar_duh(
     const unsigned int n_shape_fns_1D,
     const unsigned int n_vol_quads_1D,
     OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper,
-    std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> &d_nablavtilde_d_uh)
+    std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> &d_nablavtilde_d_uh) const
 {
     std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> d_nablavtilde_d_uh_ref;
     const unsigned int n_quad_pts = n_vol_quads_1D*n_vol_quads_1D*n_vol_quads_1D;
@@ -4353,9 +4352,9 @@ void DGStrong<dim,nstate,real,MeshType>::compute_dgradientropyvar_duh(
         }
     }
     
-    xt::xarray<double> temp1  = xt::xarray<double>::from_shape({n_quad_pts_1D,n_shape_fns_1D,n_shape_fns_1D,n_shape_fns_1D,n_quad_pts_1D,n_quad_pts_1D}); // L,i,j,k,Mtilde,Ntilde    
-    xt::xarray<double> temp2  = xt::xarray<double>::from_shape({n_quad_pts_1D,n_quad_pts_1D,n_shape_fns_1D,n_shape_fns_1D,n_shape_fns_1D,n_quad_pts_1D}); // M,L,i,j,k,Ntilde
-
+    xt::xarray<double> temp1  = xt::xarray<double>::from_shape({n_vol_quads_1D,n_shape_fns_1D,n_shape_fns_1D,n_shape_fns_1D,n_vol_quads_1D,n_vol_quads_1D}); // L,i,j,k,Mtilde,Ntilde    
+    xt::xarray<double> temp2  = xt::xarray<double>::from_shape({n_vol_quads_1D,n_vol_quads_1D,n_shape_fns_1D,n_shape_fns_1D,n_shape_fns_1D,n_vol_quads_1D}); // M,L,i,j,k,Ntilde
+    const unsigned int n_quad_pts_1D = n_vol_quads_1D;
     for(unsigned int d=0; d<dim; ++d)
     {
         dealii::FullMatrix<double> operL = G_oper;
@@ -4380,7 +4379,7 @@ void DGStrong<dim,nstate,real,MeshType>::compute_dgradientropyvar_duh(
             for(unsigned int s2=0; s2<nstate; ++s2)
             {
                 // Form temp1
-                for(unsigned int L = 0; L<n_quad_pts_1D; ++L)
+                for(unsigned int L = 0; L<n_vol_quads_1D; ++L)
                 {
                     for(unsigned int i=0; i<n_shape_fns_1D; ++i)
                     {
@@ -4392,10 +4391,10 @@ void DGStrong<dim,nstate,real,MeshType>::compute_dgradientropyvar_duh(
                                 {
                                     for(unsigned int Ntilde = 0; Ntilde<n_quad_pts_1D; ++Ntilde)
                                     {
-                                        temp1[L][i][j][k][Mtilde][Ntilde] = 0;
+                                        temp1(L,i,j,k,Mtilde,Ntilde) = 0;
                                         for(unsigned int Ltilde=0; Ltilde<n_quad_pts_1D; ++Ltilde)
                                         {
-                                            temp1[L][i][j][k][Mtilde][Ntilde] += operL[L][Ltilde]*H_mat[s1][s2][i][j][k][Ltilde][Mtilde][Ntilde];
+                                            temp1(L,i,j,k,Mtilde,Ntilde) += operL[L][Ltilde]*H_mat(s1,s2,i,j,k,Ltilde,Mtilde,Ntilde);
                                         }
                                     }
                                 }
@@ -4404,7 +4403,6 @@ void DGStrong<dim,nstate,real,MeshType>::compute_dgradientropyvar_duh(
                         }
                     }
                 }
-            }
                 
             // Form temp2
             for(unsigned int M = 0; M<n_quad_pts_1D; ++M)
@@ -4419,10 +4417,10 @@ void DGStrong<dim,nstate,real,MeshType>::compute_dgradientropyvar_duh(
                             {
                                 for(unsigned int Ntilde = 0; Ntilde<n_quad_pts_1D; ++Ntilde)
                                 {
-                                    temp2[M][L][i][j][k][Ntilde] = 0;
+                                    temp2(M,L,i,j,k,Ntilde) = 0;
                                     for(unsigned int Mtilde=0; Mtilde<n_quad_pts_1D; ++Mtilde)
                                     {
-                                        temp2[M][L][i][j][k][Ntilde] += operM[M][Mtilde]*temp1[L][i][j][k][Mtilde][Ntilde];
+                                        temp2(M,L,i,j,k,Ntilde) += operM[M][Mtilde]*temp1(L,i,j,k,Mtilde,Ntilde);
                                     }
                                 } 
                             }
@@ -4449,7 +4447,7 @@ void DGStrong<dim,nstate,real,MeshType>::compute_dgradientropyvar_duh(
                                     d_nablavtilde_d_uh_ref[d][s1][s2][iquad][idof]=0;
                                     for(unsigned int Ntilde = 0; Ntilde<n_quad_pts_1D; ++Ntilde)
                                     {
-                                        d_nablavtilde_d_uh_ref[d][s1][s2][iquad][idof] += operN[N][Ntilde]*temp2[M][L][i][j][k][Ntilde];
+                                        d_nablavtilde_d_uh_ref[d][s1][s2][iquad][idof] += operN[N][Ntilde]*temp2(M,L,i,j,k,Ntilde);
                                     } 
                                 }
                             }
@@ -4459,6 +4457,7 @@ void DGStrong<dim,nstate,real,MeshType>::compute_dgradientropyvar_duh(
             }
 
         }
+    }
     }
 
 
@@ -4496,7 +4495,7 @@ void DGStrong<dim,nstate,real,MeshType>::compute_dKT_duh_vol(
     std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> &dKT_duh,
     const unsigned int n_quad_pts_1D,
     const unsigned int n_shape_fns_1D,
-    bool compute_derivative_K)
+    bool compute_derivative_K) const
 {
     const unsigned int n_quad_pts = n_quad_pts_1D*n_quad_pts_1D*n_quad_pts_1D;
     const unsigned int n_shape_fns = n_shape_fns_1D*n_shape_fns_1D*n_shape_fns_1D;
@@ -4544,11 +4543,11 @@ void DGStrong<dim,nstate,real,MeshType>::compute_dKT_duh_vol(
                 for(unsigned int d=0; d<dim; ++d)
                 {
                     dT_duhs2idof[s][d].resize(n_quad_pts);
+                    for(unsigned int iquad=0; iquad<n_quad_pts; ++iquad)
+                    {
+                        dT_duhs2idof[s][d][iquad] = dT_duh_vol[d][s][s2][iquad][idof];
+                    }
                 }
-            }
-            for(unsigned int iquad=0; iquad<n_quad_pts; ++iquad)
-            {
-                dT_duhs2idof[s][d][iquad] = dT_duh_vol[d][s][s2][iquad][idof];
             }
             std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> KdT_duhs2idof;
 
@@ -4571,7 +4570,7 @@ void DGStrong<dim,nstate,real,MeshType>::compute_dKT_duh_vol(
                         {
                             for(unsigned int sk=0; sk<nstate; ++sk)
                             {
-                                dKT_duh[d][s1][s2][iquad][idof] += dKT_dvtilde[iquad][d][s1][sk]*dvtilde_duh_vol[sk][s2][iquad][idof]
+                                dKT_duh[d][s1][s2][iquad][idof] += dKT_dvtilde[iquad][d][s1][sk]*dvtilde_duh_vol[sk][s2][iquad][idof];
                             }
                         }
                     }
@@ -4586,6 +4585,7 @@ template <typename adtype>
 void DGStrong<dim,nstate,real,MeshType>::compute_dvbc_duh_and_dsigmabc_duh(
     const unsigned int iface,
     const unsigned int boundary_id,
+    const std::vector<dealii::Tensor<1,dim,adtype>>                                 &normal_int,
     const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
     const std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate> &dvtilde_duh_face,
     const std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate> &dvtilde_duh_vol,
@@ -4604,7 +4604,7 @@ void DGStrong<dim,nstate,real,MeshType>::compute_dvbc_duh_and_dsigmabc_duh(
     OPERATOR::basis_functions<dim,2*dim> &flux_basis,
     OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper,
     std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> &dsigmabc_duh,
-    std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate> &dvbc_duh)
+    std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate> &dvbc_duh) const
 {
     const unsigned int n_shape_fns = n_dofs_cell/nstate;
     const unsigned int n_vol_quad_pts = n_vol_quads_1D*n_vol_quads_1D*n_vol_quads_1D;
@@ -4642,7 +4642,7 @@ void DGStrong<dim,nstate,real,MeshType>::compute_dvbc_duh_and_dsigmabc_duh(
     dvtilde_duh_vol,
     d_gradv_duh_vol,
     dK_gradv_duh_vol,
-    n_quad_pts_1D,
+    n_vol_quads_1D,
     n_shape_fns_1D,
     true);
 
@@ -4688,9 +4688,9 @@ void DGStrong<dim,nstate,real,MeshType>::compute_dvbc_duh_and_dsigmabc_duh(
         std::array<std::array<std::array<std::array<double,dim>,nstate>,dim>,nstate> d_sigmabc_d_sigmah;
         std::array<std::array<std::array<std::array<double,dim>,nstate>,dim>,nstate> d_sigmabc_d_gradv;
         std::array<std::array<std::array<double,nstate>,nstate>,dim> d_sigmabc_dvh;
-        std::array<std::array<double,nstate>,nstate> d_vbc_dvh
+        std::array<std::array<double,nstate>,nstate> d_vbc_dvh;
 
-        pde_physics.compute_dsigmabc_and_dvbc_derivatives(v_at_q,sigma_h_at_q, grad_v_at_q, d_sigmabc_d_sigmah, d_sigmabc_d_gradv, d_sigmabc_dvh, d_vbc_dvh, boundary_id);
+        pde_physics.compute_dsigmabc_and_dvbc_derivatives(v_at_q,normal_int[iquad],sigma_h_at_q, grad_v_at_q, d_sigmabc_d_sigmah, d_sigmabc_d_gradv, d_sigmabc_dvh, d_vbc_dvh, boundary_id);
         
         for(unsigned int s2=0; s2<nstate; ++s2)
         {
@@ -4749,7 +4749,7 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_volume_term_entropystable_br2(
     const std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate> &dvtilde_duh_vol,
     const unsigned int n_shape_fns_1D,
     const unsigned int n_vol_quads_1D,
-    std::vector<adtype>                                                &vol_term) const
+    std::vector<adtype>                                                &vol_term) 
 {
     const std::vector<double> &weight_vect = this->volume_quadrature_collection[poly_degree].get_weights();
     // Entropy grad wrt physical coordinates
@@ -4772,34 +4772,37 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_volume_term_entropystable_br2(
     entropy_var_phys_grad,
     vol_term);
 
-    if(compute_dRdW_strong)
+    if constexpr(std::is_same<adtype,double>::value)
     {
-        std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> d_K_gradv_d_uh;
+        if(this->compute_dRdW_strong)
+        {
+            std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> d_K_gradv_d_uh;
 
-        compute_dK_gradientropyvar_duh_vol(
-            H_mat, 
-            pde_physics,
-            entropy_var_at_q,
-            entropy_var_phys_grad,
-            dvtilde_duh_vol,
-            G_oper,
-            DG_oper,
-            n_shape_fns_1D,
-            n_vol_quads_1D,
-            metric_oper,
-            d_K_gradv_d_uh);
+            compute_dK_gradientropyvar_duh_vol(
+                H_mat, 
+                pde_physics,
+                entropy_var_at_q,
+                entropy_var_phys_grad,
+                dvtilde_duh_vol,
+                G_oper,
+                DG_oper,
+                n_shape_fns_1D,
+                n_vol_quads_1D,
+                metric_oper,
+                d_K_gradv_d_uh);
 
-        dealii::FullMatrix<double> voldRdW;
-        compute_gradbasis_dT_duh_vol_integral(
-            n_quad_pts,
-            n_dofs_cell,
-            soln_basis,
-            metric_oper,
-            weight_vect,
-            d_K_gradv_d_uh,
-            voldRdW);
+            dealii::FullMatrix<double> voldRdW;
+            compute_gradbasis_dT_duh_vol_integral(
+                n_quad_pts,
+                n_dofs_cell,
+                soln_basis,
+                metric_oper,
+                weight_vect,
+                d_K_gradv_d_uh,
+                voldRdW);
 
-        dRdW_vol_cell.add(-1.0,voldRdW); 
+            this->dRdW_vol_cell.add(-1.0,voldRdW); 
+        }
     }
 }
 
@@ -4843,7 +4846,7 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_face_term_entropystable_br2(
     const dealii::FullMatrix<double> & DG_oper_ext,
     const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
     std::vector<adtype>                                                &face_term_int,
-    std::vector<adtype>                                                &face_term_ext) const
+    std::vector<adtype>                                                &face_term_ext) 
 {
     face_term_int.resize(n_dofs_cell_int);
     face_term_ext.resize(n_dofs_cell_ext);
@@ -5061,291 +5064,294 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_face_term_entropystable_br2(
         face_term_ext[idof] = ext_face_integral_k[idof] - ext_face_integral_e[idof];
     }
 
-    if(compute_dRdW_strong)
+    if constexpr(std::is_same<adtype,double>::value)
     {
-        std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> dKreint_duhint_vol;
-        compute_dKreT_duh(
-            dKreint_duhint_vol,
-            unit_phys_normal_int,
-            dvtilde_duh_surf_int,
-            re_int,
-            flux_basis_int,
-            pde_physics,
-            entropy_var_at_vol_int,
-            dvtilde_duh_vol_int,
-            n_face_quad_pts,
-            n_vol_quads_1D,
-            n_shape_fns_1D,
-            is_interior_face,
-            JxW_face,
-            JxW_vol_int,
-            iface_int,
-            true);
-        
-        std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> dKreint_duhext_vol;
-        compute_dKreT_duh(
-            dKreint_duhext_vol,
-            unit_phys_normal_ext,
-            dvtilde_duh_surf_ext,
-            re_int,
-            flux_basis_int,
-            pde_physics,
-            entropy_var_at_vol_int,
-            dvtilde_duh_vol_int,
-            n_face_quad_pts,
-            n_vol_quads_1D,
-            n_shape_fns_1D,
-            is_interior_face,
-            JxW_face,
-            JxW_vol_int,
-            iface_int,
-            false);
-        
-        std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> dKreext_duhint_vol;
-        compute_dKreT_duh(
-            dKreext_duhint_vol,
-            unit_phys_normal_int,
-            dvtilde_duh_surf_int,
-            re_ext,
-            flux_basis_ext,
-            pde_physics,
-            entropy_var_at_vol_ext,
-            dvtilde_duh_vol_ext,
-            n_face_quad_pts,
-            n_vol_quads_1D,
-            n_shape_fns_1D,
-            is_interior_face,
-            JxW_face,
-            JxW_vol_ext,
-            iface_ext,
-            false);
-        
-        std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> dKreext_duhext_vol;
-        compute_dKreT_duh(
-            dKreext_duhext_vol,
-            unit_phys_normal_ext,
-            dvtilde_duh_surf_ext,
-            re_ext,
-            flux_basis_ext,
-            pde_physics,
-            entropy_var_at_vol_ext,
-            dvtilde_duh_vol_ext,
-            n_face_quad_pts,
-            n_vol_quads_1D,
-            n_shape_fns_1D,
-            is_interior_face,
-            JxW_face,
-            JxW_vol_ext,
-            iface_ext,
-            true);
-
-        // Form volume k terms
-        dealii::FullMatrix<double> dRint_dWint_k;
-        compute_gradbasis_dT_duh_vol_integral(
-            n_quad_pts_vol_int,
-            n_dofs_cell_int,
-            soln_basis_int,
-            metric_oper_int,
-            vol_quad_weights_int,
-            dKreint_duhint_vol,
-            dRint_dWint_k);
-
-        dealii::FullMatrix<double> dRint_dWext_k;
-        compute_gradbasis_dT_duh_vol_integral(
-            n_quad_pts_vol_int,
-            n_dofs_cell_int,
-            soln_basis_int,
-            metric_oper_int,
-            vol_quad_weights_int,
-            dKreint_duhext_vol,
-            dRint_dWext_k);
-        
-        dealii::FullMatrix<double> dRext_dWint_k;
-        compute_gradbasis_dT_duh_vol_integral(
-            n_quad_pts_vol_ext,
-            n_dofs_cell_ext,
-            soln_basis_ext,
-            metric_oper_ext,
-            vol_quad_weights_ext,
-            dKreext_duhint_vol,
-            dRext_dWint_k);
-        
-        dealii::FullMatrix<double> dRext_dWext_k;
-        compute_gradbasis_dT_duh_vol_integral(
-            n_quad_pts_vol_ext,
-            n_dofs_cell_ext,
-            soln_basis_ext,
-            metric_oper_ext,
-            vol_quad_weights_ext,
-            dKreext_duhext_vol,
-            dRext_dWext_k);
-
-        dRint_dWint_face.add(-1.0,dRint_dWint_k);
-        dRint_dWext_face.add(-1.0,dRint_dWext_k);
-        dRext_dWint_face.add(-1.0,dRext_dWint_k);
-        dRext_dWext_face.add(-1.0,dRext_dWext_k);
-
-        // Form sigma terms
-        std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> d_Kgradv_d_uh_int;
-        compute_dK_gradientropyvar_duh_vol(
-            H_mat_int, 
-            pde_physics,
-            entropy_var_at_vol_int,
-            entropy_var_phys_grad_int,
-            dvtilde_duh_vol_int,
-            G_oper_int,
-            DG_oper_int,
-            n_shape_fns_1D,
-            n_vol_quads_1D,
-            metric_oper_int,
-            d_Kgradv_d_uh_int);
-
-        std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> d_Kgradv_d_uh_ext;
-        compute_dK_gradientropyvar_duh_vol(
-            H_mat_ext, 
-            pde_physics,
-            entropy_var_at_vol_ext,
-            entropy_var_phys_grad_ext,
-            dvtilde_duh_vol_ext,
-            G_oper_ext,
-            DG_oper_ext,
-            n_shape_fns_1D,
-            n_vol_quads_1D,
-            metric_oper_ext,
-            d_Kgradv_d_uh_ext);
-
-        std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> t1vol;
-        std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> t2vol;
-        std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> t3vol;
-        std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> t4vol;
-        std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> t1surf;
-        std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> t2surf;
-        std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> t3surf;
-        std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> t4surf;
-
-        for(unsigned int d=0; d<dim; ++d)
+        if(this->compute_dRdW_strong)
         {
-            for(unsigned int s1=0; s1<nstate; ++s1)
+            std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> dKreint_duhint_vol;
+            compute_dKreT_duh(
+                dKreint_duhint_vol,
+                unit_phys_normal_int,
+                dvtilde_duh_surf_int,
+                re_int,
+                flux_basis_int,
+                pde_physics,
+                entropy_var_at_vol_int,
+                dvtilde_duh_vol_int,
+                n_face_quad_pts,
+                n_vol_quads_1D,
+                n_shape_fns_1D,
+                is_interior_face,
+                JxW_face,
+                JxW_vol_int,
+                iface_int,
+                true);
+            
+            std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> dKreint_duhext_vol;
+            compute_dKreT_duh(
+                dKreint_duhext_vol,
+                unit_phys_normal_ext,
+                dvtilde_duh_surf_ext,
+                re_int,
+                flux_basis_int,
+                pde_physics,
+                entropy_var_at_vol_int,
+                dvtilde_duh_vol_int,
+                n_face_quad_pts,
+                n_vol_quads_1D,
+                n_shape_fns_1D,
+                is_interior_face,
+                JxW_face,
+                JxW_vol_int,
+                iface_int,
+                false);
+            
+            std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> dKreext_duhint_vol;
+            compute_dKreT_duh(
+                dKreext_duhint_vol,
+                unit_phys_normal_int,
+                dvtilde_duh_surf_int,
+                re_ext,
+                flux_basis_ext,
+                pde_physics,
+                entropy_var_at_vol_ext,
+                dvtilde_duh_vol_ext,
+                n_face_quad_pts,
+                n_vol_quads_1D,
+                n_shape_fns_1D,
+                is_interior_face,
+                JxW_face,
+                JxW_vol_ext,
+                iface_ext,
+                false);
+            
+            std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> dKreext_duhext_vol;
+            compute_dKreT_duh(
+                dKreext_duhext_vol,
+                unit_phys_normal_ext,
+                dvtilde_duh_surf_ext,
+                re_ext,
+                flux_basis_ext,
+                pde_physics,
+                entropy_var_at_vol_ext,
+                dvtilde_duh_vol_ext,
+                n_face_quad_pts,
+                n_vol_quads_1D,
+                n_shape_fns_1D,
+                is_interior_face,
+                JxW_face,
+                JxW_vol_ext,
+                iface_ext,
+                true);
+
+            // Form volume k terms
+            dealii::FullMatrix<double> dRint_dWint_k;
+            compute_gradbasis_dT_duh_vol_integral(
+                n_vol_quad_pts_int,
+                n_dofs_cell_int,
+                soln_basis_int,
+                metric_oper_int,
+                vol_quad_weights_int,
+                dKreint_duhint_vol,
+                dRint_dWint_k);
+
+            dealii::FullMatrix<double> dRint_dWext_k;
+            compute_gradbasis_dT_duh_vol_integral(
+                n_vol_quad_pts_int,
+                n_dofs_cell_int,
+                soln_basis_int,
+                metric_oper_int,
+                vol_quad_weights_int,
+                dKreint_duhext_vol,
+                dRint_dWext_k);
+            
+            dealii::FullMatrix<double> dRext_dWint_k;
+            compute_gradbasis_dT_duh_vol_integral(
+                n_vol_quad_pts_ext,
+                n_dofs_cell_ext,
+                soln_basis_ext,
+                metric_oper_ext,
+                vol_quad_weights_ext,
+                dKreext_duhint_vol,
+                dRext_dWint_k);
+            
+            dealii::FullMatrix<double> dRext_dWext_k;
+            compute_gradbasis_dT_duh_vol_integral(
+                n_vol_quad_pts_ext,
+                n_dofs_cell_ext,
+                soln_basis_ext,
+                metric_oper_ext,
+                vol_quad_weights_ext,
+                dKreext_duhext_vol,
+                dRext_dWext_k);
+
+            this->dRint_dWint_face.add(-1.0,dRint_dWint_k);
+            this->dRint_dWext_face.add(-1.0,dRint_dWext_k);
+            this->dRext_dWint_face.add(-1.0,dRext_dWint_k);
+            this->dRext_dWext_face.add(-1.0,dRext_dWext_k);
+
+            // Form sigma terms
+            std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> d_Kgradv_d_uh_int;
+            compute_dK_gradientropyvar_duh_vol(
+                H_mat_int, 
+                pde_physics,
+                entropy_var_at_vol_int,
+                entropy_var_phys_grad_int,
+                dvtilde_duh_vol_int,
+                G_oper_int,
+                DG_oper_int,
+                n_shape_fns_1D,
+                n_vol_quads_1D,
+                metric_oper_int,
+                d_Kgradv_d_uh_int);
+
+            std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> d_Kgradv_d_uh_ext;
+            compute_dK_gradientropyvar_duh_vol(
+                H_mat_ext, 
+                pde_physics,
+                entropy_var_at_vol_ext,
+                entropy_var_phys_grad_ext,
+                dvtilde_duh_vol_ext,
+                G_oper_ext,
+                DG_oper_ext,
+                n_shape_fns_1D,
+                n_vol_quads_1D,
+                metric_oper_ext,
+                d_Kgradv_d_uh_ext);
+
+            std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> t1vol;
+            std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> t2vol;
+            std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> t3vol;
+            std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> t4vol;
+            std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> t1surf;
+            std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> t2surf;
+            std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> t3surf;
+            std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> t4surf;
+
+            for(unsigned int d=0; d<dim; ++d)
             {
-                for(unsigned int s2=0; s2<nstate; ++s2)
+                for(unsigned int s1=0; s1<nstate; ++s1)
                 {
-                    t1vol[d][s1][s2] = d_Kgradv_d_uh_int[d][s1][s2];
-                    t1vol[d][s1][s2].add(br2_factor,dKreint_duhint_vol[d][s1][s2]);
+                    for(unsigned int s2=0; s2<nstate; ++s2)
+                    {
+                        t1vol[d][s1][s2] = d_Kgradv_d_uh_int[d][s1][s2];
+                        t1vol[d][s1][s2].add(br2_factor,dKreint_duhint_vol[d][s1][s2]);
 
-                    t2vol[d][s1][s2] = dKreext_duhint_vol[d][s1][s2];
-                    t2vol[d][s1][s2]*=br2_factor;
+                        t2vol[d][s1][s2] = dKreext_duhint_vol[d][s1][s2];
+                        t2vol[d][s1][s2]*=br2_factor;
 
-                    t3vol[d][s1][s2] = dKreint_duhext_vol[d][s1][s2];
-                    t3vol[d][s1][s2]*=br2_factor;
+                        t3vol[d][s1][s2] = dKreint_duhext_vol[d][s1][s2];
+                        t3vol[d][s1][s2]*=br2_factor;
 
-                    t4vol[d][s1][s2] = d_Kgradv_d_uh_ext[d][s1][s2];
-                    t4vol[d][s1][s2].add(br2_factor,dKreext_duhext_vol[d][s1][s2]);
+                        t4vol[d][s1][s2] = d_Kgradv_d_uh_ext[d][s1][s2];
+                        t4vol[d][s1][s2].add(br2_factor,dKreext_duhext_vol[d][s1][s2]);
+                    }
                 }
             }
+
+            interpolate_dT_duh_to_face(
+                iface_int,
+                t1vol,
+                flux_basis_int,
+                n_face_quad_pts,
+                n_vol_quad_pts_int,
+                n_dofs_cell_int,
+                t1surf);
+            
+            interpolate_dT_duh_to_face(
+                iface_ext,
+                t2vol,
+                flux_basis_ext,
+                n_face_quad_pts,
+                n_vol_quad_pts_ext,
+                n_dofs_cell_ext,
+                t2surf);
+            
+            interpolate_dT_duh_to_face(
+                iface_int,
+                t3vol,
+                flux_basis_int,
+                n_face_quad_pts,
+                n_vol_quad_pts_int,
+                n_dofs_cell_int,
+                t3surf);
+            
+            interpolate_dT_duh_to_face(
+                iface_ext,
+                t4vol,
+                flux_basis_ext,
+                n_face_quad_pts,
+                n_vol_quad_pts_ext,
+                n_dofs_cell_ext,
+                t4surf);
+
+            std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> d_sigmastar_duhint;
+            std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> d_sigmastar_duhext;
+
+            sum_dTduh( 
+                0.5,
+                t1surf,
+                0.5,
+                t2surf,
+                d_sigmastar_duhint);
+            
+            sum_dTduh( 
+                0.5,
+                t3surf,
+                0.5,
+                t4surf,
+                d_sigmastar_duhext);
+
+            dealii::FullMatrix<double> dRint_dWint_e;
+            dealii::FullMatrix<double> dRint_dWext_e;
+            dealii::FullMatrix<double> dRext_dWint_e;
+            dealii::FullMatrix<double> dRext_dWext_e;
+
+            evaluate_face_integral_dsigma_duh(
+                iface_int,
+                d_sigmastar_duhint,
+                JxW_face,
+                unit_phys_normal_int,
+                soln_basis_int,
+                n_dofs_cell_int,
+                n_face_quad_pts,
+                dRint_dWint_e);
+            
+            evaluate_face_integral_dsigma_duh(
+                iface_int,
+                d_sigmastar_duhext,
+                JxW_face,
+                unit_phys_normal_int,
+                soln_basis_int,
+                n_dofs_cell_int,
+                n_face_quad_pts,
+                dRint_dWext_e);
+            
+            evaluate_face_integral_dsigma_duh(
+                iface_ext,
+                d_sigmastar_duhint,
+                JxW_face,
+                unit_phys_normal_ext,
+                soln_basis_ext,
+                n_dofs_cell_ext,
+                n_face_quad_pts,
+                dRext_dWint_e);
+            
+            evaluate_face_integral_dsigma_duh(
+                iface_ext,
+                d_sigmastar_duhext,
+                JxW_face,
+                unit_phys_normal_ext,
+                soln_basis_ext,
+                n_dofs_cell_ext,
+                n_face_quad_pts,
+                dRext_dWext_e);
+
+            this->dRint_dWint_face.add(1.0,dRint_dWint_e);
+            this->dRint_dWext_face.add(1.0,dRint_dWext_e);
+            this->dRext_dWint_face.add(1.0,dRext_dWint_e);
+            this->dRext_dWext_face.add(1.0,dRext_dWext_e);
         }
-
-        interpolate_dT_duh_to_face(
-            iface_int,
-            t1vol,
-            flux_basis_int,
-            n_face_quad_pts,
-            n_vol_quad_pts_int,
-            n_dofs_cell_int,
-            t1surf);
-        
-        interpolate_dT_duh_to_face(
-            iface_ext,
-            t2vol,
-            flux_basis_ext,
-            n_face_quad_pts,
-            n_vol_quad_pts_ext,
-            n_dofs_cell_ext,
-            t2surf);
-        
-        interpolate_dT_duh_to_face(
-            iface_int,
-            t3vol,
-            flux_basis_int,
-            n_face_quad_pts,
-            n_vol_quad_pts_int,
-            n_dofs_cell_int,
-            t3surf);
-        
-        interpolate_dT_duh_to_face(
-            iface_ext,
-            t4vol,
-            flux_basis_ext,
-            n_face_quad_pts,
-            n_vol_quad_pts_ext,
-            n_dofs_cell_ext,
-            t4surf);
-
-        std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> d_sigmastar_duhint;
-        std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> d_sigmastar_duhext;
-
-        sum_dTduh( 
-            0.5,
-            t1surf,
-            0.5,
-            t2surf,
-            d_sigmastar_duhint);
-        
-        sum_dTduh( 
-            0.5,
-            t3surf,
-            0.5,
-            t4surf,
-            d_sigmastar_duhext);
-
-        dealii::FullMatrix<double> dRint_dWint_e;
-        dealii::FullMatrix<double> dRint_dWext_e;
-        dealii::FullMatrix<double> dRext_dWint_e;
-        dealii::FullMatrix<double> dRext_dWext_e;
-
-        evaluate_face_integral_dsigma_duh(
-            iface_int,
-            d_sigmastar_duhint,
-            JxW_face,
-            unit_phys_normal_int,
-            soln_basis_int,
-            n_dofs_cell_int,
-            n_face_quad_pts,
-            dRint_dWint_e);
-        
-        evaluate_face_integral_dsigma_duh(
-            iface_int,
-            d_sigmastar_duhext,
-            JxW_face,
-            unit_phys_normal_int,
-            soln_basis_int,
-            n_dofs_cell_int,
-            n_face_quad_pts,
-            dRint_dWext_e);
-        
-        evaluate_face_integral_dsigma_duh(
-            iface_ext,
-            d_sigmastar_duhint,
-            JxW_face,
-            unit_phys_normal_ext,
-            soln_basis_ext,
-            n_dofs_cell_ext,
-            n_face_quad_pts,
-            dRext_dWint_e);
-        
-        evaluate_face_integral_dsigma_duh(
-            iface_ext,
-            d_sigmastar_duhext,
-            JxW_face,
-            unit_phys_normal_ext,
-            soln_basis_ext,
-            n_dofs_cell_ext,
-            n_face_quad_pts,
-            dRext_dWext_e);
-
-        dRint_dWint_face.add(1.0,dRint_dWint_e);
-        dRint_dWext_face.add(1.0,dRint_dWext_e);
-        dRext_dWint_face.add(1.0,dRext_dWint_e);
-        dRext_dWext_face.add(1.0,dRext_dWext_e);
     }
 }
 
@@ -5375,7 +5381,7 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_boundary_term_entropystable_br
     const std::vector<dealii::Tensor<1,dim,adtype>>                    &unit_phys_normal,
     const std::vector<adtype>                                          &JxW_face,
     const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
-    std::vector<adtype>                                                &boundary_term) const
+    std::vector<adtype>                                                &boundary_term) 
 {
     const std::vector<double> &vol_quad_weights = this->volume_quadrature_collection[poly_degree].get_weights();
     std::vector<adtype> JxW_vol(n_vol_quad_pts);
@@ -5516,88 +5522,92 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_boundary_term_entropystable_br
         boundary_term[idof] = integral_k[idof] - integral_e[idof];
     }
 
-    if(compute_dRdW_strong)
+    if constexpr(std::is_same<adtype,double>::value)
     {
-        std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> dsigmabc_duh;
-        std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate> dvbc_duh;
-        compute_dvbc_duh_and_dsigmabc_duh(
-            iface,
-            boundary_id,
-            pde_physics,
-            dvtilde_duh_face,
-            dvtilde_duh_vol,
-            n_face_quad_pts,  
-            n_dofs_cell,
-            entropy_var_phys_grad_at_vol,
-            poly_K_nabla_v_at_face,
-            entropy_var_phys_grad_at_face,
-            entropy_var_at_vol_quads,
-            entropy_var_at_surf_quads,
-            H_mat, 
-            G_oper_vol,
-            DG_oper_vol,
-            n_shape_fns_1D,
-            n_vol_quads_1D,
-            flux_basis,
-            metric_oper,
-            dsigmabc_duh,
-            dvbc_duh);
-
-        dealii::FullMatrix<double> dRdW_e;
-        evaluate_face_integral_dsigma_duh(
-        iface,
-        dsigmabc_duh,
-        JxW_face,
-        unit_phys_normal,
-        soln_basis,
-        n_dofs_cell,
-        n_face_quad_pts,
-        dRdW_e);
-
-        std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate> d_jump_duh_face;
-        const unsigned int n_shape_fns = n_dofs_cell/nstate;
-        for(unsigned int s1=0; s1<nstate; ++s1)
+        if(this->compute_dRdW_strong)
         {
-            for(unsigned int s2=0; s2<nstate; ++s2)
-            {
-                d_jump_duh_face[s1][s2].reinit(n_face_quad_pts,n_shape_fns);
-                d_jump_duh_face[s1][s2] = dvbc_duh[s1][s2];
-                d_jump_duh_face[s1][s2].add(-1.0,dvtilde_duh_face[s1][s2]);
-            }
-        }
+            std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> dsigmabc_duh;
+            std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate> dvbc_duh;
+            compute_dvbc_duh_and_dsigmabc_duh(
+                iface,
+                boundary_id,
+                unit_phys_normal,
+                pde_physics,
+                dvtilde_duh_face,
+                dvtilde_duh_vol,
+                n_face_quad_pts,  
+                n_dofs_cell,
+                entropy_var_phys_grad_at_vol,
+                poly_K_nabla_v_at_face,
+                entropy_var_phys_grad_at_face,
+                entropy_var_at_vol_quads,
+                entropy_var_at_surf_quads,
+                H_mat, 
+                G_oper_vol,
+                DG_oper_vol,
+                n_shape_fns_1D,
+                n_vol_quads_1D,
+                flux_basis,
+                metric_oper,
+                dsigmabc_duh,
+                dvbc_duh);
 
-
-        std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> dKrejump_duh_vol;
-        compute_dKreT_duh(
-            dKrejump_duh_vol,
-            unit_phys_normal,
-            d_jump_duh_face,
-            re_jump,
-            flux_basis,
-            pde_physics,
-            entropy_var_at_vol_quads,
-            dvtilde_duh_vol,
-            n_face_quad_pts,
-            n_vol_quads_1D,
-            n_shape_fns_1D,
-            is_interior_face,
-            JxW_face,
-            JxW_vol,
+            dealii::FullMatrix<double> dRdW_e;
+            evaluate_face_integral_dsigma_duh(
             iface,
-            true);
-            
-        dealii::FullMatrix<double> dRdW_k;
-        compute_gradbasis_dT_duh_vol_integral(
-        n_vol_quad_pts,
-        n_dofs_cell,
-        soln_basis,
-        metric_oper,
-        vol_quad_weights,
-        dKrejump_duh_vol,
-        dRdW_k);
+            dsigmabc_duh,
+            JxW_face,
+            unit_phys_normal,
+            soln_basis,
+            n_dofs_cell,
+            n_face_quad_pts,
+            dRdW_e);
 
-        dRdW_boundary.add(-1.0, dRdW_k);
-        dRdW_boundary.add(1.0,dRdW_e);    
+            std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate> d_jump_duh_face;
+            const unsigned int n_shape_fns = n_dofs_cell/nstate;
+            for(unsigned int s1=0; s1<nstate; ++s1)
+            {
+                for(unsigned int s2=0; s2<nstate; ++s2)
+                {
+                    d_jump_duh_face[s1][s2].reinit(n_face_quad_pts,n_shape_fns);
+                    d_jump_duh_face[s1][s2] = dvbc_duh[s1][s2];
+                    d_jump_duh_face[s1][s2].add(-1.0,dvtilde_duh_face[s1][s2]);
+                }
+            }
+
+
+            std::array<std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate>,dim> dKrejump_duh_vol;
+            compute_dKreT_duh(
+                dKrejump_duh_vol,
+                unit_phys_normal,
+                d_jump_duh_face,
+                re_jump,
+                flux_basis,
+                pde_physics,
+                entropy_var_at_vol_quads,
+                dvtilde_duh_vol,
+                n_face_quad_pts,
+                n_vol_quads_1D,
+                n_shape_fns_1D,
+                is_interior_face,
+                JxW_face,
+                JxW_vol,
+                iface,
+                true);
+                
+            dealii::FullMatrix<double> dRdW_k;
+            compute_gradbasis_dT_duh_vol_integral(
+            n_vol_quad_pts,
+            n_dofs_cell,
+            soln_basis,
+            metric_oper,
+            vol_quad_weights,
+            dKrejump_duh_vol,
+            dRdW_k);
+
+            this->dRdW_boundary.add(-1.0, dRdW_k);
+            this->dRdW_boundary.add(1.0,dRdW_e);    
+        }
     }
 }
 
@@ -5687,12 +5697,12 @@ void DGStrong<dim,nstate,real,MeshType>::compute_H_mat(
     const dealii::FullMatrix<double> & basis, 
     const std::vector<double> &jac_det_vol,
     const std::vector<std::array<std::array<real,nstate>,nstate>> &dv_du, 
-    xt::xarray<double> &H) // H[s1][s2][i][j][k][Ltilde][Mtilde][Ntilde]
+    xt::xarray<double> &H) const // H[s1][s2][i][j][k][Ltilde][Mtilde][Ntilde]
 {
     const unsigned int n_quad_pts_1D = basis.m();
     const unsigned int n_shape_fns_1D = basis.n();
 
-    xt::xarray<double> temp1  = xt::xarray<double>::from_shape({n_quad_pts_1D,n_shape_fns,n_quad_pts_1D.n_quad_pts_1D}); // Ltilde,i,m,n    
+    xt::xarray<double> temp1  = xt::xarray<double>::from_shape({n_quad_pts_1D,n_shape_fns_1D,n_quad_pts_1D,n_quad_pts_1D}); // Ltilde,i,m,n    
     xt::xarray<double> temp2  = xt::xarray<double>::from_shape({n_quad_pts_1D,n_shape_fns_1D,n_quad_pts_1D,n_shape_fns_1D,n_quad_pts_1D}); // Mtilde,j,Ltilde,i,n    
     H  = xt::xarray<double>::from_shape({nstate,nstate,n_shape_fns_1D,n_shape_fns_1D,n_shape_fns_1D,n_quad_pts_1D,n_quad_pts_1D,n_quad_pts_1D}); // s1,s2,i,j,k,Ltilde,Mtilde,Ntilde
     for(unsigned int s1=0; s1<nstate; ++s1)
@@ -5708,11 +5718,11 @@ void DGStrong<dim,nstate,real,MeshType>::compute_H_mat(
                     {
                         for(unsigned int n=0; n<n_quad_pts_1D; ++n)
                         {
-                            temp1[Ltilde][i][m][n] = 0;
+                            temp1(Ltilde,i,m,n) = 0;
                             for(unsigned int l=0; l<n_quad_pts_1D; ++l)
                             {
                                 const unsigned int iquad = l + m*n_quad_pts_1D + n*n_quad_pts_1D*n_quad_pts_1D;
-                                temp1[Ltilde][i][m][n] += G_oper[Ltilde][l]*basis[l][i]*jac_det_vol[iquad]*dv_du[iquad][s1][s2];
+                                temp1(Ltilde,i,m,n) += G_oper[Ltilde][l]*basis[l][i]*jac_det_vol[iquad]*dv_du[iquad][s1][s2];
                             }
                         }
                     }
@@ -5730,10 +5740,10 @@ void DGStrong<dim,nstate,real,MeshType>::compute_H_mat(
                         {
                             for(unsigned int n=0; n<n_quad_pts_1D; ++n)
                             {
-                                temp2[Mtilde][j][Ltilde][i][n]=0;
+                                temp2(Mtilde,j,Ltilde,i,n)=0;
                                 for(unsigned int m=0; m<n_quad_pts_1D; ++m)
                                 {
-                                    temp2[Mtilde][j][Ltilde][i][n] += G_oper[Mtilde][m]*basis[m][j]*temp1[Ltilde][i][m][n];
+                                    temp2(Mtilde,j,Ltilde,i,n) += G_oper[Mtilde][m]*basis[m][j]*temp1(Ltilde,i,m,n);
                                 }
                             }
                         }
@@ -5754,12 +5764,12 @@ void DGStrong<dim,nstate,real,MeshType>::compute_H_mat(
                             {
                                 for(unsigned int Ntilde=0; Ntilde<n_quad_pts_1D; ++Ntilde)
                                 {
-                                    H[s1][s2][i][j][k][Ltilde][Mtilde][Ntilde] = 0;
+                                    H(s1,s2,i,j,k,Ltilde,Mtilde,Ntilde) = 0;
                                     for(unsigned int n=0; n<n_quad_pts_1D; ++n)
                                     {
-                                        H[s1][s2][i][j][k][Ltilde][Mtilde][Ntilde] += G_oper[Ntilde][n]*basis[n][k]*temp2[Mtilde][j][Ltilde][i][n];
+                                        H(s1,s2,i,j,k,Ltilde,Mtilde,Ntilde) += G_oper[Ntilde][n]*basis[n][k]*temp2(Mtilde,j,Ltilde,i,n);
                                     }
-                                    H[s1][s2][i][j][k][Ltilde][Mtilde][Ntilde] /= jac_det_vol[Ltilde + Mtilde*n_quad_pts_1D + Ntilde*n_quad_pts_1D*n_quad_pts_1D];
+                                    H(s1,s2,i,j,k,Ltilde,Mtilde,Ntilde) /= jac_det_vol[Ltilde + Mtilde*n_quad_pts_1D + Ntilde*n_quad_pts_1D*n_quad_pts_1D];
                                 }
                             }
                         }
@@ -5778,8 +5788,8 @@ void DGStrong<dim,nstate,real,MeshType>::compute_dvtilde_duh(
     const dealii::FullMatrix<double> & G_opern, 
     const xt::xarray<double> &H,
     const unsigned int n_shape_fns_1D,
-    const unsigned int n_vol_quads_1D
-    std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate> &dvtilde_duh)
+    const unsigned int n_vol_quads_1D,
+    std::array<std::array<dealii::FullMatrix<double>,nstate>,nstate> &dvtilde_duh) const
 {
     const unsigned int sizel = G_operl.m();
     const unsigned int sizem = G_operm.m();
@@ -5813,10 +5823,10 @@ void DGStrong<dim,nstate,real,MeshType>::compute_dvtilde_duh(
                             {
                                 for(unsigned int Ntilde=0; Ntilde<n_vol_quads_1D; ++Ntilde)
                                 {
-                                    temp1[l][i][j][k][Mtilde][Ntilde] = 0;
+                                    temp1(l,i,j,k,Mtilde,Ntilde) = 0;
                                     for(unsigned int Ltilde=0; Ltilde<n_vol_quads_1D; ++Ltilde)
                                     {
-                                        temp1[l][i][j][k][Mtilde][Ntilde] += G_operl[l][Ltilde]*H[s1][s2][i][j][k][Ltilde][Mtilde][Ntilde];
+                                        temp1(l,i,j,k,Mtilde,Ntilde) += G_operl[l][Ltilde]*H(s1,s2,i,j,k,Ltilde,Mtilde,Ntilde);
                                     }
                                 }
                             }
@@ -5839,10 +5849,10 @@ void DGStrong<dim,nstate,real,MeshType>::compute_dvtilde_duh(
                             {
                                 for(unsigned int Ntilde=0; Ntilde<n_vol_quads_1D; ++Ntilde)
                                 {
-                                    temp2[m][l][i][j][k][Ntilde] = 0;
+                                    temp2(m,l,i,j,k,Ntilde) = 0;
                                     for(unsigned int Mtilde=0; Mtilde<n_vol_quads_1D; ++Mtilde)
                                     {
-                                        temp2[m][l][i][j][k][Ntilde] += G_operm[m][Mtilde]*temp1[l][i][j][k][Mtilde][Ntilde];
+                                        temp2(m,l,i,j,k,Ntilde) += G_operm[m][Mtilde]*temp1(l,i,j,k,Mtilde,Ntilde);
                                     }
                                 }
                             }
@@ -5869,7 +5879,7 @@ void DGStrong<dim,nstate,real,MeshType>::compute_dvtilde_duh(
                                     dvtilde_duh[s1][s2][iquad][idof] = 0;
                                     for(unsigned int Ntilde=0; Ntilde<n_vol_quads_1D; ++Ntilde)
                                     {
-                                        dvtilde_duh[s1][s2][iquad][idof] += G_opern[n][Ntilde]*temp2[m][l][i][j][k][Ntilde];
+                                        dvtilde_duh[s1][s2][iquad][idof] += G_opern[n][Ntilde]*temp2(m,l,i,j,k,Ntilde);
                                     }
                                 }
                             }
@@ -5883,12 +5893,6 @@ void DGStrong<dim,nstate,real,MeshType>::compute_dvtilde_duh(
     
 
 }
-
-
-
-
-
-
 
 
 /*******************************************************
@@ -5916,11 +5920,7 @@ template <int dim, int nstate, typename real, typename MeshType>
 void DGStrong<dim,nstate,real,MeshType>::allocate_dual_vector(const bool compute_d2R)
 {
     if(compute_d2R){
-        for(unsigned int k=0; k<this->n_duals; ++k)
-        {
-            this->duals[k].reinit(this->locally_owned_dofs, this->ghost_dofs, this->mpi_communicator);
-            this->duals_transpose_dRdW[k].reinit(this->locally_owned_dofs, this->ghost_dofs, this->mpi_communicator);
-        }
+        this->dual.reinit(this->locally_owned_dofs, this->ghost_dofs, this->mpi_communicator);
     }
 }
 

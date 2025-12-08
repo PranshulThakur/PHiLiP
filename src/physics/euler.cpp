@@ -195,19 +195,20 @@ inline std::array<real2,nstate> Euler<dim,nstate,real>
 }
 
 template <int dim, int nstate, typename real>
-inline std::array<real,nstate> Euler<dim,nstate,real>
-::convert_primitive_to_conservative ( const std::array<real,nstate> &primitive_soln ) const
+template<typename adtype>
+inline std::array<adtype,nstate> Euler<dim,nstate,real>
+::convert_primitive_to_conservative ( const std::array<adtype,nstate> &primitive_soln ) const
 {
 
-    const real density = primitive_soln[0];
-    const dealii::Tensor<1,dim,real> velocities = extract_velocities_from_primitive<real>(primitive_soln);
+    const adtype density = primitive_soln[0];
+    const dealii::Tensor<1,dim,adtype> velocities = extract_velocities_from_primitive<adtype>(primitive_soln);
 
-    std::array<real, nstate> conservative_soln;
+    std::array<adtype, nstate> conservative_soln;
     conservative_soln[0] = density;
     for (int d=0; d<dim; ++d) {
         conservative_soln[1+d] = density*velocities[d];
     }
-    conservative_soln[nstate-1] = compute_total_energy(primitive_soln);
+    conservative_soln[nstate-1] = compute_total_energy<adtype>(primitive_soln);
 
     return conservative_soln;
 }
@@ -254,23 +255,25 @@ inline dealii::Tensor<1,dim,real2> Euler<dim,nstate,real>
 }
 
 template <int dim, int nstate, typename real>
-inline real Euler<dim,nstate,real>
-::compute_total_energy ( const std::array<real,nstate> &primitive_soln ) const
+template<typename adtype>
+inline adtype Euler<dim,nstate,real>
+::compute_total_energy ( const std::array<adtype,nstate> &primitive_soln ) const
 {
-    const real pressure = primitive_soln[nstate-1];
-    const real kinetic_energy = compute_kinetic_energy_from_primitive_solution(primitive_soln);
-    const real tot_energy = pressure / this->gamm1 + kinetic_energy;
+    const adtype pressure = primitive_soln[nstate-1];
+    const adtype kinetic_energy = compute_kinetic_energy_from_primitive_solution<adtype>(primitive_soln);
+    const adtype tot_energy = pressure / this->gamm1 + kinetic_energy;
     return tot_energy;
 }
 
 template <int dim, int nstate, typename real>
-inline real Euler<dim,nstate,real>
-::compute_kinetic_energy_from_primitive_solution ( const std::array<real,nstate> &primitive_soln ) const
+template<typename adtype>
+inline adtype Euler<dim,nstate,real>
+::compute_kinetic_energy_from_primitive_solution ( const std::array<adtype,nstate> &primitive_soln ) const
 {
-    const real density = primitive_soln[0];
-    const dealii::Tensor<1,dim,real> velocities = extract_velocities_from_primitive<real>(primitive_soln);
-    const real vel2 = compute_velocity_squared<real>(velocities);
-    const real kinetic_energy = 0.5*density*vel2;
+    const adtype density = primitive_soln[0];
+    const dealii::Tensor<1,dim,adtype> velocities = extract_velocities_from_primitive<adtype>(primitive_soln);
+    const adtype vel2 = compute_velocity_squared<adtype>(velocities);
+    const adtype kinetic_energy = 0.5*density*vel2;
     return kinetic_energy;
 }
 
@@ -279,7 +282,7 @@ inline real Euler<dim,nstate,real>
 ::compute_kinetic_energy_from_conservative_solution ( const std::array<real,nstate> &conservative_soln ) const
 {
     const std::array<real,nstate> primitive_soln = convert_conservative_to_primitive<real>(conservative_soln);
-    const real kinetic_energy = compute_kinetic_energy_from_primitive_solution(primitive_soln);
+    const real kinetic_energy = compute_kinetic_energy_from_primitive_solution<real>(primitive_soln);
     return kinetic_energy;
 }
 
@@ -293,14 +296,15 @@ inline real Euler<dim,nstate,real>
 }
 
 template <int dim, int nstate, typename real>
-inline real Euler<dim,nstate,real>
-::compute_entropy_measure ( const real density, const real pressure ) const
+template<typename adtype>
+inline adtype Euler<dim,nstate,real>
+::compute_entropy_measure ( const adtype density, const adtype pressure ) const
 {
     //Copy such that we don't modify the original density that is passed
-    real density_check = density;
-    const bool density_is_positive = check_positive_quantity<real>(density_check, "density");
+    adtype density_check = density;
+    const bool density_is_positive = check_positive_quantity<adtype>(density_check, "density");
     if (density_is_positive)     return pressure*pow(density,-gam);
-    else                         return (real)this->BIG_NUMBER;
+    else                         return (adtype)this->BIG_NUMBER;
 }
 
 
@@ -390,8 +394,8 @@ inline real2 Euler<dim,nstate,real>
     // copy density and pressure such that the check will not modify originals
     real2 density_check = density; 
     real2 pressure_check = pressure;
-    const bool density_is_positive = check_positive_quantity(density_check, "density");
-    const bool pressure_is_positive = check_positive_quantity(pressure_check, "pressure");
+    const bool density_is_positive = check_positive_quantity<real2>(density_check, "density");
+    const bool pressure_is_positive = check_positive_quantity<real2>(pressure_check, "pressure");
     if (density_is_positive && pressure_is_positive) {
         real2 entropy = pressure * pow(density, -gam);
         entropy = log(entropy);
@@ -414,12 +418,25 @@ inline real Euler<dim,nstate,real>
 }
 
 template <int dim, int nstate, typename real>
+template<typename adtype>
+inline adtype Euler<dim,nstate,real>
+::compute_sound_templated ( const adtype density, const adtype pressure ) const
+{
+    //assert(density > 0);
+    const adtype sound = sqrt(pressure*gam/density);
+    return sound;
+}
+
+template <int dim, int nstate, typename real>
 inline real Euler<dim,nstate,real>
 ::compute_sound ( const real density, const real pressure ) const
 {
+/*
     //assert(density > 0);
     const real sound = sqrt(pressure*gam/density);
     return sound;
+*/
+    return compute_sound_templated<real>(density,pressure);
 }
 
 template <int dim, int nstate, typename real>
@@ -460,14 +477,14 @@ std::array<dealii::Tensor<1,dim,real>,nstate> Euler<dim, nstate, real>
 ::convective_numerical_split_flux(const std::array<real,nstate> &conservative_soln1,
                                   const std::array<real,nstate> &conservative_soln2) const
 {
-    return convective_numerical_split_flux_templated<real>(convervative_soln1, conservative_soln2);
+    return convective_numerical_split_flux_templated<real>(conservative_soln1, conservative_soln2);
 }
 
 template <int dim, int nstate, typename real>
 template<typename adtype>
 std::array<dealii::Tensor<1,dim,adtype>,nstate> Euler<dim, nstate, real>
-::convective_numerical_split_flux_kennedy_gruber(const std::array<real,adtype> &conservative_soln1,
-                                                 const std::array<real,adtype> &conservative_soln2) const
+::convective_numerical_split_flux_kennedy_gruber(const std::array<adtype,nstate> &conservative_soln1,
+                                                 const std::array<adtype,nstate> &conservative_soln2) const
 {
     std::array<dealii::Tensor<1,dim,adtype>,nstate> conv_num_split_flux;
     const adtype mean_density = compute_mean_density<adtype>(conservative_soln1, conservative_soln2);
@@ -700,63 +717,71 @@ std::array<std::array<std::array<double,nstate>,nstate>,2> Euler<dim,nstate,real
     const dealii::Tensor<2,dim,real> &metric_cofactor_split,
     const dealii::Tensor<1,dim,real> &normal) const
 {
-    using typename adtype = codi_JacobianComputationType;
-    
-    using TH = codi::TapeHelper<adtype>;
-    TH th;
-    typename adtype::TapeType &tape =  adtype::getGlobalTape(); 
-    th.startRecording();
+    if constexpr(std::is_same<real,double>::value)
+    {
+        using adtype = codi_JacobianComputationType;
+        using TH = codi::TapeHelper<adtype>;
+        TH th;
+        th.startRecording();
 
-    std::array<adtype,nstate> conservative_soln1_ad;
-    std::array<adtype,nstate> conservative_soln2_ad;
+        std::array<adtype,nstate> conservative_soln1_ad;
+        std::array<adtype,nstate> conservative_soln2_ad;
 
-    for(unsigned int s=0; s<nstate; ++s)
-    {
-        conservative_soln1_ad[s] = conservative_soln1[s];
-        th.registerInput(conservative_soln1_ad[s]);
-    }
-    for(unsigned int s=0; s<nstate; ++s)
-    {
-        conservative_soln2_ad[s] = conservative_soln2[s];
-        th.registerInput(conservative_soln2_ad[s]);
-    }
-    
-    std::array<dealii::Tensor<1,dim,adtype>,nstate> F_phys = convective_numerical_split_flux_templated<adtype>(conservative_soln1_ad, conservative_soln2_ad);
-    
-    std::array<adtype,nstate> F_ref_dot_n;
-    for(unsigned int s=0; s<nstate; ++s)
-    {
-        F_ref_dot_n[s] = 0;
-        for(unsigned int d1 = 0; d1<dim; ++d1)
+        for(unsigned int s=0; s<nstate; ++s)
         {
-            for(unsigned int d2=0; d2<dim; ++d2)
+            conservative_soln1_ad[s] = conservative_soln1[s];
+            th.registerInput(conservative_soln1_ad[s]);
+        }
+        for(unsigned int s=0; s<nstate; ++s)
+        {
+            conservative_soln2_ad[s] = conservative_soln2[s];
+            th.registerInput(conservative_soln2_ad[s]);
+        }
+        
+        std::array<dealii::Tensor<1,dim,adtype>,nstate> F_phys = convective_numerical_split_flux_templated<adtype>(conservative_soln1_ad, conservative_soln2_ad);
+        
+        std::array<adtype,nstate> F_ref_dot_n;
+        for(unsigned int s=0; s<nstate; ++s)
+        {
+            F_ref_dot_n[s] = 0;
+            for(unsigned int d1 = 0; d1<dim; ++d1)
             {
-                F_ref_dot_n[s] += metric_cofactor_split[d1][d2]*F_phys[s][d1]*normal[d2];
+                for(unsigned int d2=0; d2<dim; ++d2)
+                {
+                    F_ref_dot_n[s] += metric_cofactor_split[d1][d2]*F_phys[s][d1]*normal[d2];
+                }
             }
         }
-    }
-    for(unsigned int s=0; s<nstate; ++s)
-    {
-        th.registerOutput(F_ref_dot_n[s]);
-    }
-    
-    th.stopRecording();
-    typename TH::JacobianType& jac = th.createJacobian();
-    th.evalJacobian(jac);
-
-    std::array<std::array<std::array<double,nstate>,nstate>,2> dF_du;
-
-    for(unsigned int s1=0; s1<nstate; ++s1)
-    {
-        for(unsigned int s2=0; s2<nstate; ++s2)
+        for(unsigned int s=0; s<nstate; ++s)
         {
-            dF_du[0][s1][s2] = jac(s1,s2);
-            dF_du[1][s1][s2] = jac(s1,s2+nstate);
+            th.registerOutput(F_ref_dot_n[s]);
         }
+        
+        th.stopRecording();
+        typename TH::JacobianType& jac = th.createJacobian();
+        th.evalJacobian(jac);
+
+        std::array<std::array<std::array<double,nstate>,nstate>,2> dF_du;
+
+        for(unsigned int s1=0; s1<nstate; ++s1)
+        {
+            for(unsigned int s2=0; s2<nstate; ++s2)
+            {
+                dF_du[0][s1][s2] = jac(s1,s2);
+                dF_du[1][s1][s2] = jac(s1,s2+nstate);
+            }
+        }
+        
+        th.deleteJacobian(jac);
+        return dF_du;
     }
-    
-    th.deleteJacobian(jac);
-    return dF_du;
+    else
+    {
+        std::cout<<"Shouldn't have reached here in Euler::convective_numerical_split_flux_derivative. Aborting..."<<std::endl;
+        std::abort();
+        std::array<std::array<std::array<double,nstate>,nstate>,2> dF_du;
+        return dF_du;
+    }
 }
 
 
@@ -767,57 +792,66 @@ std::array<std::array<double,nstate>,nstate> Euler<dim, nstate, real>
     const dealii::Tensor<1,dim,real> &normal_int,
     const unsigned int boundary_id) const
 {
-   using typename adtype = codi_JacobianComputationType;
-    
-    using TH = codi::TapeHelper<adtype>;
-    TH th;
-    typename adtype::TapeType &tape =  adtype::getGlobalTape(); 
-    th.startRecording();
+    if constexpr(std::is_same<real,double>::value)
+    {
+        using adtype = codi_JacobianComputationType;
+        
+        using TH = codi::TapeHelper<adtype>;
+        TH th;
+        th.startRecording();
 
-    std::array<adtype,nstate> conservative_soln_ad;
-    for(unsigned int s=0; s<nstate; ++s)
-    {
-        conservative_soln_ad[s] = conservative_soln[s];
-        th.registerInput(conservative_soln_ad[s]);
-    }
+        std::array<adtype,nstate> conservative_soln_ad;
+        for(unsigned int s=0; s<nstate; ++s)
+        {
+            conservative_soln_ad[s] = conservative_soln[s];
+            th.registerInput(conservative_soln_ad[s]);
+        }
 
-    std::array<adtype,nstate> conservative_soln_bc;
-    if(boundary_id==1006)
-    {
-        std::array<dealii::Tensor<1,dim,real>,nstate> soln_grad_int_dummy,
-        std::array<dealii::Tensor<1,dim,real>,nstate> soln_grad_bc_dummy,
-        // Slip wall boundary condition
-        boundary_slip_wall<adtype>(normal_int, conservative_soln_ad, soln_grad_int_dummy, conservative_soln_bc, soln_grad_bc_dummy);
-    }
-    else if(boundary_id==1004)
-    {
-        boundary_riemann<adtype>(normal_int, conservative_soln_ad, conservative_soln_bc);
+        std::array<adtype,nstate> conservative_soln_bc;
+        if(boundary_id==1006)
+        {
+            std::array<dealii::Tensor<1,dim,real>,nstate> soln_grad_int_dummy;
+            std::array<dealii::Tensor<1,dim,real>,nstate> soln_grad_bc_dummy;
+            // Slip wall boundary condition
+            boundary_slip_wall<adtype>(normal_int, conservative_soln_ad, soln_grad_int_dummy, conservative_soln_bc, soln_grad_bc_dummy);
+        }
+        else if(boundary_id==1004)
+        {
+            boundary_riemann<adtype>(normal_int, conservative_soln_ad, conservative_soln_bc);
+        }
+        else
+        {
+            std::cout<<"AD dubc_duh is not implemented for this Euler BC. Aborting..."<<std::endl;
+            std::abort();
+        }
+
+        for(unsigned int s=0; s<nstate; ++s)
+        {
+            th.registerOutput(conservative_soln_bc[s]);
+        }
+        
+        th.stopRecording();
+        typename TH::JacobianType& jac = th.createJacobian();
+        th.evalJacobian(jac);
+
+        std::array<std::array<double,nstate>,nstate> dubc_duh;
+        for(unsigned int s1=0; s1<nstate; ++s1)
+        {
+            for(unsigned int s2=0; s2<nstate; ++s2)
+            {
+                dubc_duh[s1][s2] = jac(s1,s2);
+            }
+        }
+        th.deleteJacobian(jac);
+        return dubc_duh;
     }
     else
     {
-        std::cout<<"AD dubc_duh is not implemented for this Euler BC. Aborting..."<<std::endl;
+        std::cout<<"Shouldn't have reached here in Euler::compute_d_solnbc_d_u. Aborting..."<<std::endl;
         std::abort();
+        std::array<std::array<double,nstate>,nstate> dummy;
+        return dummy; 
     }
-
-    for(unsigned int s=0; s<nstate; ++s)
-    {
-        th.registerOutput(conservative_soln_bc[s]);
-    }
-    
-    th.stopRecording();
-    typename TH::JacobianType& jac = th.createJacobian();
-    th.evalJacobian(jac);
-
-    std::array<std::array<double,nstate>,nstate> dubc_duh;
-    for(unsigned int s1=0; s1<nstate; ++s1)
-    {
-        for(unsigned int s2=0; s2<nstate; ++s2)
-        {
-            dubc_duh[s1][s2] = jac(s1,s2);
-        }
-    }
-    th.deleteJacobian(jac);
-    return dubc_duh;
 }
 
 template <int dim, int nstate, typename real>
@@ -825,13 +859,23 @@ std::array<real,nstate> Euler<dim, nstate, real>
 ::compute_entropy_variables (
     const std::array<real,nstate> &conservative_soln) const
 {
-    std::array<real,nstate> entropy_var;
-    const real density = conservative_soln[0];
-    const real pressure = compute_pressure<real>(conservative_soln);
-    
-    const real entropy = compute_entropy<real>(density, pressure);
+    return compute_entropy_variables_templated<real>(conservative_soln);
+}
 
-    const real rho_theta = pressure / gamm1;
+
+template <int dim, int nstate, typename real>
+template<typename adtype>
+std::array<adtype,nstate> Euler<dim, nstate, real>
+::compute_entropy_variables_templated (
+    const std::array<adtype,nstate> &conservative_soln) const
+{
+    std::array<adtype,nstate> entropy_var;
+    const adtype density = conservative_soln[0];
+    const adtype pressure = compute_pressure<adtype>(conservative_soln);
+    
+    const adtype entropy = compute_entropy<adtype>(density, pressure);
+
+    const adtype rho_theta = pressure / gamm1;
 
     entropy_var[0] = (rho_theta *(gam + 1.0 - entropy) - conservative_soln[nstate-1])/rho_theta;
     for(int idim=0; idim<dim; idim++){
@@ -843,19 +887,20 @@ std::array<real,nstate> Euler<dim, nstate, real>
 }
 
 template <int dim, int nstate, typename real>
-std::array<real,nstate> Euler<dim, nstate, real>
-::compute_conservative_variables_from_entropy_variables (
-    const std::array<real,nstate> &entropy_var) const
+template<typename adtype>
+std::array<adtype,nstate> Euler<dim, nstate, real>
+::compute_conservative_variables_from_entropy_variables_templated (
+    const std::array<adtype,nstate> &entropy_var) const
 {
     //Eq. 119 and 120 from Chan, Jesse. "On discretely entropy conservative and entropy stable discontinuous Galerkin methods." Journal of Computational Physics 362 (2018): 346-374.
     //Extrapolated for 3D
-    std::array<real,nstate> conservative_var;
-    real entropy_var_vel_squared = 0.0;
+    std::array<adtype,nstate> conservative_var;
+    adtype entropy_var_vel_squared = 0.0;
     for(int idim=0; idim<dim; idim++){
         entropy_var_vel_squared += entropy_var[idim + 1] * entropy_var[idim + 1];
     }
-    const real entropy = gam - entropy_var[0] + 0.5 * entropy_var_vel_squared / entropy_var[nstate-1];
-    const real rho_theta = pow( (gamm1/ pow(- entropy_var[nstate-1], gam)), 1.0 /gamm1)
+    const adtype entropy = gam - entropy_var[0] + 0.5 * entropy_var_vel_squared / entropy_var[nstate-1];
+    const adtype rho_theta = pow( (gamm1/ pow(- entropy_var[nstate-1], gam)), 1.0 /gamm1)
                          * exp( - entropy / gamm1);
 
     conservative_var[0] = - rho_theta * entropy_var[nstate-1];
@@ -864,6 +909,14 @@ std::array<real,nstate> Euler<dim, nstate, real>
     }
     conservative_var[nstate-1] = rho_theta * (1.0 - 0.5 * entropy_var_vel_squared / entropy_var[nstate-1]);
     return conservative_var;
+}
+
+template <int dim, int nstate, typename real>
+std::array<real,nstate> Euler<dim, nstate, real>
+::compute_conservative_variables_from_entropy_variables(
+    const std::array<real,nstate> &entropy_var) const
+{
+    return compute_conservative_variables_from_entropy_variables_templated<real>(entropy_var);
 }
 
 template <int dim, int nstate, typename real>
@@ -885,31 +938,34 @@ std::array<real,nstate> Euler<dim, nstate, real>
 }
 
 template <int dim, int nstate, typename real>
-inline real Euler<dim,nstate,real>::
-compute_mean_density(const std::array<real,nstate> &conservative_soln1,
-                     const std::array<real,nstate> &conservative_soln2) const
+template<typename adtype>
+inline adtype Euler<dim,nstate,real>::
+compute_mean_density(const std::array<adtype,nstate> &conservative_soln1,
+                     const std::array<adtype,nstate> &conservative_soln2) const
 {
     return (conservative_soln1[0] + conservative_soln2[0])/2.;
 }
 
 template <int dim, int nstate, typename real>
-inline real Euler<dim,nstate,real>::
-compute_mean_pressure(const std::array<real,nstate> &conservative_soln1,
-                      const std::array<real,nstate> &conservative_soln2) const
+template<typename adtype>
+inline adtype Euler<dim,nstate,real>::
+compute_mean_pressure(const std::array<adtype,nstate> &conservative_soln1,
+                      const std::array<adtype,nstate> &conservative_soln2) const
 {
-    real pressure_1 = compute_pressure<real>(conservative_soln1);
-    real pressure_2 = compute_pressure<real>(conservative_soln2);
+    adtype pressure_1 = compute_pressure<adtype>(conservative_soln1);
+    adtype pressure_2 = compute_pressure<adtype>(conservative_soln2);
     return (pressure_1 + pressure_2)/2.;
 }
 
 template <int dim, int nstate, typename real>
-inline dealii::Tensor<1,dim,real> Euler<dim,nstate,real>::
-compute_mean_velocities(const std::array<real,nstate> &conservative_soln1,
-                        const std::array<real,nstate> &conservative_soln2) const
+template<typename adtype>
+inline dealii::Tensor<1,dim,adtype> Euler<dim,nstate,real>::
+compute_mean_velocities(const std::array<adtype,nstate> &conservative_soln1,
+                        const std::array<adtype,nstate> &conservative_soln2) const
 {
-    dealii::Tensor<1,dim,real> vel_1 = compute_velocities<real>(conservative_soln1);
-    dealii::Tensor<1,dim,real> vel_2 = compute_velocities<real>(conservative_soln2);
-    dealii::Tensor<1,dim,real> mean_vel;
+    dealii::Tensor<1,dim,adtype> vel_1 = compute_velocities<adtype>(conservative_soln1);
+    dealii::Tensor<1,dim,adtype> vel_2 = compute_velocities<adtype>(conservative_soln2);
+    dealii::Tensor<1,dim,adtype> mean_vel;
     for (int d=0; d<dim; ++d) {
         mean_vel[d] = 0.5*(vel_1[d]+vel_2[d]);
     }
@@ -917,9 +973,10 @@ compute_mean_velocities(const std::array<real,nstate> &conservative_soln1,
 }
 
 template <int dim, int nstate, typename real>
-inline real Euler<dim,nstate,real>::
-compute_mean_specific_total_energy(const std::array<real,nstate> &conservative_soln1,
-                             const std::array<real,nstate> &conservative_soln2) const
+template<typename adtype>
+inline adtype Euler<dim,nstate,real>::
+compute_mean_specific_total_energy(const std::array<adtype,nstate> &conservative_soln1,
+                             const std::array<adtype,nstate> &conservative_soln2) const
 {
     return ((conservative_soln1[nstate-1]/conservative_soln1[0]) + (conservative_soln2[nstate-1]/conservative_soln2[0]))/2.;
 }
@@ -1227,8 +1284,8 @@ void Euler<dim,nstate,real>
     const dealii::Tensor<1,dim,adtype> velocities_int = extract_velocities_from_primitive<adtype>(primitive_int);
     const dealii::Tensor<1,dim,adtype> velocities_ext = extract_velocities_from_primitive<adtype>(primitive_ext);
 
-    const adtype sound_int  = compute_sound<adtype>( primitive_int[0], primitive_int[nstate-1] );
-    const adtype sound_ext  = compute_sound<adtype>( primitive_ext[0], primitive_ext[nstate-1] );
+    const adtype sound_int  = compute_sound_templated<adtype>( primitive_int[0], primitive_int[nstate-1] );
+    const adtype sound_ext  = compute_sound_templated<adtype>( primitive_ext[0], primitive_ext[nstate-1] );
 
     adtype vel_int_dot_normal = 0.0;
     adtype vel_ext_dot_normal = 0.0;
@@ -1380,7 +1437,7 @@ void Euler<dim,nstate,real>
             // for(int d=0;d<dim;d++){
             //    primitive_boundary_values[1+d] = soln_int[1+d]/soln_int[0];;
             //}
-            const std::array<real,nstate> modified_conservative_boundary_values = convert_primitive_to_conservative(primitive_boundary_values);
+            const std::array<real,nstate> modified_conservative_boundary_values = convert_primitive_to_conservative<real>(primitive_boundary_values);
             (void) modified_conservative_boundary_values;
             //conservative_boundary_values[nstate-1] = soln_int[nstate-1];
             soln_bc[istate] = conservative_boundary_values[istate];
@@ -1437,7 +1494,7 @@ void Euler<dim,nstate,real>
         for (int d=0;d<dim;d++) { primitive_boundary_values[1+d] = primitive_interior_values[1+d]; }
         primitive_boundary_values[nstate-1] = pressure_bc;
 
-        const std::array<real,nstate> conservative_bc = convert_primitive_to_conservative(primitive_boundary_values);
+        const std::array<real,nstate> conservative_bc = convert_primitive_to_conservative<real>(primitive_boundary_values);
         for (int istate=0; istate<nstate; ++istate) {
             soln_bc[istate] = conservative_bc[istate];
         }
@@ -1515,7 +1572,7 @@ void Euler<dim,nstate,real>
       primitive_boundary_values[0] = density_bc;
       for (int d=0;d<dim;d++) { primitive_boundary_values[1+d] = velocity_magnitude_bc*normal[d]; }
       primitive_boundary_values[nstate-1] = pressure_bc;
-      const std::array<real,nstate> conservative_bc = convert_primitive_to_conservative(primitive_boundary_values);
+      const std::array<real,nstate> conservative_bc = convert_primitive_to_conservative<real>(primitive_boundary_values);
       for (int istate=0; istate<nstate; ++istate) {
           soln_bc[istate] = conservative_bc[istate];
       }
@@ -1544,7 +1601,7 @@ void Euler<dim,nstate,real>
       primitive_boundary_values[0] = density_bc;
       for (int d=0;d<dim;d++) { primitive_boundary_values[1+d] = -velocity_magnitude_bc*normal_int[d]; } // minus since it's inflow
       primitive_boundary_values[nstate-1] = pressure_bc;
-      const std::array<real,nstate> conservative_bc = convert_primitive_to_conservative(primitive_boundary_values);
+      const std::array<real,nstate> conservative_bc = convert_primitive_to_conservative<real>(primitive_boundary_values);
       for (int istate=0; istate<nstate; ++istate) {
          soln_bc[istate] = conservative_bc[istate];
       }
@@ -1562,7 +1619,7 @@ void Euler<dim,nstate,real>
    primitive_boundary_values[0] = density_bc;
    for (int d=0;d<dim;d++) { primitive_boundary_values[1+d] = velocities_inf[d]; } // minus since it's inflow
    primitive_boundary_values[nstate-1] = pressure_bc;
-   const std::array<real,nstate> conservative_bc = convert_primitive_to_conservative(primitive_boundary_values);
+   const std::array<real,nstate> conservative_bc = convert_primitive_to_conservative<real>(primitive_boundary_values);
    for (int istate=0; istate<nstate; ++istate) {
       soln_bc[istate] = conservative_bc[istate];
    }
@@ -1592,7 +1649,7 @@ void Euler<dim, nstate, real>
             primitive_boundary_values[istate] = this->all_parameters->euler_param.custom_boundary_for_each_state[istate];
     }
 
-    const std::array<real, nstate> conservative_bc = convert_primitive_to_conservative(primitive_boundary_values);
+    const std::array<real, nstate> conservative_bc = convert_primitive_to_conservative<real>(primitive_boundary_values);
     for (int istate = 0; istate < nstate; ++istate) {
         soln_bc[istate] = conservative_bc[istate];
     }
@@ -1617,7 +1674,7 @@ void Euler<dim, nstate, real>
             primitive_boundary_values[istate] = 0.0;
     }
 
-    const std::array<real, nstate> conservative_bc = convert_primitive_to_conservative(primitive_boundary_values);
+    const std::array<real, nstate> conservative_bc = convert_primitive_to_conservative<real>(primitive_boundary_values);
     for (int istate = 0; istate < nstate; ++istate) {
         soln_bc[istate] = conservative_bc[istate];
     }
@@ -1828,6 +1885,12 @@ template bool Euler < PHILIP_DIM, PHILIP_DIM+2, double     >::check_positive_qua
 template bool Euler < PHILIP_DIM, PHILIP_DIM+2, RadType    >::check_positive_quantity< FadType    >(FadType    &qty, const std::string qty_name) const;
 template bool Euler < PHILIP_DIM, PHILIP_DIM+2, FadFadType >::check_positive_quantity< FadType    >(FadType    &qty, const std::string qty_name) const;
 template bool Euler < PHILIP_DIM, PHILIP_DIM+2, RadFadType >::check_positive_quantity< FadType    >(FadType    &qty, const std::string qty_name) const;
+
+template bool Euler < PHILIP_DIM, PHILIP_DIM+2, double     >::check_positive_quantity< RadType    >(RadType    &qty, const std::string qty_name) const;
+template bool Euler < PHILIP_DIM, PHILIP_DIM+2, FadType    >::check_positive_quantity< RadType    >(RadType    &qty, const std::string qty_name) const;
+template bool Euler < PHILIP_DIM, PHILIP_DIM+2, FadFadType >::check_positive_quantity< RadType    >(RadType    &qty, const std::string qty_name) const;
+template bool Euler < PHILIP_DIM, PHILIP_DIM+2, RadFadType >::check_positive_quantity< RadType    >(RadType    &qty, const std::string qty_name) const;
+
 // -- compute_pressure()
 template double     Euler < PHILIP_DIM, PHILIP_DIM+2, double     >::compute_pressure< double     >(const std::array<double,    PHILIP_DIM+2> &conservative_soln) const;
 template FadType    Euler < PHILIP_DIM, PHILIP_DIM+2, FadType    >::compute_pressure< FadType    >(const std::array<FadType,   PHILIP_DIM+2> &conservative_soln) const;
@@ -1839,6 +1902,12 @@ template FadType    Euler < PHILIP_DIM, PHILIP_DIM+2, double     >::compute_pres
 template FadType    Euler < PHILIP_DIM, PHILIP_DIM+2, RadType    >::compute_pressure< FadType    >(const std::array<FadType,   PHILIP_DIM+2> &conservative_soln) const;
 template FadType    Euler < PHILIP_DIM, PHILIP_DIM+2, FadFadType >::compute_pressure< FadType    >(const std::array<FadType,   PHILIP_DIM+2> &conservative_soln) const;
 template FadType    Euler < PHILIP_DIM, PHILIP_DIM+2, RadFadType >::compute_pressure< FadType    >(const std::array<FadType,   PHILIP_DIM+2> &conservative_soln) const;
+
+template RadType    Euler < PHILIP_DIM, PHILIP_DIM+2, double     >::compute_pressure< RadType    >(const std::array<RadType,   PHILIP_DIM+2> &conservative_soln) const;
+template RadType    Euler < PHILIP_DIM, PHILIP_DIM+2, FadType    >::compute_pressure< RadType    >(const std::array<RadType,   PHILIP_DIM+2> &conservative_soln) const;
+template RadType    Euler < PHILIP_DIM, PHILIP_DIM+2, FadFadType >::compute_pressure< RadType    >(const std::array<RadType,   PHILIP_DIM+2> &conservative_soln) const;
+template RadType    Euler < PHILIP_DIM, PHILIP_DIM+2, RadFadType >::compute_pressure< RadType    >(const std::array<RadType,   PHILIP_DIM+2> &conservative_soln) const;
+
 // -- compute_temperature()
 template double     Euler < PHILIP_DIM, PHILIP_DIM+2, double     >::compute_temperature< double     >(const std::array<double,    PHILIP_DIM+2> &primitive_soln) const;
 template FadType    Euler < PHILIP_DIM, PHILIP_DIM+2, FadType    >::compute_temperature< FadType    >(const std::array<FadType,   PHILIP_DIM+2> &primitive_soln) const;
@@ -1850,6 +1919,13 @@ template FadType    Euler < PHILIP_DIM, PHILIP_DIM+2, double     >::compute_temp
 template FadType    Euler < PHILIP_DIM, PHILIP_DIM+2, RadType    >::compute_temperature< FadType    >(const std::array<FadType,   PHILIP_DIM+2> &primitive_soln) const;
 template FadType    Euler < PHILIP_DIM, PHILIP_DIM+2, FadFadType >::compute_temperature< FadType    >(const std::array<FadType,   PHILIP_DIM+2> &primitive_soln) const;
 template FadType    Euler < PHILIP_DIM, PHILIP_DIM+2, RadFadType >::compute_temperature< FadType    >(const std::array<FadType,   PHILIP_DIM+2> &primitive_soln) const;
+
+
+template RadType    Euler < PHILIP_DIM, PHILIP_DIM+2, double     >::compute_temperature< RadType    >(const std::array<RadType,   PHILIP_DIM+2> &primitive_soln) const;
+template RadType    Euler < PHILIP_DIM, PHILIP_DIM+2, FadType    >::compute_temperature< RadType    >(const std::array<RadType,   PHILIP_DIM+2> &primitive_soln) const;
+template RadType    Euler < PHILIP_DIM, PHILIP_DIM+2, FadFadType >::compute_temperature< RadType    >(const std::array<RadType,   PHILIP_DIM+2> &primitive_soln) const;
+template RadType    Euler < PHILIP_DIM, PHILIP_DIM+2, RadFadType >::compute_temperature< RadType    >(const std::array<RadType,   PHILIP_DIM+2> &primitive_soln) const;
+
 // -- compute_velocity_squared()
 template double     Euler < PHILIP_DIM, PHILIP_DIM+2, double     >::compute_velocity_squared< double     >(const dealii::Tensor<1,PHILIP_DIM,double    > &velocities) const;
 template FadType    Euler < PHILIP_DIM, PHILIP_DIM+2, FadType    >::compute_velocity_squared< FadType    >(const dealii::Tensor<1,PHILIP_DIM,FadType   > &velocities) const;
@@ -1861,6 +1937,11 @@ template FadType    Euler < PHILIP_DIM, PHILIP_DIM+2, double     >::compute_velo
 template FadType    Euler < PHILIP_DIM, PHILIP_DIM+2, RadType    >::compute_velocity_squared< FadType    >(const dealii::Tensor<1,PHILIP_DIM,FadType   > &velocities) const;
 template FadType    Euler < PHILIP_DIM, PHILIP_DIM+2, FadFadType >::compute_velocity_squared< FadType    >(const dealii::Tensor<1,PHILIP_DIM,FadType   > &velocities) const;
 template FadType    Euler < PHILIP_DIM, PHILIP_DIM+2, RadFadType >::compute_velocity_squared< FadType    >(const dealii::Tensor<1,PHILIP_DIM,FadType   > &velocities) const;
+
+template RadType    Euler < PHILIP_DIM, PHILIP_DIM+2, double     >::compute_velocity_squared< RadType    >(const dealii::Tensor<1,PHILIP_DIM,RadType   > &velocities) const;
+template RadType    Euler < PHILIP_DIM, PHILIP_DIM+2, FadType    >::compute_velocity_squared< RadType    >(const dealii::Tensor<1,PHILIP_DIM,RadType   > &velocities) const;
+template RadType    Euler < PHILIP_DIM, PHILIP_DIM+2, FadFadType >::compute_velocity_squared< RadType    >(const dealii::Tensor<1,PHILIP_DIM,RadType   > &velocities) const;
+template RadType    Euler < PHILIP_DIM, PHILIP_DIM+2, RadFadType >::compute_velocity_squared< RadType    >(const dealii::Tensor<1,PHILIP_DIM,RadType   > &velocities) const;
 // -- convert_conservative_to_primitive()
 template std::array<double,    PHILIP_DIM+2> Euler < PHILIP_DIM, PHILIP_DIM+2, double     >::convert_conservative_to_primitive< double     >(const std::array<double,    PHILIP_DIM+2> &conservative_soln) const;
 template std::array<FadType,   PHILIP_DIM+2> Euler < PHILIP_DIM, PHILIP_DIM+2, FadType    >::convert_conservative_to_primitive< FadType    >(const std::array<FadType,   PHILIP_DIM+2> &conservative_soln) const;
@@ -1872,6 +1953,52 @@ template std::array<FadType,   PHILIP_DIM+2> Euler < PHILIP_DIM, PHILIP_DIM+2, d
 template std::array<FadType,   PHILIP_DIM+2> Euler < PHILIP_DIM, PHILIP_DIM+2, RadType    >::convert_conservative_to_primitive< FadType    >(const std::array<FadType,   PHILIP_DIM+2> &conservative_soln) const;
 template std::array<FadType,   PHILIP_DIM+2> Euler < PHILIP_DIM, PHILIP_DIM+2, FadFadType >::convert_conservative_to_primitive< FadType    >(const std::array<FadType,   PHILIP_DIM+2> &conservative_soln) const;
 template std::array<FadType,   PHILIP_DIM+2> Euler < PHILIP_DIM, PHILIP_DIM+2, RadFadType >::convert_conservative_to_primitive< FadType    >(const std::array<FadType,   PHILIP_DIM+2> &conservative_soln) const;
+
+template std::array<RadType,   PHILIP_DIM+2> Euler < PHILIP_DIM, PHILIP_DIM+2, double     >::convert_conservative_to_primitive< RadType    >(const std::array<RadType,   PHILIP_DIM+2> &conservative_soln) const;
+template std::array<RadType,   PHILIP_DIM+2> Euler < PHILIP_DIM, PHILIP_DIM+2, FadType    >::convert_conservative_to_primitive< RadType    >(const std::array<RadType,   PHILIP_DIM+2> &conservative_soln) const;
+template std::array<RadType,   PHILIP_DIM+2> Euler < PHILIP_DIM, PHILIP_DIM+2, FadFadType >::convert_conservative_to_primitive< RadType    >(const std::array<RadType,   PHILIP_DIM+2> &conservative_soln) const;
+template std::array<RadType,   PHILIP_DIM+2> Euler < PHILIP_DIM, PHILIP_DIM+2, RadFadType >::convert_conservative_to_primitive< RadType    >(const std::array<RadType,   PHILIP_DIM+2> &conservative_soln) const;
+
+template std::array<double,PHILIP_DIM+2> Euler<PHILIP_DIM, PHILIP_DIM+2, double>::compute_conservative_variables_from_entropy_variables_templated<double>(const std::array<double,PHILIP_DIM+2> &entropy_var) const;
+template std::array<FadType,PHILIP_DIM+2> Euler<PHILIP_DIM, PHILIP_DIM+2, FadType>::compute_conservative_variables_from_entropy_variables_templated<FadType>(const std::array<FadType,PHILIP_DIM+2> &entropy_var) const;
+template std::array<RadType,PHILIP_DIM+2> Euler<PHILIP_DIM, PHILIP_DIM+2, RadType>::compute_conservative_variables_from_entropy_variables_templated<RadType>(const std::array<RadType,PHILIP_DIM+2> &entropy_var) const;
+template std::array<FadFadType,PHILIP_DIM+2> Euler<PHILIP_DIM, PHILIP_DIM+2, FadFadType>::compute_conservative_variables_from_entropy_variables_templated<FadFadType>(const std::array<FadFadType,PHILIP_DIM+2> &entropy_var) const;
+template std::array<RadFadType,PHILIP_DIM+2> Euler<PHILIP_DIM, PHILIP_DIM+2, RadFadType>::compute_conservative_variables_from_entropy_variables_templated<RadFadType>(const std::array<RadFadType,PHILIP_DIM+2> &entropy_var) const;
+
+template std::array<RadType,PHILIP_DIM+2> Euler<PHILIP_DIM, PHILIP_DIM+2, double>::compute_conservative_variables_from_entropy_variables_templated<RadType>(const std::array<RadType,PHILIP_DIM+2> &entropy_var) const;
+template std::array<RadType,PHILIP_DIM+2> Euler<PHILIP_DIM, PHILIP_DIM+2, FadType>::compute_conservative_variables_from_entropy_variables_templated<RadType>(const std::array<RadType,PHILIP_DIM+2> &entropy_var) const;
+template std::array<RadType,PHILIP_DIM+2> Euler<PHILIP_DIM, PHILIP_DIM+2, FadFadType>::compute_conservative_variables_from_entropy_variables_templated<RadType>(const std::array<RadType,PHILIP_DIM+2> &entropy_var) const;
+template std::array<RadType,PHILIP_DIM+2> Euler<PHILIP_DIM, PHILIP_DIM+2, RadFadType>::compute_conservative_variables_from_entropy_variables_templated<RadType>(const std::array<RadType,PHILIP_DIM+2> &entropy_var) const;
+
+template std::array<double,PHILIP_DIM+2> Euler<PHILIP_DIM, PHILIP_DIM+2, double>::compute_entropy_variables_templated<double>(const std::array<double,PHILIP_DIM+2> &entropy_var) const;
+template std::array<FadType,PHILIP_DIM+2> Euler<PHILIP_DIM, PHILIP_DIM+2, FadType>::compute_entropy_variables_templated<FadType>(const std::array<FadType,PHILIP_DIM+2> &entropy_var) const;
+template std::array<RadType,PHILIP_DIM+2> Euler<PHILIP_DIM, PHILIP_DIM+2, RadType>::compute_entropy_variables_templated<RadType>(const std::array<RadType,PHILIP_DIM+2> &entropy_var) const;
+template std::array<FadFadType,PHILIP_DIM+2> Euler<PHILIP_DIM, PHILIP_DIM+2, FadFadType>::compute_entropy_variables_templated<FadFadType>(const std::array<FadFadType,PHILIP_DIM+2> &entropy_var) const;
+template std::array<RadFadType,PHILIP_DIM+2> Euler<PHILIP_DIM, PHILIP_DIM+2, RadFadType>::compute_entropy_variables_templated<RadFadType>(const std::array<RadFadType,PHILIP_DIM+2> &entropy_var) const;
+
+template std::array<RadType,PHILIP_DIM+2> Euler<PHILIP_DIM, PHILIP_DIM+2, double>::compute_entropy_variables_templated<RadType>(const std::array<RadType,PHILIP_DIM+2> &entropy_var) const;
+template std::array<RadType,PHILIP_DIM+2> Euler<PHILIP_DIM, PHILIP_DIM+2, FadType>::compute_entropy_variables_templated<RadType>(const std::array<RadType,PHILIP_DIM+2> &entropy_var) const;
+template std::array<RadType,PHILIP_DIM+2> Euler<PHILIP_DIM, PHILIP_DIM+2, FadFadType>::compute_entropy_variables_templated<RadType>(const std::array<RadType,PHILIP_DIM+2> &entropy_var) const;
+template std::array<RadType,PHILIP_DIM+2> Euler<PHILIP_DIM, PHILIP_DIM+2, RadFadType>::compute_entropy_variables_templated<RadType>(const std::array<RadType,PHILIP_DIM+2> &entropy_var) const;
+
+
+
+// -- convert_primitive_to_conservative()
+template std::array<double,    PHILIP_DIM+2> Euler < PHILIP_DIM, PHILIP_DIM+2, double     >::convert_primitive_to_conservative< double     >(const std::array<double,    PHILIP_DIM+2> &primitive_soln) const;
+template std::array<FadType,   PHILIP_DIM+2> Euler < PHILIP_DIM, PHILIP_DIM+2, FadType    >::convert_primitive_to_conservative< FadType    >(const std::array<FadType,   PHILIP_DIM+2> &primitive_soln) const;
+template std::array<RadType,   PHILIP_DIM+2> Euler < PHILIP_DIM, PHILIP_DIM+2, RadType    >::convert_primitive_to_conservative< RadType    >(const std::array<RadType,   PHILIP_DIM+2> &primitive_soln) const;
+template std::array<FadFadType,PHILIP_DIM+2> Euler < PHILIP_DIM, PHILIP_DIM+2, FadFadType >::convert_primitive_to_conservative< FadFadType >(const std::array<FadFadType,PHILIP_DIM+2> &primitive_soln) const;
+template std::array<RadFadType,PHILIP_DIM+2> Euler < PHILIP_DIM, PHILIP_DIM+2, RadFadType >::convert_primitive_to_conservative< RadFadType >(const std::array<RadFadType,PHILIP_DIM+2> &primitive_soln) const;
+// -- -- instantiate all the real types with real2 = FadType for automatic differentiation in NavierStokes::dissipative_flux_directional_jacobian()
+template std::array<FadType,   PHILIP_DIM+2> Euler < PHILIP_DIM, PHILIP_DIM+2, double     >::convert_primitive_to_conservative< FadType    >(const std::array<FadType,   PHILIP_DIM+2> &primitive_soln) const;
+template std::array<FadType,   PHILIP_DIM+2> Euler < PHILIP_DIM, PHILIP_DIM+2, RadType    >::convert_primitive_to_conservative< FadType    >(const std::array<FadType,   PHILIP_DIM+2> &primitive_soln) const;
+template std::array<FadType,   PHILIP_DIM+2> Euler < PHILIP_DIM, PHILIP_DIM+2, FadFadType >::convert_primitive_to_conservative< FadType    >(const std::array<FadType,   PHILIP_DIM+2> &primitive_soln) const;
+template std::array<FadType,   PHILIP_DIM+2> Euler < PHILIP_DIM, PHILIP_DIM+2, RadFadType >::convert_primitive_to_conservative< FadType    >(const std::array<FadType,   PHILIP_DIM+2> &primitive_soln) const;
+
+template std::array<RadType,   PHILIP_DIM+2> Euler < PHILIP_DIM, PHILIP_DIM+2, double     >::convert_primitive_to_conservative< RadType    >(const std::array<RadType,   PHILIP_DIM+2> &primitive_soln) const;
+template std::array<RadType,   PHILIP_DIM+2> Euler < PHILIP_DIM, PHILIP_DIM+2, FadType    >::convert_primitive_to_conservative< RadType    >(const std::array<RadType,   PHILIP_DIM+2> &primitive_soln) const;
+template std::array<RadType,   PHILIP_DIM+2> Euler < PHILIP_DIM, PHILIP_DIM+2, FadFadType >::convert_primitive_to_conservative< RadType    >(const std::array<RadType,   PHILIP_DIM+2> &primitive_soln) const;
+template std::array<RadType,   PHILIP_DIM+2> Euler < PHILIP_DIM, PHILIP_DIM+2, RadFadType >::convert_primitive_to_conservative< RadType    >(const std::array<RadType,   PHILIP_DIM+2> &primitive_soln) const;
 // -- extract_velocities_from_primitive()
 template dealii::Tensor<1,PHILIP_DIM,double    > Euler < PHILIP_DIM, PHILIP_DIM+2, double     >::extract_velocities_from_primitive< double     >(const std::array<double,    PHILIP_DIM+2> &primitive_soln) const;
 template dealii::Tensor<1,PHILIP_DIM,FadType   > Euler < PHILIP_DIM, PHILIP_DIM+2, FadType    >::extract_velocities_from_primitive< FadType    >(const std::array<FadType,   PHILIP_DIM+2> &primitive_soln) const;
@@ -1883,6 +2010,12 @@ template dealii::Tensor<1,PHILIP_DIM,FadType   > Euler < PHILIP_DIM, PHILIP_DIM+
 template dealii::Tensor<1,PHILIP_DIM,FadType   > Euler < PHILIP_DIM, PHILIP_DIM+2, RadType    >::extract_velocities_from_primitive< FadType    >(const std::array<FadType,   PHILIP_DIM+2> &primitive_soln) const;
 template dealii::Tensor<1,PHILIP_DIM,FadType   > Euler < PHILIP_DIM, PHILIP_DIM+2, FadFadType >::extract_velocities_from_primitive< FadType    >(const std::array<FadType,   PHILIP_DIM+2> &primitive_soln) const;
 template dealii::Tensor<1,PHILIP_DIM,FadType   > Euler < PHILIP_DIM, PHILIP_DIM+2, RadFadType >::extract_velocities_from_primitive< FadType    >(const std::array<FadType,   PHILIP_DIM+2> &primitive_soln) const;
+
+template dealii::Tensor<1,PHILIP_DIM,RadType   > Euler < PHILIP_DIM, PHILIP_DIM+2, double     >::extract_velocities_from_primitive< RadType    >(const std::array<RadType,   PHILIP_DIM+2> &primitive_soln) const;
+template dealii::Tensor<1,PHILIP_DIM,RadType   > Euler < PHILIP_DIM, PHILIP_DIM+2, FadType    >::extract_velocities_from_primitive< RadType    >(const std::array<RadType,   PHILIP_DIM+2> &primitive_soln) const;
+template dealii::Tensor<1,PHILIP_DIM,RadType   > Euler < PHILIP_DIM, PHILIP_DIM+2, FadFadType >::extract_velocities_from_primitive< RadType    >(const std::array<RadType,   PHILIP_DIM+2> &primitive_soln) const;
+template dealii::Tensor<1,PHILIP_DIM,RadType   > Euler < PHILIP_DIM, PHILIP_DIM+2, RadFadType >::extract_velocities_from_primitive< RadType    >(const std::array<RadType,   PHILIP_DIM+2> &primitive_soln) const;
+
 // -- compute_velocities()
 template dealii::Tensor<1,PHILIP_DIM,double    > Euler < PHILIP_DIM, PHILIP_DIM+2, double     >::compute_velocities< double     >(const std::array<double,    PHILIP_DIM+2> &conservative_soln) const;
 template dealii::Tensor<1,PHILIP_DIM,FadType   > Euler < PHILIP_DIM, PHILIP_DIM+2, FadType    >::compute_velocities< FadType    >(const std::array<FadType,   PHILIP_DIM+2> &conservative_soln) const;
@@ -1894,6 +2027,11 @@ template dealii::Tensor<1,PHILIP_DIM,FadType   > Euler < PHILIP_DIM, PHILIP_DIM+
 template dealii::Tensor<1,PHILIP_DIM,FadType   > Euler < PHILIP_DIM, PHILIP_DIM+2, RadType    >::compute_velocities< FadType    >(const std::array<FadType,   PHILIP_DIM+2> &conservative_soln) const;
 template dealii::Tensor<1,PHILIP_DIM,FadType   > Euler < PHILIP_DIM, PHILIP_DIM+2, FadFadType >::compute_velocities< FadType    >(const std::array<FadType,   PHILIP_DIM+2> &conservative_soln) const;
 template dealii::Tensor<1,PHILIP_DIM,FadType   > Euler < PHILIP_DIM, PHILIP_DIM+2, RadFadType >::compute_velocities< FadType    >(const std::array<FadType,   PHILIP_DIM+2> &conservative_soln) const;
+
+template dealii::Tensor<1,PHILIP_DIM,RadType   > Euler < PHILIP_DIM, PHILIP_DIM+2, double     >::compute_velocities< RadType    >(const std::array<RadType,   PHILIP_DIM+2> &conservative_soln) const;
+template dealii::Tensor<1,PHILIP_DIM,RadType   > Euler < PHILIP_DIM, PHILIP_DIM+2, FadType    >::compute_velocities< RadType    >(const std::array<RadType,   PHILIP_DIM+2> &conservative_soln) const;
+template dealii::Tensor<1,PHILIP_DIM,RadType   > Euler < PHILIP_DIM, PHILIP_DIM+2, FadFadType >::compute_velocities< RadType    >(const std::array<RadType,   PHILIP_DIM+2> &conservative_soln) const;
+template dealii::Tensor<1,PHILIP_DIM,RadType   > Euler < PHILIP_DIM, PHILIP_DIM+2, RadFadType >::compute_velocities< RadType    >(const std::array<RadType,   PHILIP_DIM+2> &conservative_soln) const;
 //==============================================================================
 
 } // Physics namespace

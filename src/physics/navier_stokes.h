@@ -264,10 +264,23 @@ public:
    dissipative_flux_entropy_based (
         const std::array<real,nstate> &entropy_var,
         const std::array<dealii::Tensor<1,dim,real>,nstate> &entropy_var_gradient) const override;
+   
+    template<typename adtype>
+   std::array<dealii::Tensor<1,dim,adtype>,nstate> 
+   dissipative_flux_entropy_based_templated (
+        const std::array<adtype,nstate> &entropy_var,
+        const std::array<dealii::Tensor<1,dim,adtype>,nstate> &entropy_var_gradient) const;
+    
+   template<typename adtype>
+   std::array<dealii::Tensor<1,dim,adtype>,nstate> 
+   dissipative_flux_entropy_based_templated2 (
+        const std::array<adtype,nstate> &entropy_var,
+        const std::array<dealii::Tensor<1,dim,real>,nstate> &entropy_var_gradient) const;
 
+    template<typename adtype>
     void get_K_matrix(
-        std::array<std::array<dealii::Tensor<2,dim,real>,nstate>,nstate> &K,
-        const std::array<real,nstate> &entropy_var) const;
+        std::array<std::array<dealii::Tensor<2,dim,adtype>,nstate>,nstate> &K,
+        const std::array<adtype,nstate> &entropy_var) const;
     
     void boundary_face_values_entropy_var(
         const dealii::Point<dim,real> &pos,
@@ -281,6 +294,7 @@ public:
     
     void compute_dsigmabc_and_dvbc_derivatives(
     const std::array<real,nstate> &v_at_q,
+    const dealii::Tensor<1,dim,real> &normal_int,
     const std::array<dealii::Tensor<1,dim,real>,nstate> &sigma_h_at_q, 
     const std::array<dealii::Tensor<1,dim,real>,nstate> &grad_v_at_q, 
     std::array<std::array<std::array<std::array<double,dim>,nstate>,dim>,nstate> &d_sigmabc_d_sigmah,
@@ -293,19 +307,36 @@ public:
         std::array<std::array<real,nstate>,nstate> &dv_du,
         const std::array<real,nstate> &entropy_var) const override;
     
+    template<typename adtype>
+    void get_d_entropy_var_d_conservative_var_templated(
+        std::array<std::array<adtype,nstate>,nstate> &dv_du,
+        const std::array<adtype,nstate> &entropy_var) const;
+    
     void get_d_conservative_var_d_entropy_var(
         std::array<std::array<real,nstate>,nstate> &du_dv,
         const std::array<real,nstate> &entropy_var) const override;
+    
+    template<typename adtype>
+    void get_d_conservative_var_d_entropy_var_templated(
+        std::array<std::array<adtype,nstate>,nstate> &du_dv,
+        const std::array<adtype,nstate> &entropy_var) const;
+    
+    void compute_dKT_dvtilde(
+       std::array<std::array<std::array<double,nstate>,nstate>,dim> &dKT_dvtilde,
+       const std::array<real,nstate> &entropy_var,
+       const std::array<dealii::Tensor<1,dim,double>,nstate> &T) const override;
 
-    std::array<dealii::Tensor<1,dim,real>,nstate>
+    template<typename adtype>
+    std::array<dealii::Tensor<1,dim,adtype>,nstate>
     apply_d_conservative_var_d_entropy_var(
         const std::array<dealii::Tensor<1,dim,real>,nstate> & in_vector,
-        const std::array<real,nstate> & entropy_var) const;
+        const std::array<adtype,nstate> & entropy_var) const;
     
-    std::array<dealii::Tensor<1,dim,real>,nstate>
+    template<typename adtype>
+    std::array<dealii::Tensor<1,dim,adtype>,nstate>
     apply_d_entropy_var_d_conservative_var(
-        const std::array<dealii::Tensor<1,dim,real>,nstate> & in_vector,
-        const std::array<real,nstate> & entropy_var) const;
+        const std::array<dealii::Tensor<1,dim,adtype>,nstate> & in_vector,
+        const std::array<adtype,nstate> & entropy_var) const;
 
     /** Gradient of the scaled nondimensionalized viscosity coefficient
      *  Reference: Masatsuka 2018 "I do like CFD", p.148, eq.(4.14.14 and 4.14.17)
