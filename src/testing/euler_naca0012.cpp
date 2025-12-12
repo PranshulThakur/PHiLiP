@@ -31,7 +31,7 @@ int EulerNACA0012<dim,nstate>
     const double dt = param.flow_solver_param.constant_time_step;
     const double delT = 500*dt;//2*dt;
     const double T = 66*delT;//6*dt;
-    const double T_extra = 26*delT;//4*dt;
+    const double T_extra = 20*delT;//4*dt;
     std::unique_ptr<AdjointMarch<dim, nstate, 12>> adjoint_march = std::make_unique<AdjointMarch<dim, nstate, 12>>(flow_solver->dg,66177,dt,delT,T,T_extra);  
 
     adjoint_march->compute_R_b_d_h_vecs();
