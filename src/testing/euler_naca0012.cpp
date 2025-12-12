@@ -27,7 +27,7 @@ int EulerNACA0012<dim,nstate>
     Parameters::AllParameters param = *(TestsBase::all_parameters);
     param.ode_solver_param.allocate_matrix_dRdW = true; 
     std::unique_ptr<FlowSolver::FlowSolver<dim,nstate>> flow_solver = FlowSolver::FlowSolverFactory<dim,nstate>::select_flow_case(&param, parameter_handler);
-    /*
+    
     const double dt = param.flow_solver_param.constant_time_step;
     const double delT = 500*dt;//2*dt;
     const double T = 66*delT;//6*dt;
@@ -35,7 +35,7 @@ int EulerNACA0012<dim,nstate>
     std::unique_ptr<AdjointMarch<dim, nstate, 12>> adjoint_march = std::make_unique<AdjointMarch<dim, nstate, 12>>(flow_solver->dg,66177,dt,delT,T,T_extra);  
 
     adjoint_march->compute_R_b_d_h_vecs();
-    */
+    
     /*
 {
     for(int i=3; i<8; ++i)
@@ -54,23 +54,13 @@ int EulerNACA0012<dim,nstate>
 
 }
 */
-
+/*
 // Time the residual
     const double dt = param.flow_solver_param.constant_time_step;
     const double delT = 2*dt;
     const double T = 6*dt;
     const double T_extra = 4*dt;
     std::unique_ptr<AdjointMarch<dim, nstate, 12>> adjoint_march = std::make_unique<AdjointMarch<dim, nstate, 12>>(flow_solver->dg,17730,dt,delT,T,T_extra);  
-    /*
-    adjoint_march->load_solution_at_time(param.flow_solver_param.constant_time_step*10);
-    {
-        dealii::Timer timer;
-        timer.start();
-        flow_solver->dg->assemble_residual();
-        timer.stop();
-        this->pcout<<"Wall time to assemble usual residual = "<<timer.wall_time()<<std::endl;
-    }
-    */
     double wall_time_avg = 0;
     int countval = 0;
     {
@@ -78,12 +68,6 @@ int EulerNACA0012<dim,nstate>
         {
             flow_solver->dg->duals[k] =0;
             flow_solver->dg->duals[k] =1;
-            /*
-            if(flow_solver->dg->duals[k].get_partitioner()->in_local_range(k))
-            {
-                flow_solver->dg->duals[k][k] = 1.0;
-            }
-            */
             flow_solver->dg->duals[k].update_ghost_values();
         }
         for (unsigned int i=0; i<10; ++i)
@@ -112,6 +96,7 @@ int EulerNACA0012<dim,nstate>
     }
     wall_time_avg/=countval;
     this->pcout<<"Average wall time to assemble AD residual = "<<wall_time_avg<<std::endl;
+*/
 /*
     // General code to run flow solver over the cylinder
     // CHANGE grid, initial_condition, the below code for other runs
