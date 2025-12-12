@@ -17,15 +17,16 @@ AdjointMarch(std::shared_ptr<DGBase<dim,double,MeshType>> _dg,
     , K(T/delT)
     , nsteps(delT/dt)
     , perturbation_mach(_perturbation_mach)
-    , param(*(dg->all_parameters))
+    , param_perturbed(*(dg->all_parameters))
+    , pcout(std::cout, dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD)==0)
 {
     // Initialize and allocate perturbed variables
-    param.euler_param.mach_inf = dg->all_parameters->euler_param.mach_inf + perturbation_mach;
-    dg_perturbed = DGFactory<dim,double>::create_discontinuous_galerkin(&param, param.flow_solver_param.poly_degree, param.flow_solver_param.max_poly_degree_for_adaptation, param.flow_solver_param.grid_degree, dg->triangulation);
+    param_perturbed.euler_param.mach_inf = dg->all_parameters->euler_param.mach_inf + perturbation_mach;
+    dg_perturbed = DGFactory<dim,double>::create_discontinuous_galerkin(&param_perturbed, param_perturbed.flow_solver_param.poly_degree, param_perturbed.flow_solver_param.max_poly_degree_for_adaptation, param_perturbed.flow_solver_param.grid_degree, dg->triangulation);
     dg_perturbed->allocate_system(false,false,false);
 
     functional = FunctionalFactory<dim,nstate,double,MeshType>::create_Functional(dg->all_parameters, dg);
-    functional_perturbed = FunctionalFactory<dim,nstate,double,MeshType>::create_Functional(&param, dg_perturbed);
+    functional_perturbed = FunctionalFactory<dim,nstate,double,MeshType>::create_Functional(&param_perturbed, dg_perturbed);
 }
 
 template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
@@ -166,6 +167,7 @@ compute_Y_terminal(std::array< VectorType, n_subspace_vectors> &Y_terminal)
     for(unsigned int i=1; i<n_subspace_vectors+1; ++i)
     {
         Y_augmented[i].reinit(dg->right_hand_side);
+        Y_augmented[i] = 0;
         if(Y_augmented[i].get_partitioner()->in_local_range(i-1))
         {
             Y_augmented[i][i-1] = 1.0;
@@ -192,12 +194,14 @@ compute_Y_terminal(std::array< VectorType, n_subspace_vectors> &Y_terminal)
 
     const int K_extra = T_extra/delT;
 
+    pcout<<" Initial runs homogeneous:"<<std::endl;
     for(int i=K+K_extra; i>K; --i)
     {
         // Integrate from Ti to T_{i-1}
         for(int j=nsteps; j>0; --j) // Move from j to j-1
         {
             const double current_time = (i-1)*delT + j*dt;
+            pcout<<"Time: "<<current_time<<std::endl;
             load_solution_at_time(current_time);
             advance_in_time_hom(Q_n, Q_nminus);
             for(unsigned int k=0; k<n_subspace_vectors; ++k)
@@ -205,6 +209,7 @@ compute_Y_terminal(std::array< VectorType, n_subspace_vectors> &Y_terminal)
                 Q_n[k] = Q_nminus[k];
             }
         }
+        pcout<<"================================================================"<<std::endl;
         // Perform QR decomposition
         //std::cout<<"Computing QR Decomposition"<<std::endl;
         compute_QR_decomposition<n_subspace_vectors>(Q_nminus, Q_n, R);
@@ -271,11 +276,13 @@ compute_R_b_d_h_vecs()
     std::vector<double> integrand_J_c(nsteps+1);
     VectorType f_c;
 
+    pcout<<"Runs nonhomogeneous:"<<std::endl;
     for(int i=K; i>0; --i) // Between Ti and T_{i-1}
     {
         for(int j=nsteps; j>0; --j) // Between j and j-1
         {           
            const double current_time = (i-1)*delT + j*dt;
+           pcout<<"Time: "<<current_time<<std::endl;
            load_solution_at_time(current_time);
             // Compute integrands to be integrated
             //=========================================
@@ -304,6 +311,7 @@ compute_R_b_d_h_vecs()
                 integrand_h[j-1] = v_minus*f_c;
             }
         } // nsteps ends
+        pcout<<"================================================================"<<std::endl;
         // Compute integrals
         const double integral_jc = simpson_integration(integrand_J_c, nsteps, dt);
         const double integral_h = simpson_integration(integrand_h, nsteps, dt);

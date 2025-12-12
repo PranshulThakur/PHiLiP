@@ -25,6 +25,8 @@ class AdjointMarch
     const int K;
     const int nsteps;
     const double perturbation_mach;
+    Parameters::AllParameters param_perturbed;
+    dealii::ConditionalOStream pcout; ///< Parallel std::cout that only outputs on mpi_rank==0
     
     std::shared_ptr<DGBase<dim,double,MeshType>> dg_perturbed;
     std::shared_ptr<Functional<dim,nstate,double,MeshType>> functional;
@@ -37,7 +39,6 @@ class AdjointMarch
     std::vector<std::array<double,n_subspace_vectors>> b_vec;
     std::vector<std::array<double,n_subspace_vectors>> d_vec;
     std::vector<double> h_vec;
-    Parameters::AllParameters param;
     void compute_s_stable_backward_march();
     void compute_s_unstable_forward_march();
     void compute_unstable_neutral_stable_subspace_indices();
