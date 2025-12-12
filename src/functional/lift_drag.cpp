@@ -29,8 +29,9 @@ double LiftDragFunctional<dim,nstate,real,MeshType>
 {
     const double ref_length = this->euler_fad_fad.ref_length;
     const double dynamic_pressure_inf = this->euler_fad_fad.dynamic_pressure_inf;
+    const double cylinder_thickenss = 2.0;
 
-    return 1.0 / (ref_length * dynamic_pressure_inf);
+    return 1.0 / (ref_length * dynamic_pressure_inf * cylinder_thickenss);
 }
 
 template <int dim,int nstate,typename real,typename MeshType>
