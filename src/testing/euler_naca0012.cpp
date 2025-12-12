@@ -61,6 +61,7 @@ int EulerNACA0012<dim,nstate>
     const double T = 6*dt;
     const double T_extra = 4*dt;
     std::unique_ptr<AdjointMarch<dim, nstate, 12>> adjoint_march = std::make_unique<AdjointMarch<dim, nstate, 12>>(flow_solver->dg,17730,dt,delT,T,T_extra);  
+    /*
     adjoint_march->load_solution_at_time(param.flow_solver_param.constant_time_step*10);
     {
         dealii::Timer timer;
@@ -69,13 +70,48 @@ int EulerNACA0012<dim,nstate>
         timer.stop();
         this->pcout<<"Wall time to assemble usual residual = "<<timer.wall_time()<<std::endl;
     }
+    */
+    double wall_time_avg = 0;
+    int countval = 0;
     {
-        dealii::Timer timer;
-        timer.start();
-        flow_solver->dg->assemble_residual(true);
-        timer.stop();
-        this->pcout<<"Wall time to assemble AD residual = "<<timer.wall_time()<<std::endl;
+        for(unsigned int k=0; k<flow_solver->dg->n_duals; ++k)
+        {
+            flow_solver->dg->duals[k] =0;
+            flow_solver->dg->duals[k] =1;
+            /*
+            if(flow_solver->dg->duals[k].get_partitioner()->in_local_range(k))
+            {
+                flow_solver->dg->duals[k][k] = 1.0;
+            }
+            */
+            flow_solver->dg->duals[k].update_ghost_values();
+        }
+        for (unsigned int i=0; i<10; ++i)
+        {
+            adjoint_march->load_solution_at_time(param.flow_solver_param.constant_time_step*(10-i));
+            dealii::Timer timer;
+            timer.start();
+            flow_solver->dg->assemble_residual(true);
+            timer.stop();
+            wall_time_avg += timer.wall_time();
+            countval++;
+            pcout<<"Iteration "<<i<<" :"<<std::endl;
+            pcout<<"Dual norm = "<<std::endl;
+            for(unsigned int k=0; k<flow_solver->dg->n_duals; ++k)
+            {
+                pcout<<flow_solver->dg->duals[k].l2_norm()<<", ";
+            }
+            pcout<<std::endl;
+            pcout<<"dRdW_transposed*dual norm = "<<std::endl;
+            for(unsigned int k=0; k<flow_solver->dg->n_duals; ++k)
+            {
+                pcout<<flow_solver->dg->duals_transpose_dRdW[k].l2_norm()<<", ";
+            }
+            pcout<<std::endl<<"===================================================================="<<std::endl;
+        }
     }
+    wall_time_avg/=countval;
+    this->pcout<<"Average wall time to assemble AD residual = "<<wall_time_avg<<std::endl;
 /*
     // General code to run flow solver over the cylinder
     // CHANGE grid, initial_condition, the below code for other runs
