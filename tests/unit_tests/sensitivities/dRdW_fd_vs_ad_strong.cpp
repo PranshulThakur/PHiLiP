@@ -139,7 +139,7 @@ int test (
     //dRdW_fd.add(-1.0,dg->system_matrix); 
     
     double diff_l2_norm = 0.0;  
-    for(unsigned int k=0; k<12; ++k)
+    for(unsigned int k=0; k<13; ++k)
     {
         for(unsigned int idof = 0; idof<dg->dof_handler.n_dofs(); ++idof)
         {
