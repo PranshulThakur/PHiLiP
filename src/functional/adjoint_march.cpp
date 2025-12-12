@@ -73,6 +73,16 @@ compute_QR_decomposition(const std::array<VectorType,n_col> &A,
         Q[i]/=R[i][i];
         Q[i].update_ghost_values();        
     }
+
+    // Check for linear independence
+    for(int i=0; i<n_col; ++i)
+    {
+        if(R[i][i]<0.05) 
+        {
+            std::cout<<"Linearly dependent"<<std::endl;
+            std::abort();
+        }
+    }
 }
     
 template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
