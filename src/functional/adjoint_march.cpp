@@ -281,7 +281,11 @@ compute_R_b_d_h_vecs()
     std::array<std::array<double,n_subspace_vectors>,n_subspace_vectors> R;
     
     std::array<std::vector<double>,n_subspace_vectors> integrand_d;
-    for(unsigned int k=0; k<n_subspace_vectors; ++k) {integrand_d[k].resize(nsteps+1);}
+    for(unsigned int k=0; k<n_subspace_vectors; ++k) 
+    {
+        integrand_d[k].resize(nsteps+1);
+        lyapunov_exp[k] = 0.0;
+    }
     std::vector<double> integrand_h(nsteps+1);
     std::vector<double> integrand_J_c(nsteps+1);
     VectorType f_c;
@@ -344,6 +348,12 @@ compute_R_b_d_h_vecs()
         }
         v.update_ghost_values();
 
+        // compute lyapunov exp
+        for(unsigned int k=0; k<n_subspace_vectors; ++k)
+        {
+            lyapunov_exp[k] += log(R[k][k]);
+        }
+
         // Write R, b, integral_jc, integral_h and integrals_d to file.
         for(unsigned int k1=0; k1<n_subspace_vectors; ++k1)
         {
@@ -357,6 +367,14 @@ compute_R_b_d_h_vecs()
         pcout_J_c<<std::setprecision(16)<<integral_jc<<"\n";
         pcout_h<<std::setprecision(16)<<integral_h<<"\n";
     } // K loop
+    
+    pcout<<"Lyapunov exponents: "; 
+    for(unsigned int k=0; k<n_subspace_vectors; ++k)
+    {
+        lyapunov_exp[k] /= T;
+        pcout<<lyapunov_exp[k]<<", ";
+    }
+    pcout<<std::endl;
 }
     
 template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
