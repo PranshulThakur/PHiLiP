@@ -475,6 +475,14 @@ compute_lyapunov_exponents()
             Y[s] = Q[s];
             lyapunov_exp[s] += log(R[s][s]); 
         }
+
+        pcout<<"Current lyapunov exponents: ";
+        const double elapsed_time = T - (current_time-dt);
+        for(unsigned int k=0; k<n_subspace_vectors; ++k)
+        {
+            pcout<<lyapunov_exp[k]/elapsed_time<<", ";
+        }
+        pcout<<std::endl;
     }
     
     pcout<<"Lyapunov exponents: "; 
