@@ -27,6 +27,25 @@ AdjointMarch(std::shared_ptr<DGBase<dim,double,MeshType>> _dg,
 
     functional = FunctionalFactory<dim,nstate,double,MeshType>::create_Functional(dg->all_parameters, dg);
     functional_perturbed = FunctionalFactory<dim,nstate,double,MeshType>::create_Functional(&param_perturbed, dg_perturbed);
+    // Initialize rk variables
+    for(int istage = 0; istage<n_rk_stages; ++istage)
+    {
+        Ytilde_rk[istage].reinit(dg->solution);
+        if(istage<(n_rk_stages-1))
+        {
+            mass_inv_residuals_rk[istage].reinit(dg->solution);
+        }
+
+        for(int jstage = 0; jstage<n_rk_stages; ++jstage)
+        {
+            a_rk[istage][jstage] = 0.0;
+        }
+
+        b_rk[istage] = 0.0;
+    }
+
+    a_rk[1][0] = 1.0; a_rk[2][0] = 0.25; a_rk[2][1] = 0.25;
+    b_rk[0] = 1.0/6.0; b_rk[1] = 1.0/6.0; b_rk[2] = 2.0/3.0;
 }
 
 template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
@@ -56,6 +75,10 @@ compute_QR_decomposition(const std::array<VectorType,n_col> &A,
     for(unsigned int i=0; i<n_col; ++i)
     {
         Q[i].reinit(dg->solution);
+        for(unsigned int j = 0; j<i; ++j)
+        {
+            R[i][j] = 0.0;
+        }
     }
 
     for(unsigned int i=0; i<n_col; ++i)
@@ -84,51 +107,105 @@ compute_QR_decomposition(const std::array<VectorType,n_col> &A,
         }
     }
 }
-    
+
+template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
+void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
+advance_in_time(const std::array<VectorType,n_subspace_vectors+1> & psi_nplus, 
+                std::array<VectorType,n_subspace_vectors+1> &psi_n,
+                const bool compute_nonhom_term)
+{
+    // Assumes the solution is already loaded in at time n
+     
+    // Compute and store Ytilde
+    for(int istage = 0; istage<n_rk_stages; ++istage)
+    {
+        Ytilde_rk[istage] = 0;
+
+        for( int jstage=0; jstage<istage; ++jstage)
+        {
+            Ytilde_rk[istage].add(a_rk[istage][jstage],mass_inv_residuals_rk[jstage]);
+        }
+        Ytilde_rk[istage] *= dt;
+
+        Ytilde_rk[istage] += dg->solution;
+
+        if(istage <(n_rk_stages-1))
+        {
+            dg->solution = Ytilde_rk[istage];
+            dg->solution.update_ghost_values();
+            dg->assemble_residual();
+            dg->apply_inverse_global_mass_matrix(dg->right_hand_side,mass_inv_residuals_rk[istage]);
+            dg->solution = Ytilde_rk[0];
+        }
+    }
+
+    for(int kstage=n_rk_stages-1; kstage>=0; --kstage)
+    {
+        dg->solution = Ytilde_rk[kstage];
+        dg->solution.update_ghost_values();
+        std::array<VectorType,n_subspace_vectors+1> temp;
+        for(unsigned int s=0;s<n_subspace_vectors+1; ++s)
+        {
+            lambda_rk[kstage][s] = psi_nplus[s];
+            lambda_rk[kstage][s] *= b_rk[kstage];
+            for(unsigned int jstage=kstage+1; jstage<n_rk_stages; ++jstage)
+            {
+                lambda_rk[kstage][s].add(a_rk[jstage][kstage],lambda_rk[jstage][s]);
+            }
+            lambda_rk[kstage][s] *= dt;
+            temp[s].reinit(dg->solution);
+        }
+        
+        apply_f_u_transposed(lambda_rk[kstage],temp);
+        if(compute_nonhom_term)
+        {
+            functional->evaluate_functional(true);
+            temp[n_subspace_vectors].add(dt*b_rk[kstage],functional->dIdw);
+        }
+
+        // Apply mass inv
+        for(unsigned int s=0; s<n_subspace_vectors+1; ++s)
+        {
+            dg->apply_inverse_global_mass_matrix(temp[s],lambda_rk[kstage][s]);
+        }
+    }
+
+    // Compute psi_n
+    for(unsigned int s=0; s<n_subspace_vectors+1; ++s)
+    {
+        psi_n[s] = psi_nplus[s];
+        for(int kstage=0; kstage<n_rk_stages; ++kstage)
+        {
+            psi_n[s] += lambda_rk[kstage][s];
+        }
+    }
+}
 template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
 void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
 advance_in_time_hom(const std::array<VectorType,n_subspace_vectors> & psi_n, 
                     std::array<VectorType,n_subspace_vectors> &psi_nminus)
 {
+    // Assumes DG solution is loaded in at time nminus
     std::array<VectorType,n_subspace_vectors+1> psi_n_aug;
+    std::array<VectorType,n_subspace_vectors+1> psi_nminus_aug;
     for(unsigned int k=0; k<n_subspace_vectors; ++k)
     {
         psi_n_aug[k] = psi_n[k];
+        psi_nminus_aug[k].reinit(dg->right_hand_side);
     }
-    psi_n_aug[n_subspace_vectors].reinit(dg->right_hand_side); psi_n_aug[n_subspace_vectors]*=0;
-    std::array<VectorType,n_subspace_vectors+1> temp;
-    for(unsigned int k=0; k<n_subspace_vectors+1; ++k)
-    {
-        temp[k].reinit(dg->right_hand_side);
-    }
-    apply_f_u_transposed(psi_n_aug, temp); 
+    psi_n_aug[n_subspace_vectors].reinit(dg->right_hand_side); 
+    psi_n_aug[n_subspace_vectors]=0;
+    psi_nminus_aug[n_subspace_vectors].reinit(dg->right_hand_side);
 
-    // Assumes solution is already loaded-in at time n
+    const bool compute_nonhom_term = false;
+    advance_in_time(psi_n_aug,psi_nminus_aug,compute_nonhom_term);
+
     for(unsigned int k=0; k<n_subspace_vectors; ++k)
     {
-        temp[k]*=dt;
-        dg->apply_inverse_global_mass_matrix(temp[k],psi_nminus[k]);
-        psi_nminus[k] += psi_n[k];
-        psi_nminus[k].update_ghost_values();
+        psi_nminus[k] = psi_nminus_aug[k];
     }
 }
-/*
-template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
-void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
-advance_in_time_nonhom(const VectorType & psi_n, 
-                        VectorType &psi_nminus) 
-{
-    VectorType temp(dg->right_hand_side);
-    // Assumes the correct solution is already loaded in at time n
-    apply_f_u_transposed(psi_n,temp);
-    functional->evaluate_functional(true);
-    temp+= functional->dIdw;
-    temp*=dt;
-    dg->apply_inverse_global_mass_matrix(temp,psi_nminus);
-    psi_nminus += psi_n;
-    psi_nminus.update_ghost_values();
-}
-*/
+
 template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
 void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
 advance_in_time_hom_and_nonhom(const std::array<VectorType,n_subspace_vectors> & Y_n,
@@ -136,34 +213,25 @@ advance_in_time_hom_and_nonhom(const std::array<VectorType,n_subspace_vectors> &
                                 std::array<VectorType,n_subspace_vectors> & Y_nminus,
                                 VectorType &v_nminus)
 {
+    // Assumes DG solution is loaded in at time nminus
     std::array<VectorType,n_subspace_vectors+1> psi_n_aug;
+    std::array<VectorType,n_subspace_vectors+1> psi_nminus_aug;
     for(unsigned int k=0; k<n_subspace_vectors; ++k)
     {
         psi_n_aug[k] = Y_n[k];
+        psi_nminus_aug[k].reinit(dg->right_hand_side);
     }
-    psi_n_aug[n_subspace_vectors] = v_n;
-    std::array<VectorType,n_subspace_vectors+1> temp;
-    for(unsigned int k=0; k<n_subspace_vectors+1; ++k)
-    {
-        temp[k].reinit(dg->right_hand_side);
-    }
-    apply_f_u_transposed(psi_n_aug, temp); 
+    psi_n_aug[n_subspace_vectors]= v_n;
+    psi_nminus_aug[n_subspace_vectors].reinit(dg->right_hand_side);
 
-    // Assumes solution is already loaded-in at time n
+    const bool compute_nonhom_term = true;
+    advance_in_time(psi_n_aug,psi_nminus_aug,compute_nonhom_term);
+
     for(unsigned int k=0; k<n_subspace_vectors; ++k)
     {
-        temp[k]*=dt;
-        dg->apply_inverse_global_mass_matrix(temp[k],Y_nminus[k]);
-        Y_nminus[k] += Y_n[k];
-        Y_nminus[k].update_ghost_values();
+        Y_nminus[k] = psi_nminus_aug[k];
     }
-    
-    functional->evaluate_functional(true);
-    temp[n_subspace_vectors]+= functional->dIdw;
-    temp[n_subspace_vectors]*=dt;
-    dg->apply_inverse_global_mass_matrix(temp[n_subspace_vectors],v_nminus);
-    v_nminus += v_n;
-    v_nminus.update_ghost_values();
+    v_nminus = psi_nminus_aug[n_subspace_vectors];
 }
     
 template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
@@ -212,7 +280,7 @@ compute_Y_terminal(std::array< VectorType, n_subspace_vectors> &Y_terminal)
         {
             const double current_time = (i-1)*delT + j*dt;
             pcout<<"Time: "<<current_time<<std::endl;
-            load_solution_at_time(current_time);
+            load_solution_at_time(current_time-dt);
             advance_in_time_hom(Q_n, Q_nminus);
             for(unsigned int k=0; k<n_subspace_vectors; ++k)
             {
@@ -295,35 +363,33 @@ compute_R_b_d_h_vecs()
     {
         for(int j=nsteps; j>0; --j) // Between j and j-1
         {           
-           const double current_time = (i-1)*delT + j*dt;
-           pcout<<"Time: "<<current_time<<std::endl;
-           load_solution_at_time(current_time);
-            // Compute integrands to be integrated
-            //=========================================
-            compute_df_dc_and_dJ_dc(f_c,integrand_J_c[j]);
-            for(unsigned int k=0; k<n_subspace_vectors; ++k)
+            const double current_time = (i-1)*delT + j*dt;
+            if(j==nsteps)
             {
-                integrand_d[k][j] = Y[k]*f_c;
+                compute_df_dc_and_dJ_dc(f_c,integrand_J_c[j]);
+                for(unsigned int k=0; k<n_subspace_vectors; ++k)
+                {
+                    integrand_d[k][j] = Y[k]*f_c;
+                }
+                integrand_h[j] = v*f_c;
             }
-            integrand_h[j] = v*f_c;
-            //========================================
+            pcout<<"Time: "<<current_time<<std::endl;
+            load_solution_at_time(current_time-dt);
             advance_in_time_hom_and_nonhom(Y,v,Y_minus,v_minus);
             for(unsigned int k=0; k<n_subspace_vectors; ++k)
             {
                 Y[k] = Y_minus[k];
             }
             v = v_minus;
-            if(j==1)
+            // Compute integrands to be integrated
+            //=========================================
+            compute_df_dc_and_dJ_dc(f_c,integrand_J_c[j-1]);
+            for(unsigned int k=0; k<n_subspace_vectors; ++k)
             {
-                const double current_time_minus = current_time - dt;
-                load_solution_at_time(current_time_minus);
-                compute_df_dc_and_dJ_dc(f_c,integrand_J_c[j-1]);
-                for(unsigned int k=0; k<n_subspace_vectors; ++k)
-                {
-                    integrand_d[k][j-1] = Y_minus[k]*f_c;
-                }
-                integrand_h[j-1] = v_minus*f_c;
+                integrand_d[k][j-1] = Y[k]*f_c;
             }
+            integrand_h[j-1] = v*f_c;
+            //========================================
         } // nsteps ends
         pcout<<"================================================================"<<std::endl;
         // Compute integrals
@@ -376,6 +442,50 @@ compute_R_b_d_h_vecs()
     }
     pcout<<std::endl;
 }
+
+template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
+void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
+compute_lyapunov_exponents()
+{
+    std::array<VectorType,n_subspace_vectors> Y;
+    compute_Y_terminal(Y);
+    std::array<VectorType,n_subspace_vectors> Y_minus;
+    for(unsigned int k=0; k<n_subspace_vectors; ++k)
+    {
+        Y_minus[k] = Y[k];
+    }
+    std::array<VectorType,n_subspace_vectors> Q;
+    std::array<std::array<double,n_subspace_vectors>,n_subspace_vectors> R;
+
+    const int m_T = T/dt;
+    for(unsigned int s=0; s<n_subspace_vectors; ++s)
+    {
+        lyapunov_exp[s] = 0.0;
+    }
+
+    for(int i=m_T; i>0; --i)
+    {
+        const double current_time = i*dt;
+        pcout<<"Current time = "<<current_time<<std::endl;
+        load_solution_at_time(current_time-dt);
+        advance_in_time_hom(Y,Y_minus);
+        compute_QR_decomposition<n_subspace_vectors>(Y_minus,Q,R);
+        for(unsigned int s=0; s<n_subspace_vectors; ++s)
+        {
+            Y[s] = Q[s];
+            lyapunov_exp[s] += log(R[s][s]); 
+        }
+    }
+    
+    pcout<<"Lyapunov exponents: "; 
+    for(unsigned int k=0; k<n_subspace_vectors; ++k)
+    {
+        lyapunov_exp[k] /= T;
+        pcout<<lyapunov_exp[k]<<", ";
+    }
+    pcout<<std::endl;
+
+}
     
 template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
 void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
@@ -411,8 +521,7 @@ template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
 void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
 compute_df_dc_and_dJ_dc(VectorType &f_c, double &J_c)
 {
-    dg->assemble_residual();
-
+    // Assumes dg->assemble_residual() and functional->evaluate_functional() have already been called earlier.
     dg_perturbed->solution = dg->solution;
     dg_perturbed->solution.update_ghost_values();
     dg_perturbed->assemble_residual();
@@ -423,7 +532,7 @@ compute_df_dc_and_dJ_dc(VectorType &f_c, double &J_c)
     f_c.update_ghost_values();
 
     J_c = functional_perturbed->evaluate_functional();
-    J_c -= functional->evaluate_functional();
+    J_c -= functional->current_functional_value;
     J_c/= perturbation_mach;
 }
     
@@ -440,7 +549,6 @@ apply_f_u_transposed(const std::array<VectorType,n_subspace_vectors+1> &in_vec, 
     for(unsigned int k=0; k<n_subspace_vectors+1; ++k)
     {
         out_vec[k] = dg->duals_transpose_dRdW[k];
-        out_vec[k].update_ghost_values();
     }
 }
 

@@ -27,6 +27,14 @@ class AdjointMarch
     const double perturbation_mach;
     Parameters::AllParameters param_perturbed;
     dealii::ConditionalOStream pcout; ///< Parallel std::cout that only outputs on mpi_rank==0
+
+    static const int n_rk_stages = 3;
+    std::array<VectorType,n_rk_stages> Ytilde_rk;
+    std::array<VectorType,n_rk_stages-1> mass_inv_residuals_rk;
+
+    std::array<std::array<double,n_rk_stages>,n_rk_stages> a_rk;
+    std::array<double,n_rk_stages> b_rk;
+    std::array< std::array<VectorType,n_subspace_vectors+1>, n_rk_stages> lambda_rk;
     
     std::shared_ptr<DGBase<dim,double,MeshType>> dg_perturbed;
     std::shared_ptr<Functional<dim,nstate,double,MeshType>> functional;
@@ -61,6 +69,9 @@ class AdjointMarch
                                         const VectorType &v_n,
                                         std::array<VectorType,n_subspace_vectors> & Y_nminus,
                                         VectorType &v_nminus);
+    void advance_in_time(const std::array<VectorType,n_subspace_vectors+1> & psi_nplus, 
+                         std::array<VectorType,n_subspace_vectors+1> &psi_n,
+                         const bool compute_nonhom_term);
 
     void apply_f_u_transposed(const std::array<VectorType,n_subspace_vectors+1> &in_vec, std::array<VectorType,n_subspace_vectors+1> &out_vec);
 
@@ -74,6 +85,7 @@ public:
     double compute_f_dot_adjoint_average() const;
     void compute_df_dc_and_dJ_dc(VectorType &f_c, double &J_c);
     void compute_R_b_d_h_vecs();
+    void compute_lyapunov_exponents();
 
 };
 } // PHiLiP namespace
