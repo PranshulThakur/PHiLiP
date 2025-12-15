@@ -179,6 +179,9 @@ advance_in_time(const std::array<VectorType,n_subspace_vectors+1> & psi_nplus,
             psi_n[s] += lambda_rk[kstage][s];
         }
     }
+
+    // residual has been assembled at time minus.
+    // functional has been assembled at time minus if compute_nonhom_term == true.
 }
 template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
 void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
@@ -204,6 +207,7 @@ advance_in_time_hom(const std::array<VectorType,n_subspace_vectors> & psi_n,
     {
         psi_nminus[k] = psi_nminus_aug[k];
     }
+    // residual has been assembled at time minus.
 }
 
 template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
@@ -232,6 +236,8 @@ advance_in_time_hom_and_nonhom(const std::array<VectorType,n_subspace_vectors> &
         Y_nminus[k] = psi_nminus_aug[k];
     }
     v_nminus = psi_nminus_aug[n_subspace_vectors];
+    // residual has been assembled at time minus.
+    // functional has been assembled at time minus.
 }
     
 template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
@@ -317,6 +323,7 @@ compute_v_terminal(VectorType &v_terminal)
     v_terminal = dg->right_hand_side;
     v_terminal *= ((j_bar - j_vals[m_T])/(dg->right_hand_side*dg->right_hand_side));
     v_terminal.update_ghost_values();
+    // Residual and the functional have been evaluated at time T.
 }
     
 template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
