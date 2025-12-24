@@ -415,9 +415,7 @@ compute_R_b_d_h_vecs()
         {
             Y[k] = Q[k];
             b[k] = -(Q[k]*v_minus);
-            VectorType temp_v = Q[k];
-            temp_v *= b[k];
-            v += temp_v;
+            v.add(b[k],Q[k]);
         }
         v.update_ghost_values();
 
