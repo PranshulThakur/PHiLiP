@@ -68,18 +68,7 @@ FlowSolver<dim, nstate>::FlowSolver(
         // Initialize solution from restart file
         pcout << "Initializing solution from restart file..." << std::flush;
         const std::string restart_filename_without_extension = get_restart_filename_without_extension(flow_solver_param.restart_file_index);
-#if PHILIP_DIM>1
-        dg->triangulation->load(flow_solver_param.restart_files_directory_name + std::string("/") + restart_filename_without_extension);
-        
-        // Note: Future development with hp-capabilities, see section "Note on usage with DoFHandler with hp-capabilities"
-        // ----- Ref: https://www.dealii.org/current/doxygen/deal.II/classparallel_1_1distributed_1_1SolutionTransfer.html
-        dealii::LinearAlgebra::distributed::Vector<double> solution_no_ghost;
-        solution_no_ghost.reinit(dg->locally_owned_dofs, this->mpi_communicator);
-        dealii::parallel::distributed::SolutionTransfer<dim, dealii::LinearAlgebra::distributed::Vector<double>, dealii::DoFHandler<dim>> solution_transfer(dg->dof_handler);
-        solution_transfer.deserialize(solution_no_ghost);
-        dg->solution = solution_no_ghost; //< assignment
-#endif
-        pcout << "done." << std::endl;
+        load_solution(flow_solver_param.restart_files_directory_name + std::string("/") + restart_filename_without_extension);
     } else {
         // Initialize solution
         SetInitialCondition<dim,nstate,double>::set_initial_condition(flow_solver_case->initial_condition_function, dg, &all_param);
@@ -154,6 +143,36 @@ std::vector<std::string> FlowSolver<dim,nstate>::get_data_table_column_names(con
     }
     return names;
 }
+
+template <int dim, int nstate>
+void FlowSolver<dim,nstate>::load_solution(const std::string filename)
+{
+    std::ifstream sol_file(filename);
+    if (!sol_file.is_open()) { // 2. Check if the file opened successfully
+        std::cerr << "Error opening file: " << filename << std::endl;
+        std::abort(); // Exit if file cannot be opened
+    }
+    for(unsigned int i=0; i<dg->dof_handler.n_dofs(); ++i)
+    {
+        sol_file>>dg->solution[i];
+    }
+    pcout << "done." << std::endl;
+}
+template <int dim, int nstate>
+void FlowSolver<dim,nstate>::save_solution(const std::string filename) const
+{
+    std::ofstream sol_file(filename);
+    if (!sol_file.is_open()) { // 2. Check if the file opened successfully
+        std::cerr << "Error opening file: " << filename << std::endl;
+        std::abort(); // Exit if file cannot be opened
+    }
+    for(unsigned int i=0; i<dg->dof_handler.n_dofs(); ++i)
+    {
+        sol_file<<std::setprecision(16)<<dg->solution[i]<<"\n";
+    }
+    pcout << "done." << std::endl;
+}
+
 
 template <int dim, int nstate>
 std::string FlowSolver<dim,nstate>::get_restart_filename_without_extension(const unsigned int restart_index_input) const {
@@ -351,34 +370,19 @@ void FlowSolver<dim,nstate>::write_restart_parameter_file(
     }
 }
 
-#if PHILIP_DIM>1
 template <int dim, int nstate>
 void FlowSolver<dim,nstate>::output_restart_files(
     const unsigned int current_restart_index,
     const double time_step_input,
-    const std::shared_ptr <dealii::TableHandler> unsteady_data_table) const
+    const std::shared_ptr <dealii::TableHandler> /*unsteady_data_table*/) const
 {
     pcout << "  ... Writing restart files ... " << std::endl;
     const std::string restart_filename_without_extension = get_restart_filename_without_extension(current_restart_index);
-
-    // solution files
-    dealii::parallel::distributed::SolutionTransfer<dim, dealii::LinearAlgebra::distributed::Vector<double>, dealii::DoFHandler<dim>> solution_transfer(dg->dof_handler);
-    // Note: Future development with hp-capabilities, see section "Note on usage with DoFHandler with hp-capabilities"
-    // ----- Ref: https://www.dealii.org/current/doxygen/deal.II/classparallel_1_1distributed_1_1SolutionTransfer.html
-    solution_transfer.prepare_for_serialization(dg->solution);
-    dg->triangulation->save(flow_solver_param.restart_files_directory_name + std::string("/") + restart_filename_without_extension);
-    
-    // unsteady data table
-    if(mpi_rank==0) {
-        std::string restart_unsteady_data_table_filename = flow_solver_param.unsteady_data_table_filename+std::string("-")+restart_filename_without_extension+std::string(".txt");
-        std::ofstream unsteady_data_table_file(flow_solver_param.restart_files_directory_name + std::string("/") + restart_unsteady_data_table_filename);
-        unsteady_data_table->write_text(unsteady_data_table_file);
-    }
+    save_solution(flow_solver_param.restart_files_directory_name + std::string("/") + restart_filename_without_extension);
 
     // parameter file; written last to ensure necessary data/solution files have been written before
     write_restart_parameter_file(current_restart_index, time_step_input);
 }
-#endif
 
 template <int dim, int nstate>
 void FlowSolver<dim,nstate>::perform_steady_state_mesh_adaptation() const
@@ -453,9 +457,7 @@ int FlowSolver<dim,nstate>::run() const
         //----------------------------------------------------
         // Initializing restart related variables
         //----------------------------------------------------
-#if PHILIP_DIM>1
         double current_desired_time_for_output_restart_files_every_dt_time_intervals = ode_solver->current_time; // when used, same as the initial time
-#endif
         //----------------------------------------------------
         // Initialize time step
         //----------------------------------------------------
@@ -545,7 +547,6 @@ int FlowSolver<dim,nstate>::run() const
                       
             
 
-#if PHILIP_DIM>1
             if(flow_solver_param.output_restart_files == true) {
                 // Output restart files
                 if(flow_solver_param.output_restart_files_every_dt_time_intervals > 0.0) {
@@ -564,7 +565,6 @@ int FlowSolver<dim,nstate>::run() const
                     }
                 }
             }
-#endif
 
             // Output vtk solution files for post-processing in Paraview
             if (ode_param.output_solution_every_x_steps > 0) {

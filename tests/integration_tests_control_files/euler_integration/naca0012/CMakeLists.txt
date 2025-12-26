@@ -17,21 +17,14 @@ set_tests_labels(2D_EULER_INTEGRATION_NACA0012_SUBSONIC_LONG    EULER_INTEGRATIO
                                                                 LONG
                                                                 INTEGRATION_TEST)
 
-configure_file(3d_ns_cylinder.prm 3d_ns_cylinder.prm COPYONLY)
+configure_file(1d_ks_equations.prm 1d_ks_equations.prm COPYONLY)
 add_test(
-  NAME 3D_NS_CYLINDER
-  COMMAND mpirun -np ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_3D -i ${CMAKE_CURRENT_BINARY_DIR}/3d_ns_cylinder.prm
+  NAME 1D_KS_EQUATIONS
+  COMMAND mpirun -n 1 ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_1D -i ${CMAKE_CURRENT_BINARY_DIR}/1d_ks_equations.prm
   WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
 )
-set_tests_labels(3D_NS_CYLINDER                                 EULER_INTEGRATION
-                                                                NACA0012
-                                                                3D
-                                                                PARALLEL
-                                                                NAVIER_STOKES
-                                                                IMPLICIT
-                                                                WEAK
+set_tests_labels(1D_KS_EQUATIONS                                EULER_INTEGRATION
                                                                 UNCOLLOCATED
-                                                                MANUFACTURED_SOLUTION
                                                                 CONVERGENCE
                                                                 LONG
                                                                 INTEGRATION_TEST)

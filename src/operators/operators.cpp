@@ -1234,6 +1234,7 @@ void basis_functions<dim,n_faces>::build_1D_gradient_operator(
     const unsigned int n_dofs     = finite_element.dofs_per_cell;
     //allocate the basis at volume cubature
     this->oneD_grad_operator.reinit(n_quad_pts, n_dofs);
+    this->oneD_second_der_operator.reinit(n_quad_pts, n_dofs);
     //loop and store
     for(unsigned int iquad=0; iquad<n_quad_pts; iquad++){
         const dealii::Point<1> qpoint  = quadrature.point(iquad);
@@ -1241,6 +1242,7 @@ void basis_functions<dim,n_faces>::build_1D_gradient_operator(
             const int istate = finite_element.system_to_component_index(idof).first;
             //Basis function idof of poly degree idegree evaluated at cubature node qpoint.
             this->oneD_grad_operator[iquad][idof] = finite_element.shape_grad_component(idof,qpoint,istate)[0];
+            this->oneD_second_der_operator[iquad][idof] = finite_element.shape_grad_grad_component(idof,qpoint,istate)[0][0];
         }
     }
 }
@@ -1284,6 +1286,8 @@ void basis_functions<dim,n_faces>::build_1D_surface_gradient_operator(
     for(unsigned int iface=0; iface<n_faces_1D; iface++){ 
         //allocate the facet operator
         this->oneD_surf_grad_operator[iface].reinit(n_face_quad_pts, n_dofs);
+        this->oneD_surf_second_der_operator[iface].reinit(n_face_quad_pts, n_dofs);
+        this->oneD_surf_third_der_operator[iface].reinit(n_face_quad_pts, n_dofs);
         //sum factorized operators use a 1D element.
         const dealii::Quadrature<1> quadrature = dealii::QProjector<1>::project_to_face(dealii::ReferenceCell::get_hypercube(1),
                                                                                                 face_quadrature,
@@ -1294,6 +1298,8 @@ void basis_functions<dim,n_faces>::build_1D_surface_gradient_operator(
                 const int istate = finite_element.system_to_component_index(idof).first;
                 //Basis function idof of poly degree idegree evaluated at cubature node qpoint.
                 this->oneD_surf_grad_operator[iface][iquad][idof] = finite_element.shape_grad_component(idof,qpoint,istate)[0];
+                this->oneD_surf_second_der_operator[iface][iquad][idof] = finite_element.shape_grad_grad_component(idof,qpoint,istate)[0][0];
+                this->oneD_surf_third_der_operator[iface][iquad][idof] = finite_element.shape_3rd_derivative_component(idof,qpoint,istate)[0][0][0];
             }
         }
     }

@@ -1045,6 +1045,36 @@ protected:
         std::vector<adtype>                                                &boundary_term) const;
 
     template <typename adtype>
+    void form_face_term_ks(
+        const unsigned int                            iface, 
+        const unsigned int                            poly_degree,
+        OPERATOR::basis_functions<dim,2*dim>          &soln_basis,
+        const double                                  jacdet_double,
+        const std::vector<double>                     &face_quad_weights,
+        const dealii::Tensor<1,dim,double> &normal_face,
+        const std::array<std::vector<adtype>,nstate> &c_soln_at_surf_star,
+        const std::array<std::vector<adtype>,nstate> &half_sqr_soln_at_surf_star,
+        const std::array<std::vector<adtype>,nstate> &soln_grad_avg,
+        const std::array<std::vector<adtype>,nstate> &soln_hess_avg,
+        const std::array<std::vector<adtype>,nstate> &soln_3rd_der_avg,
+        const std::array<std::vector<adtype>,nstate> &soln_jump,
+        const std::array<std::vector<adtype>,nstate> &soln_grad_jump,
+        const bool is_interior_face,
+        std::vector<adtype>                                                &local_rhs_cell) const;
+
+    template <typename adtype>
+    adtype conv_num_flux_burgers(
+        const adtype &soln_int, 
+        const adtype &soln_ext,
+        const dealii::Tensor<1,dim,double> &normal_int) const;
+
+    template <typename adtype>
+    adtype conv_num_flux_advection(
+        const adtype &soln_int, 
+        const adtype &soln_ext,
+        const dealii::Tensor<1,dim,double> &normal_int) const;
+
+    template <typename adtype>
     void check_same_coords_face_strong(
         const std::array<std::vector<adtype>,dim> &mapping_support_points_int, 
         const std::array<std::vector<adtype>,dim> &mapping_support_points_ext, 

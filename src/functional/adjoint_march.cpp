@@ -716,7 +716,7 @@ compute_f_dot_adjoint_average() const
 }
 */
 #if PHILIP_DIM != 1
-//template class AdjointMarch<PHILIP_DIM, PHILIP_DIM+2, 20, dealii::parallel::distributed::Triangulation<PHILIP_DIM>>;
+template class AdjointMarch<PHILIP_DIM, PHILIP_DIM+2, 20, dealii::parallel::distributed::Triangulation<PHILIP_DIM>>;
 template class AdjointMarch<PHILIP_DIM, PHILIP_DIM+2, 12, dealii::parallel::distributed::Triangulation<PHILIP_DIM>>;
 #endif
 

@@ -480,7 +480,7 @@ public:
     /** This is used to evaluate the dot-product between the dual and the 2nd derivatives of the residual
      *  since storing the 2nd order partials of the residual is a very large 3rd order tensor.
      */
-    static const unsigned int n_duals = 13;
+    static const unsigned int n_duals = 21;
     std::array<dealii::LinearAlgebra::distributed::Vector<real>,n_duals> duals;
     std::array<dealii::LinearAlgebra::distributed::Vector<real>,n_duals> duals_transpose_dRdW;
 
@@ -1304,6 +1304,8 @@ public:
     bool use_auxiliary_eq;
     /// Set use_auxiliary_eq flag
     virtual void set_use_auxiliary_eq() = 0;
+
+    double c_ks = 0;
 
 }; // end of DGBase class
 

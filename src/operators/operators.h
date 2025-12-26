@@ -396,9 +396,18 @@ public:
 
     ///Stores the one dimensional gradient operator.
     dealii::FullMatrix<double> oneD_grad_operator;
+    
+    ///Stores the one dimensional gradient operator.
+    dealii::FullMatrix<double> oneD_second_der_operator;
 
     ///Stores the one dimensional surface gradient operator.
     std::array<dealii::FullMatrix<double>,2>  oneD_surf_grad_operator;
+    
+    ///Stores the one dimensional surface gradient operator.
+    std::array<dealii::FullMatrix<double>,2>  oneD_surf_second_der_operator;
+    
+    ///Stores the one dimensional surface gradient operator.
+    std::array<dealii::FullMatrix<double>,2>  oneD_surf_third_der_operator;
 
 };//End of SumFactorizedOperators Class
 
