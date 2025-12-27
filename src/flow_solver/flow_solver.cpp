@@ -55,10 +55,6 @@ FlowSolver<dim, nstate>::FlowSolver(
     flow_solver_case->display_flow_solver_setup(dg);
 
     if(flow_solver_param.restart_computation_from_file == true) {
-        if(dim == 1) {
-            pcout << "Error: restart_computation_from_file is not possible for 1D. Set to false." << std::endl;
-            std::abort();
-        }
 
         if (flow_solver_param.steady_state == true) {
             pcout << "Error: Restart capability has not been fully implemented / tested for steady state computations." << std::endl;
@@ -193,6 +189,7 @@ void FlowSolver<dim,nstate>::initialize_data_table_from_file(
     std::string data_table_filename,
     const std::shared_ptr <dealii::TableHandler> data_table) const
 {
+    return;
     if(mpi_rank==0) {
         std::string line;
         std::string::size_type sz1;
