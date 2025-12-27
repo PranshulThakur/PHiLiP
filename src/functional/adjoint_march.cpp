@@ -7,7 +7,7 @@ template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
 AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
 AdjointMarch(std::shared_ptr<DGBase<dim,double,MeshType>> _dg,
              const int _restart_index_terminal,
-             const double dt_, const double delT_, const double T_, const double T_extra_, const double _perturbation_mach) // Total trajecotry length is T+T_extra
+             const double dt_, const double delT_, const double T_, const double T_extra_, const double _perturbation_val) // Total trajecotry length is T+T_extra
     : dg(_dg)
     , restart_index_terminal(_restart_index_terminal)
     , dt(dt_)
@@ -16,13 +16,13 @@ AdjointMarch(std::shared_ptr<DGBase<dim,double,MeshType>> _dg,
     , T_extra(T_extra_)
     , K(T/delT)
     , nsteps(delT/dt)
-    , perturbation_mach(_perturbation_mach)
+    , perturbation_val(_perturbation_val)
     , param_perturbed(*(dg->all_parameters))
     , pcout(std::cout, dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD)==0)
 {
     // Initialize and allocate perturbed variables
-    param_perturbed.euler_param.mach_inf = dg->all_parameters->euler_param.mach_inf + perturbation_mach;
     dg_perturbed = DGFactory<dim,double>::create_discontinuous_galerkin(&param_perturbed, param_perturbed.flow_solver_param.poly_degree, param_perturbed.flow_solver_param.max_poly_degree_for_adaptation, param_perturbed.flow_solver_param.grid_degree, dg->triangulation);
+    dg_perturbed->c_ks = dg->c_ks + perturbation_val;
     dg_perturbed->allocate_system(false,false,false);
 
     functional = FunctionalFactory<dim,nstate,double,MeshType>::create_Functional(dg->all_parameters, dg);
@@ -515,19 +515,23 @@ load_solution_at_time(const double _time)
     const std::string prefix = "restart-";
     const std::string restart_filename_without_extension = prefix+restart_index_string;
     //std::cout<<restart_filename_without_extension<<std::endl;
-#if PHILIP_DIM>1
-    dg->triangulation->load(dg->all_parameters->flow_solver_param.restart_files_directory_name + std::string("/") + restart_filename_without_extension);
-    
-    // Note: Future development with hp-capabilities, see section "Note on usage with DoFHandler with hp-capabilities"
-    // ----- Ref: https://www.dealii.org/current/doxygen/deal.II/classparallel_1_1distributed_1_1SolutionTransfer.html
-    dealii::LinearAlgebra::distributed::Vector<double> solution_no_ghost;
-    solution_no_ghost.reinit(dg->locally_owned_dofs, MPI_COMM_WORLD);
-    dealii::parallel::distributed::SolutionTransfer<dim, dealii::LinearAlgebra::distributed::Vector<double>, dealii::DoFHandler<dim>> solution_transfer(dg->dof_handler);
-    solution_transfer.deserialize(solution_no_ghost);
-    dg->solution = solution_no_ghost; //< assignment
-    dg->solution.update_ghost_values();
-#endif
-    //std::cout<<"Done loading solution"<<std::endl;
+    load_solution(dg->all_parameters->flow_solver_param.restart_files_directory_name + std::string("/") + restart_filename_without_extension);
+}
+
+template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
+void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
+load_solution(const std::string filename)
+{
+    std::ifstream sol_file(filename);
+    if (!sol_file.is_open()) { // 2. Check if the file opened successfully
+        std::cerr << "Error opening file: " << filename << std::endl;
+        std::abort(); // Exit if file cannot be opened
+    }
+    for(unsigned int i=0; i<dg->dof_handler.n_dofs(); ++i)
+    {
+        sol_file>>dg->solution[i];
+    }
+    pcout << "done." << std::endl;
 }
     
 template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
@@ -541,12 +545,12 @@ compute_df_dc_and_dJ_dc(VectorType &f_c, double &J_c)
 
     f_c = dg_perturbed->right_hand_side;
     f_c -= dg->right_hand_side;
-    f_c /= perturbation_mach;
+    f_c /= perturbation_val;
     f_c.update_ghost_values();
 
     J_c = functional_perturbed->evaluate_functional();
     J_c -= functional->current_functional_value;
-    J_c/= perturbation_mach;
+    J_c/= perturbation_val;
 }
     
 template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
@@ -715,6 +719,9 @@ compute_f_dot_adjoint_average() const
     return abs(f_dot_adj_avg);
 }
 */
+#if PHILIP_DIM==1
+template class AdjointMarch<PHILIP_DIM, PHILIP_DIM, 20, dealii::Triangulation<PHILIP_DIM>>;
+#endif
 #if PHILIP_DIM != 1
 template class AdjointMarch<PHILIP_DIM, PHILIP_DIM+2, 20, dealii::parallel::distributed::Triangulation<PHILIP_DIM>>;
 template class AdjointMarch<PHILIP_DIM, PHILIP_DIM+2, 12, dealii::parallel::distributed::Triangulation<PHILIP_DIM>>;

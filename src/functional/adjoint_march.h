@@ -24,7 +24,7 @@ class AdjointMarch
     const double T_extra;
     const int K;
     const int nsteps;
-    const double perturbation_mach;
+    const double perturbation_val;
     Parameters::AllParameters param_perturbed;
     dealii::ConditionalOStream pcout; ///< Parallel std::cout that only outputs on mpi_rank==0
 
@@ -78,10 +78,11 @@ class AdjointMarch
 public:
     AdjointMarch(std::shared_ptr<DGBase<dim,double,MeshType>> _dg,
                  const int _restart_index_terminal,
-                 const double dt_, const double delT_, const double T_, const double T_extra_, const double _perturbation_mach = 1.0e-5); // Total trajecotry length is T+T_extra
+                 const double dt_, const double delT_, const double T_, const double T_extra_, const double _perturbation_val = 1.0e-5); // Total trajecotry length is T+T_extra
     ~AdjointMarch(){};
     double compute_sensitivity();
     void load_solution_at_time(const double _time);
+    void load_solution(const std::string filename);
     double compute_f_dot_adjoint_average() const;
     void compute_df_dc_and_dJ_dc(VectorType &f_c, double &J_c);
     void compute_R_b_d_h_vecs();
