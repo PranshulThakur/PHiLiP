@@ -1143,7 +1143,7 @@ template <int dim, int nstate, typename real, typename MeshType>
 template <typename adtype>
 void DGStrong<dim,nstate,real,MeshType>::form_face_term_ks(
     const unsigned int                            iface, 
-    const unsigned int                            poly_degree,
+    const unsigned int                            /*poly_degree*/,
     OPERATOR::basis_functions<dim,2*dim>          &soln_basis,
     const double                                  jacdet_double,
     const std::vector<double>                     &face_quad_weights,
@@ -1158,7 +1158,7 @@ void DGStrong<dim,nstate,real,MeshType>::form_face_term_ks(
     const bool is_interior_face,
     std::vector<adtype>                                                &local_rhs_cell) const
 {
-    const double delta_ip_sipg = 20.0*poly_degree*poly_degree/jacdet_double;
+    const double delta_ip_sipg = 0.0;
     const double sigma_4th_order = 30.0/pow(jacdet_double,3);
     const double tau_4th_order = 20.0/jacdet_double;
 
