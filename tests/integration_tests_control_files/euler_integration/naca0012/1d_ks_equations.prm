@@ -80,11 +80,11 @@ subsection flow_solver
   set poly_degree = 3
   set final_time = 1000.0
   set end_exactly_at_final_time = false
-  set constant_time_step = 0.001
+  set constant_time_step = 0.005
   set steady_state = false
   set output_restart_files = true
   set restart_files_directory_name = restart_files_ks
-  set output_restart_files_every_x_steps = 1000000
+  set output_restart_files_every_x_steps = 200
   subsection grid
     set number_of_mesh_refinements = 5
   end
