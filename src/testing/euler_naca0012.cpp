@@ -22,6 +22,7 @@ template<int dim, int nstate>
 int EulerNACA0012<dim,nstate>
 ::run_test () const
 {
+/*
     // Code to compute R, b, d and h vecs and store in file
     Parameters::AllParameters param = *(TestsBase::all_parameters);
     param.ode_solver_param.allocate_matrix_dRdW = true; 
@@ -34,7 +35,7 @@ int EulerNACA0012<dim,nstate>
     std::unique_ptr<AdjointMarch<dim, nstate, 20>> adjoint_march = std::make_unique<AdjointMarch<dim, nstate, 20>>(flow_solver->dg,10002,dt,delT,T,T_extra);  
 
     adjoint_march->compute_R_b_d_h_vecs();
-   
+ */  
     /*
 {
     for(int i=3; i<8; ++i)
@@ -96,13 +97,13 @@ int EulerNACA0012<dim,nstate>
     wall_time_avg/=countval;
     this->pcout<<"Average wall time to assemble AD residual = "<<wall_time_avg<<std::endl;
 */
-/*
+
     // General code to run flow solver over the cylinder
     // CHANGE grid, initial_condition, the below code for other runs
     Parameters::AllParameters param = *(TestsBase::all_parameters);
     std::unique_ptr<FlowSolver::FlowSolver<dim,nstate>> flow_solver = FlowSolver::FlowSolverFactory<dim,nstate>::select_flow_case(&param, parameter_handler);
     flow_solver->run();
-*/
+
     return 0;
 }
 
