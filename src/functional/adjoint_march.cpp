@@ -36,6 +36,11 @@ AdjointMarch(std::shared_ptr<DGBase<dim,double,MeshType>> _dg,
             mass_inv_residuals_rk[istage].reinit(dg->solution);
         }
 
+        for(unsigned int s=0; s<n_subspace_vectors+1; ++s)
+        {
+            lambda_rk[istage][s].reinit(dg->solution);
+        }
+
         for(int jstage = 0; jstage<n_rk_stages; ++jstage)
         {
             a_rk[istage][jstage] = 0.0;
