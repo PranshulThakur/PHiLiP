@@ -29,12 +29,14 @@ int EulerNACA0012<dim,nstate>
     std::unique_ptr<FlowSolver::FlowSolver<dim,nstate>> flow_solver = FlowSolver::FlowSolverFactory<dim,nstate>::select_flow_case(&param, parameter_handler);
     
     const double dt = param.flow_solver_param.constant_time_step;
-    const double delT = 20*dt/10;
-    const double T = 1000*delT*10;
-    const double T_extra = 200*delT*10;
-    std::unique_ptr<AdjointMarch<dim, nstate, 20>> adjoint_march = std::make_unique<AdjointMarch<dim, nstate, 20>>(flow_solver->dg,26001,dt,delT,T,T_extra);  
+    const double factor = 1;
+    const double delT = 50*dt/factor;
+    const double T = 1000*delT*factor;
+    const double T_extra = 300*delT*factor;
+    std::unique_ptr<AdjointMarch<dim, nstate, 30>> adjoint_march = std::make_unique<AdjointMarch<dim, nstate, 30>>(flow_solver->dg,65501,dt,delT,T,T_extra);  
 
     adjoint_march->compute_R_b_d_h_vecs();  
+
     /*
 {
     for(int i=3; i<8; ++i)
