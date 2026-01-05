@@ -1158,6 +1158,8 @@ dealii::Tensor<2,nstate,real> NavierStokes<dim,nstate,real>
     const std::array<dealii::Tensor<1,dim,real>,nstate> &solution_gradient,
     const dealii::Tensor<1,dim,real> &normal) const
 {
+    std::cout<<"Shouldn't have reached here. Aborting..."<<std::endl;
+    std::abort();
     using adtype = FadType;
 
     // Initialize AD objects
@@ -1197,6 +1199,8 @@ dealii::Tensor<2,nstate,real> NavierStokes<dim,nstate,real>
     const dealii::Tensor<1,dim,real> &normal,
     const int d_gradient) const
 {
+    std::cout<<"Shouldn't have reached here. Aborting..."<<std::endl;
+    std::abort();
     using adtype = FadType;
 
     // Initialize AD objects
@@ -1322,6 +1326,8 @@ dealii::Tensor<2,nstate,real> NavierStokes<dim,nstate,real>
     std::array<real,nstate> &conservative_soln,
     const dealii::Tensor<1,dim,real> &normal) const
 {
+    std::cout<<"Shouldn't have reached here. Aborting..."<<std::endl;
+    std::abort();
     using adtype = FadType;
 
     // Initialize AD objects
@@ -1372,6 +1378,8 @@ inline real NavierStokes<dim,nstate,real>
 ::compute_scaled_viscosity_coefficient_derivative_wrt_temperature_via_dfad (
     std::array<real,nstate> &conservative_soln) const
 {
+    std::cout<<"Shouldn't have reached here. Aborting..."<<std::endl;
+    std::abort();
     using adtype = FadType;
 
     // Step 1: Primitive solution
