@@ -10,7 +10,7 @@ set dimension = 3
 # <advection|diffusion|convection_diffusion>.
 set pde_type  = navier_stokes
 set use_weak_form = false
-set conv_num_flux = two_point_flux
+set conv_num_flux = two_point_flux_with_lax_friedrichs_dissipation
 set two_point_num_flux_type = CH
 
 set use_split_form = true
@@ -71,7 +71,7 @@ end
 subsection ODE solver
   #set output_solution_every_x_steps = 100
   set ode_solver_type = runge_kutta
-  set runge_kutta_method = ssprk3_ex #rk4_ex
+  set runge_kutta_method = rk4_ex
 end
 
 subsection flow_solver
