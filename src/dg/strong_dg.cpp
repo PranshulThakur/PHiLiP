@@ -1874,7 +1874,7 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_boundary_term_strong(
         //or solution from the projected entropy variables.
         //Now, it uses projected entropy variables for NSFR, and solution
         //interpolated to face for conservative DG.
-        const unsigned int boundary_id_passed_conv = ((boundary_id==1001 || boundary_id==1010) && (this->all_parameters->use_split_form || this->all_parameters->use_curvilinear_split_form)) ? 1006 : boundary_id;
+        const unsigned int boundary_id_passed_conv = ((boundary_id==1001 || boundary_id==1010)) ? 1006 : boundary_id;
         pde_physics.boundary_face_values (boundary_id_passed_conv, surf_flux_node, unit_phys_normal_int, soln_state_int, aux_soln_state_int, soln_boundary, grad_soln_boundary);
         
         // Convective numerical flux.
