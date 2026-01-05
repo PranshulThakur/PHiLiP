@@ -49,8 +49,8 @@ AdjointMarch(std::shared_ptr<DGBase<dim,double,MeshType>> _dg,
         b_rk[istage] = 0.0;
     }
 
-    a_rk[1][0] = 1.0; a_rk[2][0] = 0.25; a_rk[2][1] = 0.25;
-    b_rk[0] = 1.0/6.0; b_rk[1] = 1.0/6.0; b_rk[2] = 2.0/3.0;
+    a_rk[1][0] = 0.5; a_rk[2][1] = 0.5; a_rk[3][2] = 1.0;
+    b_rk[0] = 1.0/6.0; b_rk[1] = 1.0/3.0; b_rk[2] = 1.0/3.0; b_rk[3] = 1.0/6.0;
 }
 
 template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
