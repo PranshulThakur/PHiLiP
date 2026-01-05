@@ -1097,16 +1097,9 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_volume_term_strong(
             }
         }
         for(int istate=0; istate<nstate; istate++){
-            //soln_basis_projection_oper.matrix_vector_mult_1D(entropy_var_at_q[istate],
-            //                                                 entropy_var_coeffs[istate],
-            //                                                 soln_basis_projection_oper.oneD_vol_operator);
-            soln_basis_projection_oper.weight_adjusted_vol_projection(entropy_var_at_q[istate],
-                                                                      entropy_var_coeffs[istate],
-                                                                      n_quad_pts,
-                                                                      n_shape_fns,
-                                                                      soln_basis,
-                                                                      soln_basis_projection_oper,
-                                                                      metric_oper.det_Jac_vol);
+            soln_basis_projection_oper.matrix_vector_mult_1D(entropy_var_at_q[istate],
+                                                             entropy_var_coeffs[istate],
+                                                             soln_basis_projection_oper.oneD_vol_operator);
             soln_basis.matrix_vector_mult_1D(entropy_var_coeffs[istate],
                                              projected_entropy_var_at_q[istate],
                                              soln_basis.oneD_vol_operator);
@@ -1675,16 +1668,9 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_boundary_term_strong(
         entropy_var_coeffs[istate].resize(n_shape_fns);
 
         //interior
-        //soln_basis_projection_oper.matrix_vector_mult_1D(entropy_var_vol[istate],
-        //                                                 entropy_var_coeffs[istate],
-        //                                                 soln_basis_projection_oper.oneD_vol_operator);
-        soln_basis_projection_oper.weight_adjusted_vol_projection(entropy_var_vol[istate],
-                                                                  entropy_var_coeffs[istate],
-                                                                  n_quad_pts_vol,
-                                                                  n_shape_fns,
-                                                                  soln_basis,
-                                                                  soln_basis_projection_oper,
-                                                                  metric_oper.det_Jac_vol);
+        soln_basis_projection_oper.matrix_vector_mult_1D(entropy_var_vol[istate],
+                                                         entropy_var_coeffs[istate],
+                                                         soln_basis_projection_oper.oneD_vol_operator);
         soln_basis.matrix_vector_mult_1D(entropy_var_coeffs[istate],
                                          projected_entropy_var_vol[istate],
                                          soln_basis.oneD_vol_operator);
@@ -2371,16 +2357,9 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_face_term_strong(
         entropy_var_coeffs_ext[istate].resize(n_shape_fns_ext);
 
         //interior
-        //soln_basis_projection_oper_int.matrix_vector_mult_1D(entropy_var_vol_int[istate],
-        //                                                     entropy_var_coeffs_int[istate],
-        //                                                     soln_basis_projection_oper_int.oneD_vol_operator);
-        soln_basis_projection_oper_int.weight_adjusted_vol_projection(entropy_var_vol_int[istate],
-                                                                  entropy_var_coeffs_int[istate],
-                                                                  n_quad_pts_vol_int,
-                                                                  n_shape_fns_int,
-                                                                  soln_basis_int,
-                                                                  soln_basis_projection_oper_int,
-                                                                  metric_oper_int.det_Jac_vol);
+        soln_basis_projection_oper_int.matrix_vector_mult_1D(entropy_var_vol_int[istate],
+                                                             entropy_var_coeffs_int[istate],
+                                                             soln_basis_projection_oper_int.oneD_vol_operator);
         soln_basis_int.matrix_vector_mult_1D(entropy_var_coeffs_int[istate],
                                              projected_entropy_var_vol_int[istate],
                                              soln_basis_int.oneD_vol_operator);
@@ -2391,16 +2370,9 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_face_term_strong(
                                                      soln_basis_int.oneD_vol_operator);
 
         //exterior
-        //soln_basis_projection_oper_ext.matrix_vector_mult_1D(entropy_var_vol_ext[istate],
-        //                                                     entropy_var_coeffs_ext[istate],
-        //                                                     soln_basis_projection_oper_ext.oneD_vol_operator);
-        soln_basis_projection_oper_ext.weight_adjusted_vol_projection(entropy_var_vol_ext[istate],
-                                                                  entropy_var_coeffs_ext[istate],
-                                                                  n_quad_pts_vol_ext,
-                                                                  n_shape_fns_ext,
-                                                                  soln_basis_ext,
-                                                                  soln_basis_projection_oper_ext,
-                                                                  metric_oper_ext.det_Jac_vol);
+        soln_basis_projection_oper_ext.matrix_vector_mult_1D(entropy_var_vol_ext[istate],
+                                                             entropy_var_coeffs_ext[istate],
+                                                             soln_basis_projection_oper_ext.oneD_vol_operator);
 
         soln_basis_ext.matrix_vector_mult_1D(entropy_var_coeffs_ext[istate],
                                              projected_entropy_var_vol_ext[istate],
