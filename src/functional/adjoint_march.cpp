@@ -100,7 +100,7 @@ compute_QR_decomposition(const std::array<VectorType,n_col> &A,
     // Check for linear independence
     for(int i=0; i<n_col; ++i)
     {
-        if(R[i][i]<0.05) 
+        if(R[i][i]<1.0e-5) 
         {
             std::cout<<"Linearly dependent"<<std::endl;
             std::abort();
@@ -146,27 +146,20 @@ advance_in_time(const std::array<VectorType,n_subspace_vectors+1> & psi_nplus,
         std::array<VectorType,n_subspace_vectors+1> temp;
         for(unsigned int s=0;s<n_subspace_vectors+1; ++s)
         {
-            lambda_rk[kstage][s] = psi_nplus[s];
-            lambda_rk[kstage][s] *= b_rk[kstage];
+            temp[s] = psi_nplus[s];
+            temp[s] *= b_rk[kstage];
             for(unsigned int jstage=kstage+1; jstage<n_rk_stages; ++jstage)
             {
-                lambda_rk[kstage][s].add(a_rk[jstage][kstage],lambda_rk[jstage][s]);
+                temp[s].add(a_rk[jstage][kstage],lambda_rk[jstage][s]);
             }
-            lambda_rk[kstage][s] *= dt;
-            temp[s].reinit(dg->solution);
+            temp[s] *= dt;
         }
         
-        apply_f_u_transposed(lambda_rk[kstage],temp);
+        apply_f_u_transposed(temp,lambda_rk[kstage]);
         if(compute_nonhom_term)
         {
             functional->evaluate_functional(true);
-            temp[n_subspace_vectors].add(dt*b_rk[kstage],functional->dIdw);
-        }
-
-        // Apply mass inv
-        for(unsigned int s=0; s<n_subspace_vectors+1; ++s)
-        {
-            dg->apply_inverse_global_mass_matrix(temp[s],lambda_rk[kstage][s]);
+            lambda_rk[kstage][n_subspace_vectors].add(dt*b_rk[kstage],functional->dIdw);
         }
     }
 
@@ -248,6 +241,7 @@ compute_Y_terminal(std::array< VectorType, n_subspace_vectors> &Y_terminal)
     load_solution_at_time(T+T_extra);
     dg->assemble_residual();
     Y_augmented[0] = dg->right_hand_side;
+    dg->apply_inverse_global_mass_matrix(dg->right_hand_side,Y_augmented[0]);
     for(unsigned int i=1; i<n_subspace_vectors+1; ++i)
     {
         Y_augmented[i].reinit(dg->right_hand_side);
@@ -320,8 +314,10 @@ compute_v_terminal(VectorType &v_terminal)
     }
     const double j_bar = 1.0/T * simpson_integration(j_vals,m_T,dt);
     dg->assemble_residual();
-    v_terminal = dg->right_hand_side;
-    v_terminal *= ((j_bar - j_vals[m_T])/(dg->right_hand_side*dg->right_hand_side));
+    VectorType f_val = dg->right_hand_side;
+    dg->apply_inverse_global_mass_matrix(dg->right_hand_side,f_val);
+    v_terminal = f_val;
+    v_terminal *= ((j_bar - j_vals[m_T])/(f_val*f_val));
     v_terminal.update_ghost_values();
     // Residual and the functional have been evaluated at time T.
 }
@@ -539,9 +535,11 @@ compute_df_dc_and_dJ_dc(VectorType &f_c, double &J_c)
     dg_perturbed->solution.update_ghost_values();
     dg_perturbed->assemble_residual();
 
-    f_c = dg_perturbed->right_hand_side;
-    f_c -= dg->right_hand_side;
-    f_c /= perturbation_mach;
+    VectorType R_c = dg_perturbed->right_hand_side;
+    R_c -= dg->right_hand_side;
+    R_c /= perturbation_mach;
+    f_c = R_c;
+    dg->apply_inverse_global_mass_matrix(R_c,f_c);
     f_c.update_ghost_values();
 
     J_c = functional_perturbed->evaluate_functional();
@@ -555,7 +553,7 @@ apply_f_u_transposed(const std::array<VectorType,n_subspace_vectors+1> &in_vec, 
 {
     for(unsigned int k=0; k<n_subspace_vectors+1; ++k)
     {
-        dg->duals[k] = in_vec[k];
+        dg->apply_inverse_global_mass_matrix(in_vec[k],dg->duals[k]);
         dg->duals[k].update_ghost_values();
     }
     dg->assemble_residual(true);
