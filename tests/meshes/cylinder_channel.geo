@@ -82,3 +82,5 @@ Physical Surface("Periodic1", 1) = {126, 104, 148, 82};
 Physical Surface("Periodic2", 2) = {4, 3, 1, 2};
 //+
 Physical Volume("Fluid", 1111111) = {3, 2, 1, 4};
+
+Mesh.RecombineAll = 1;
