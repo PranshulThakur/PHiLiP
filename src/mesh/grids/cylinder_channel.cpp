@@ -89,7 +89,67 @@ void cylindrical_channel(
 //=====================================================================================================================
 */
 
+        dealii::Triangulation<2> tria_2;
+        dealii::Point<2> center;
+        for(unsigned int d=0; d<2; ++d)
+        {
+            center[d] = 0.0;
+        }
 
+        const double inner_radius = 0.5;
+        const double outer_radius = 30.0;
+        const unsigned int N_shells = 14;
+        const double Skewness = 2.75;
+        const unsigned int 	n_cells_per_shell = 60;
+        const bool 	colorize = true;
+
+        dealii::GridGenerator::concentric_hyper_shells(tria_2, center, inner_radius, outer_radius,N_shells, Skewness, n_cells_per_shell, colorize);
+    if constexpr (dim==3)
+    {
+        dealii::Triangulation<3> tria;
+        // extrude to 3d
+        dealii::GridGenerator::extrude_triangulation(tria_2, 4, 2.0, tria, true);
+        // set up the new 3d manifolds
+        const dealii::types::manifold_id      cylindrical_manifold_id = 0;
+        const dealii::types::manifold_id      tfi_manifold_id         = 1;
+        const dealii::PolarManifold<2> *const m_ptr =
+          dynamic_cast<const dealii::PolarManifold<2> *>(
+            &tria_2.get_manifold(cylindrical_manifold_id));
+        Assert(m_ptr != nullptr, dealii::ExcInternalError());
+        const dealii::Point<3>     axial_point(m_ptr->center[0],
+                                   m_ptr->center[1],
+                                   0.0);
+        const dealii::Tensor<1, 3> direction{{0.0, 0.0, 1.0}};
+
+
+        tria.set_manifold(cylindrical_manifold_id, dealii::FlatManifold<3>());
+        tria.set_manifold(tfi_manifold_id, dealii::FlatManifold<3>());
+        const dealii::CylindricalManifold<3> cylindrical_manifold(direction, axial_point);
+
+
+        tria.set_manifold(cylindrical_manifold_id, cylindrical_manifold);
+    
+        grid.copy_triangulation(tria);
+
+        // Set boundary ids
+        const unsigned int boundary_id_wall = 1001;
+        const unsigned int boundary_id_reimann = 1004;
+        
+        for (typename dealii::parallel::distributed::Triangulation<dim>::active_cell_iterator cell = grid.begin_active(); cell != grid.end(); ++cell) {
+            for (unsigned int face=0; face<dealii::GeometryInfo<dim>::faces_per_cell; ++face) {
+                if (cell->face(face)->at_boundary()) {
+                    unsigned int current_id = cell->face(face)->boundary_id();
+                    if (current_id == 1) cell->face(face)->set_boundary_id (boundary_id_reimann); // outer
+                    if (current_id == 0) cell->face(face)->set_boundary_id (boundary_id_wall); // Cylindrical wall
+                }
+            }
+        }
+        std::vector<dealii::GridTools::PeriodicFacePair<typename dealii::Triangulation<dim>::cell_iterator> > matched_pairs;
+        dealii::GridTools::collect_periodic_faces(grid,2,3,2,matched_pairs);
+        grid.add_periodicity(matched_pairs);
+     }   
+
+/*
 //=====================================================================================================================
     // Grid for cylindrical channel
     dealii::Triangulation<dim> grid_serial;
@@ -126,7 +186,7 @@ void cylindrical_channel(
     }
     grid.refine_global(n_refinements);
 //=====================================================================================================================
-
+*/
     (void) left_length;
     (void) right_length;
     (void) height_bottom;
