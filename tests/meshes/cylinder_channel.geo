@@ -55,10 +55,30 @@ Curve Loop(4) = {11, 8, -10, -4};
 //+
 Plane Surface(4) = {4};
 //+
-Transfinite Curve {9, 12, 11, 10} = 10 Using Progression 1;
+Transfinite Curve {-9, 12, 11, 10} = 15 Using Progression 1.5;
 //+
-Transfinite Curve {6, 7, 8, 5, 1, 2, 3, 4} = 10 Using Progression 1;
+Transfinite Curve {6, 7, 8, 5, 1, 2, 3, 4} = 16 Using Progression 1;
 //+
+Transfinite Surface {4};
+//+
+Transfinite Surface {3};
+//+
+Transfinite Surface {2};
+//+
+Transfinite Surface {1};
+//+
+
 Extrude {0, 0, 2} {
   Curve{6}; Curve{7}; Curve{8}; Curve{5}; Curve{9}; Curve{12}; Curve{11}; Curve{10}; Curve{3}; Curve{4}; Curve{1}; Curve{2}; Surface{2}; Surface{3}; Surface{4}; Surface{1}; Layers {3}; Recombine;
 }
+
+//+
+Physical Surface("Riemann BC", 1004) = {24, 28, 16, 20};
+//+
+Physical Surface("Wall BC", 1001) = {52, 56, 60, 48};
+//+
+Physical Surface("Periodic1", 1) = {126, 104, 148, 82};
+//+
+Physical Surface("Periodic2", 2) = {4, 3, 1, 2};
+//+
+Physical Volume("Fluid", 1111111) = {3, 2, 1, 4};
