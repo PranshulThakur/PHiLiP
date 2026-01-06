@@ -72,8 +72,12 @@ std::shared_ptr<Triangulation> NACA0012<dim,nstate>::generate_grid() const
         std::shared_ptr<HighOrderGrid<dim,double>> naca0012_mesh = read_gmsh<dim, dim> (mesh_filename, this->all_param.do_renumber_dofs, 0, use_mesh_smoothing);
         return naca0012_mesh->triangulation;
     }
-*/  
-    // TO DO: Avoid reading the mesh twice (here and in set_high_order_grid -- need a default dummy triangulation)
+*/         
+/*        const std::string mesh_filename = this->all_param.flow_solver_param.input_mesh_filename+std::string(".msh");
+        const bool use_mesh_smoothing = false;
+        std::shared_ptr<HighOrderGrid<dim,double>> naca0012_mesh = read_gmsh<dim, dim> (mesh_filename, this->all_param.do_renumber_dofs, 0, use_mesh_smoothing);
+        return naca0012_mesh->triangulation;
+*/
         std::cout<<"Generating grid"<<std::endl;
         std::shared_ptr <Triangulation> grid = std::make_shared<Triangulation>(
         this->mpi_communicator,
@@ -91,7 +95,7 @@ std::shared_ptr<Triangulation> NACA0012<dim,nstate>::generate_grid() const
         const unsigned int               n_shells = this->all_param.flow_solver_param.n_shells_cyl;
         const double                     skewness = this->all_param.flow_solver_param.skewness_cyl;
         const bool                       use_transfinite_region = this->all_param.flow_solver_param.use_transfinite_region_cyl;
-        
+
     Grids::cylindrical_channel<dim>(
         *grid,
         length_left,
