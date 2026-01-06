@@ -3279,7 +3279,7 @@ void DGStrong<dim,nstate,real,MeshType>::assemble_face_term_entropystable_br2(
     is_interior_face,
     re_ext);
 
-    const double br2_factor = 2.0*dim + 20.0; // n_faces = 2*dim. br2_factor > n_faces for entropy stability.
+    const double br2_factor = 2.0*dim + 1.0; // n_faces = 2*dim. br2_factor > n_faces for entropy stability.
 
     std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> tensor_int;
     std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> tensor_ext;
