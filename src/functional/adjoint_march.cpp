@@ -510,7 +510,7 @@ load_solution_at_time(const double _time)
 
     // Computes restart index string
     std::string restart_index_string = std::to_string(restart_index);
-    const unsigned int length_of_index_with_padding = 5;
+    const unsigned int length_of_index_with_padding = 6;
     const unsigned int number_of_zeros = length_of_index_with_padding - restart_index_string.length();
     restart_index_string.insert(0, number_of_zeros, '0');
     const std::string prefix = "restart-";

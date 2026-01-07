@@ -159,7 +159,7 @@ template <int dim, int nstate>
 std::string FlowSolver<dim,nstate>::get_restart_filename_without_extension(const unsigned int restart_index_input) const {
     // returns the restart file index as a string with appropriate padding
     std::string restart_index_string = std::to_string(restart_index_input);
-    const unsigned int length_of_index_with_padding = 5;
+    const unsigned int length_of_index_with_padding = 6;
     const unsigned int number_of_zeros = length_of_index_with_padding - restart_index_string.length();
     restart_index_string.insert(0, number_of_zeros, '0');
 
