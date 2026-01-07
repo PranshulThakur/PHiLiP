@@ -356,7 +356,7 @@ template <int dim, int nstate>
 void FlowSolver<dim,nstate>::output_restart_files(
     const unsigned int current_restart_index,
     const double time_step_input,
-    const std::shared_ptr <dealii::TableHandler> unsteady_data_table) const
+    const std::shared_ptr <dealii::TableHandler> /*unsteady_data_table*/) const
 {
     pcout << "  ... Writing restart files ... " << std::endl;
     const std::string restart_filename_without_extension = get_restart_filename_without_extension(current_restart_index);
@@ -367,13 +367,14 @@ void FlowSolver<dim,nstate>::output_restart_files(
     // ----- Ref: https://www.dealii.org/current/doxygen/deal.II/classparallel_1_1distributed_1_1SolutionTransfer.html
     solution_transfer.prepare_for_serialization(dg->solution);
     dg->triangulation->save(flow_solver_param.restart_files_directory_name + std::string("/") + restart_filename_without_extension);
-    
+   /* 
     // unsteady data table
     if(mpi_rank==0) {
         std::string restart_unsteady_data_table_filename = flow_solver_param.unsteady_data_table_filename+std::string("-")+restart_filename_without_extension+std::string(".txt");
         std::ofstream unsteady_data_table_file(flow_solver_param.restart_files_directory_name + std::string("/") + restart_unsteady_data_table_filename);
         unsteady_data_table->write_text(unsteady_data_table_file);
     }
+    */
 
     // parameter file; written last to ensure necessary data/solution files have been written before
     write_restart_parameter_file(current_restart_index, time_step_input);
@@ -490,6 +491,7 @@ int FlowSolver<dim,nstate>::run() const
         // dealii::TableHandler and data at initial time
         //----------------------------------------------------
         std::shared_ptr<dealii::TableHandler> unsteady_data_table = std::make_shared<dealii::TableHandler>();
+        /*
         if(flow_solver_param.restart_computation_from_file == true) {
             pcout << "Initializing data table from corresponding restart file... " << std::flush;
             const std::string restart_filename_without_extension = get_restart_filename_without_extension(flow_solver_param.restart_file_index);
@@ -497,11 +499,12 @@ int FlowSolver<dim,nstate>::run() const
             initialize_data_table_from_file(flow_solver_param.restart_files_directory_name + std::string("/") + restart_unsteady_data_table_filename,unsteady_data_table);
             pcout << "done." << std::endl;
         } else {
+        */
             // no restart:
             pcout << "Writing unsteady data computed at initial time... " << std::endl;
             flow_solver_case->compute_unsteady_data_and_write_to_table(ode_solver, dg, unsteady_data_table);
             pcout << "done." << std::endl;
-        }
+        //}
         //----------------------------------------------------
         // Time advancement loop with on-the-fly post-processing
         //----------------------------------------------------

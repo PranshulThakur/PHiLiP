@@ -158,22 +158,23 @@ void NACA0012<dim, nstate>::compute_unsteady_data_and_write_to_table(
         const unsigned int current_iteration,
         const double current_time,
         const std::shared_ptr <DGBase<dim, double>> dg,
-        const std::shared_ptr <dealii::TableHandler> unsteady_data_table)
+        const std::shared_ptr <dealii::TableHandler> /*unsteady_data_table*/)
 {
     // Compute aerodynamic values
     const double lift = 0.0; //this->compute_lift(dg);
     const double drag = this->compute_drag(dg);
     (void) dg;
-
+/*
     if(this->mpi_rank==0) {
         // Add values to data table
         this->add_value_to_data_table(current_time,"time",unsteady_data_table);
         this->add_value_to_data_table(lift,"lift",unsteady_data_table);
         this->add_value_to_data_table(drag,"drag",unsteady_data_table);
         // Write to file
-        std::ofstream unsteady_data_table_file(this->unsteady_data_table_filename_with_extension);
-        unsteady_data_table->write_text(unsteady_data_table_file);
+        //std::ofstream unsteady_data_table_file(this->unsteady_data_table_filename_with_extension);
+        //unsteady_data_table->write_text(unsteady_data_table_file);
     }
+*/  
     // Print to console
     this->pcout << "    Iter: " << current_iteration
                 << "    Time: " << current_time
