@@ -440,7 +440,7 @@ compute_R_b_d_h_vecs()
         pcout_h<<std::setprecision(16)<<integral_h<<"\n";
         
         #if PHILIP_DIM>1
-        if( ((i-1)*delT <= T/2.0) && (i*delT>= T/2.0))
+        if( ((i-1)*delT <= T/2.0) && (i*delT> T/2.0))
         {
             pcout<<"Outputting Y_{i-1}(t_{i-1}) and v_{i-1}(t_{i-1}) at i = "<<i<<std::endl;
             for(unsigned int k=0; k<n_subspace_vectors;++k)
