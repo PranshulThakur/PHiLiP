@@ -85,6 +85,10 @@ public:
     double compute_f_dot_adjoint_average() const;
     void compute_df_dc_and_dJ_dc(VectorType &f_c, double &J_c);
     void compute_R_b_d_h_vecs();
+    #if PHILIP_DIM>1
+    void save_vector(const VectorType &v, const std::string filename) const;
+    void load_vector(VectorType &v, const std::string filename);
+    #endif
     void compute_lyapunov_exponents();
 
 };

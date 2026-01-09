@@ -438,6 +438,19 @@ compute_R_b_d_h_vecs()
         }
         pcout_J_c<<std::setprecision(16)<<integral_jc<<"\n";
         pcout_h<<std::setprecision(16)<<integral_h<<"\n";
+        
+        #if PHILIP_DIM>1
+        if( ((i-1)*delT <= T/2.0) && (i*delT>= T/2.0))
+        {
+            pcout<<"Outputting Y_{i-1}(t_{i-1}) and v_{i-1}(t_{i-1}) at i = "<<i<<std::endl;
+            for(unsigned int k=0; k<n_subspace_vectors;++k)
+            {
+                std::string filenameY = "Y_" + std::to_string(k);
+                save_vector(Y[k],filenameY);
+            }
+            save_vector(v,"v");
+        }
+        #endif
     } // K loop
     
     pcout<<"Lyapunov exponents: "; 
@@ -530,6 +543,35 @@ load_solution_at_time(const double _time)
 #endif
     //std::cout<<"Done loading solution"<<std::endl;
 }
+
+#if PHILIP_DIM>1
+template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
+void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
+save_vector(const VectorType &v, const std::string filename) const
+{
+    dealii::parallel::distributed::SolutionTransfer<dim, dealii::LinearAlgebra::distributed::Vector<double>, dealii::DoFHandler<dim>> solution_transfer(dg->dof_handler);
+    // Note: Future development with hp-capabilities, see section "Note on usage with DoFHandler with hp-capabilities"
+    // ----- Ref: https://www.dealii.org/current/doxygen/deal.II/classparallel_1_1distributed_1_1SolutionTransfer.html
+    solution_transfer.prepare_for_serialization(v);
+    dg->triangulation->save(filename);
+}
+
+template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
+void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
+load_vector(VectorType &v, const std::string filename)
+{
+    dg->triangulation->load(filename);
+    
+    // Note: Future development with hp-capabilities, see section "Note on usage with DoFHandler with hp-capabilities"
+    // ----- Ref: https://www.dealii.org/current/doxygen/deal.II/classparallel_1_1distributed_1_1SolutionTransfer.html
+    dealii::LinearAlgebra::distributed::Vector<double> v_no_ghost;
+    v_no_ghost.reinit(dg->locally_owned_dofs, MPI_COMM_WORLD);
+    dealii::parallel::distributed::SolutionTransfer<dim, dealii::LinearAlgebra::distributed::Vector<double>, dealii::DoFHandler<dim>> solution_transfer(dg->dof_handler);
+    solution_transfer.deserialize(v_no_ghost);
+    v = v_no_ghost; //< assignment
+    v.update_ghost_values();
+}
+#endif
     
 template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
 void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
