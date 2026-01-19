@@ -32,7 +32,8 @@ int EulerNACA0012<dim,nstate>
     const double delT = 0.01;
     const double T = 22.0;
     const double T_extra = 5.0;
-    std::unique_ptr<AdjointMarch<dim, nstate, 12>> adjoint_march = std::make_unique<AdjointMarch<dim, nstate, 12>>(flow_solver->dg,56000,dt,delT,T,T_extra);  
+    const double functional_avg = 0;
+    std::unique_ptr<AdjointMarch<dim, nstate, 12>> adjoint_march = std::make_unique<AdjointMarch<dim, nstate, 12>>(flow_solver->dg,56000,dt,delT,T,T_extra, functional_avg);  
 
     adjoint_march->compute_R_b_d_h_vecs();
     

@@ -163,6 +163,12 @@ void NACA0012<dim, nstate>::compute_unsteady_data_and_write_to_table(
     // Compute aerodynamic values
     const double lift = 0.0; //this->compute_lift(dg);
     const double drag = this->compute_drag(dg);
+    if(countval_functional>0)
+    {
+        functional_sum += drag;
+        functional_avg = functional_sum/countval_functional;
+    }
+    countval_functional++;
     (void) dg;
 /*
     if(this->mpi_rank==0) {
@@ -179,7 +185,8 @@ void NACA0012<dim, nstate>::compute_unsteady_data_and_write_to_table(
     this->pcout << "    Iter: " << current_iteration
                 << "    Time: " << current_time
                 << "    Lift: " << lift
-                << "    Drag: " << drag;
+                << "    Drag: " << drag
+                << "    Avg functional: " << functional_avg;
     this->pcout << std::endl;
 
     // Abort if energy is nan

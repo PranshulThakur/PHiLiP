@@ -7,7 +7,7 @@ template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
 AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
 AdjointMarch(std::shared_ptr<DGBase<dim,double,MeshType>> _dg,
              const int _restart_index_terminal,
-             const double dt_, const double delT_, const double T_, const double T_extra_, const double _perturbation_mach) // Total trajecotry length is T+T_extra
+             const double dt_, const double delT_, const double T_, const double T_extra_, const double j_bar_, const double _perturbation_mach) // Total trajecotry length is T+T_extra
     : dg(_dg)
     , restart_index_terminal(_restart_index_terminal)
     , dt(dt_)
@@ -16,6 +16,7 @@ AdjointMarch(std::shared_ptr<DGBase<dim,double,MeshType>> _dg,
     , T_extra(T_extra_)
     , K(T/delT)
     , nsteps(delT/dt)
+    , j_bar(j_bar_)
     , perturbation_mach(_perturbation_mach)
     , param_perturbed(*(dg->all_parameters))
     , pcout(std::cout, dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD)==0)
@@ -309,6 +310,7 @@ template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
 void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
 compute_v_terminal(VectorType &v_terminal)
 { 
+    /*
     const unsigned int m_T = T/dt;
     std::vector<double> j_vals(m_T+1);
     for(unsigned int i=0; i<m_T+1; ++i)
@@ -318,11 +320,14 @@ compute_v_terminal(VectorType &v_terminal)
         j_vals[i] = functional->evaluate_functional();
     }
     const double j_bar = 1.0/T * simpson_integration(j_vals,m_T,dt);
+    */
+    load_solution_at_time(T);
+    const double j_val_T = functional->evaluate_functional(); 
     dg->assemble_residual();
     VectorType f_val = dg->right_hand_side;
     dg->apply_inverse_global_mass_matrix(dg->right_hand_side,f_val);
     v_terminal = f_val;
-    v_terminal *= ((j_bar - j_vals[m_T])/(f_val*f_val));
+    v_terminal *= ((j_bar - j_val_T)/(f_val*f_val));
     v_terminal.update_ghost_values();
     // Residual and the functional have been evaluated at time T.
 }
@@ -449,6 +454,7 @@ compute_R_b_d_h_vecs()
                 save_vector(Y[k],filenameY);
             }
             save_vector(v,"v");
+            pcout<<"Done outputting Y_{i-1}(t_{i-1}) and v_{i-1}(t_{i-1}) at i = "<<i<<std::endl;
         }
         #endif
     } // K loop

@@ -50,6 +50,9 @@ protected:
             const double current_time,
             const std::shared_ptr <DGBase<dim, double>> dg,
             const std::shared_ptr<dealii::TableHandler> unsteady_data_table) override;
+     double functional_sum = 0.0;
+     double functional_avg = 0.0;
+     int countval_functional = 0;
 
 public:
     /// Compute lift
