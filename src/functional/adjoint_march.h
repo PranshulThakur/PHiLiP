@@ -31,12 +31,17 @@ class AdjointMarch
 
     static const int n_rk_stages = 4;
     std::array<VectorType,n_rk_stages> Ytilde_rk;
-    std::array<VectorType,n_rk_stages-1> mass_inv_residuals_rk;
+    std::array<VectorType,n_rk_stages> mass_inv_residuals_rk;
 
     std::array<std::array<double,n_rk_stages>,n_rk_stages> a_rk;
     std::array<double,n_rk_stages> b_rk;
     std::array< std::array<VectorType,n_subspace_vectors+1>, n_rk_stages> lambda_rk;
     
+    static const int n_soln_steps_stored = 20000;
+    std::array<VectorType,n_soln_steps_stored+1> soln_stored;
+    double T_solnstored_start = 0.0;
+    double T_solnstored_end = 0.0;
+
     std::shared_ptr<DGBase<dim,double,MeshType>> dg_perturbed;
     std::shared_ptr<Functional<dim,nstate,double,MeshType>> functional;
     std::shared_ptr<Functional<dim,nstate,double,MeshType>> functional_perturbed;
@@ -82,7 +87,9 @@ public:
                  const double dt_, const double delT_, const double T_, const double T_extra_, const double j_bar_, const double _perturbation_mach = 1.0e-5); // Total trajecotry length is T+T_extra
     ~AdjointMarch(){};
     double compute_sensitivity();
+    void get_solution_at_time(const double _time);
     void load_solution_at_time(const double _time);
+    void reconstruct_solution(const double initial_time);
     double compute_f_dot_adjoint_average() const;
     void compute_df_dc_and_dJ_dc(VectorType &f_c, double &J_c);
     void compute_R_b_d_h_vecs();

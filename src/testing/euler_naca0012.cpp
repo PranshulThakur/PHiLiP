@@ -22,7 +22,6 @@ template<int dim, int nstate>
 int EulerNACA0012<dim,nstate>
 ::run_test () const
 {
-
     // Code to compute R, b, d and h vecs and store in file
     Parameters::AllParameters param = *(TestsBase::all_parameters);
     param.ode_solver_param.allocate_matrix_dRdW = true; 

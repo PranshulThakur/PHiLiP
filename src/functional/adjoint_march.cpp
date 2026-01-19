@@ -32,10 +32,7 @@ AdjointMarch(std::shared_ptr<DGBase<dim,double,MeshType>> _dg,
     for(int istage = 0; istage<n_rk_stages; ++istage)
     {
         Ytilde_rk[istage].reinit(dg->solution);
-        if(istage<(n_rk_stages-1))
-        {
-            mass_inv_residuals_rk[istage].reinit(dg->solution);
-        }
+        mass_inv_residuals_rk[istage].reinit(dg->solution);
 
         for(unsigned int s=0; s<n_subspace_vectors+1; ++s)
         {
@@ -52,6 +49,8 @@ AdjointMarch(std::shared_ptr<DGBase<dim,double,MeshType>> _dg,
 
     a_rk[1][0] = 0.5; a_rk[2][1] = 0.5; a_rk[3][2] = 1.0;
     b_rk[0] = 1.0/6.0; b_rk[1] = 1.0/3.0; b_rk[2] = 1.0/3.0; b_rk[3] = 1.0/6.0;
+
+    reconstruct_solution(T+T_extra - n_soln_steps_stored*dt);
 }
 
 template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
@@ -244,7 +243,7 @@ void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
 compute_Y_terminal(std::array< VectorType, n_subspace_vectors> &Y_terminal) 
 {
     std::array< VectorType, n_subspace_vectors+1> Y_augmented;
-    load_solution_at_time(T+T_extra);
+    get_solution_at_time(T+T_extra);
     dg->assemble_residual();
     Y_augmented[0] = dg->right_hand_side;
     dg->apply_inverse_global_mass_matrix(dg->right_hand_side,Y_augmented[0]);
@@ -286,7 +285,7 @@ compute_Y_terminal(std::array< VectorType, n_subspace_vectors> &Y_terminal)
         {
             const double current_time = (i-1)*delT + j*dt;
             pcout<<"Time: "<<current_time<<std::endl;
-            load_solution_at_time(current_time-dt);
+            get_solution_at_time(current_time-dt);
             advance_in_time_hom(Q_n, Q_nminus);
             for(unsigned int k=0; k<n_subspace_vectors; ++k)
             {
@@ -316,12 +315,12 @@ compute_v_terminal(VectorType &v_terminal)
     for(unsigned int i=0; i<m_T+1; ++i)
     {
         const double current_time = i*dt;
-        load_solution_at_time(current_time);
+        get_solution_at_time(current_time);
         j_vals[i] = functional->evaluate_functional();
     }
     const double j_bar = 1.0/T * simpson_integration(j_vals,m_T,dt);
     */
-    load_solution_at_time(T);
+    get_solution_at_time(T);
     const double j_val_T = functional->evaluate_functional(); 
     dg->assemble_residual();
     VectorType f_val = dg->right_hand_side;
@@ -387,7 +386,7 @@ compute_R_b_d_h_vecs()
                 integrand_h[j] = v*f_c;
             }
             pcout<<"Time: "<<current_time<<std::endl;
-            load_solution_at_time(current_time-dt);
+            get_solution_at_time(current_time-dt);
             advance_in_time_hom_and_nonhom(Y,v,Y_minus,v_minus);
             for(unsigned int k=0; k<n_subspace_vectors; ++k)
             {
@@ -492,7 +491,7 @@ compute_lyapunov_exponents()
     {
         const double current_time = i*dt;
         pcout<<"Current time = "<<current_time<<std::endl;
-        load_solution_at_time(current_time-dt);
+        get_solution_at_time(current_time-dt);
         advance_in_time_hom(Y,Y_minus);
         compute_QR_decomposition<n_subspace_vectors>(Y_minus,Q,R);
         for(unsigned int s=0; s<n_subspace_vectors; ++s)
@@ -519,13 +518,70 @@ compute_lyapunov_exponents()
     pcout<<std::endl;
 
 }
+
+template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
+void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
+reconstruct_solution(const double initial_time)
+{
+    T_solnstored_start = initial_time;
+    T_solnstored_end = initial_time + dt*n_soln_steps_stored;
+    pcout<<"Reconstructing solution from T = "<<T_solnstored_start<<" to T = "<<T_solnstored_end<<std::endl; 
+    load_solution_at_time(initial_time);
+    soln_stored[0] = dg->solution;
+
+    for(int i=0; i<n_soln_steps_stored; ++i)
+    {
+        // Move from soln_stored[i] to soln_stored[i+1].
+        soln_stored[i+1] = soln_stored[i];
+        for(int istage = 0; istage<n_rk_stages; ++istage)
+        {
+            Ytilde_rk[istage] = 0;
+
+            for( int jstage=0; jstage<istage; ++jstage)
+            {
+                Ytilde_rk[istage].add(a_rk[istage][jstage],mass_inv_residuals_rk[jstage]);
+            }
+            Ytilde_rk[istage] *= dt;
+
+            Ytilde_rk[istage] += soln_stored[i];
+
+            dg->solution = Ytilde_rk[istage];
+            dg->solution.update_ghost_values();
+            dg->assemble_residual();
+            dg->apply_inverse_global_mass_matrix(dg->right_hand_side,mass_inv_residuals_rk[istage]);
+            soln_stored[i+1].add(dt*b_rk[istage],mass_inv_residuals_rk[istage]);
+        }
+    } // i loop 0 -> n_soln_steps_stored ends.
+}
+
+template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
+void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
+get_solution_at_time(const double _time)
+{
+    if( (T_solnstored_start<= _time) && (_time<= T_solnstored_end))
+    {
+        const int vector_index = (_time - T_solnstored_start)/dt;
+        dg->solution = soln_stored[vector_index];
+        dg->solution.update_ghost_values();
+    }
+    else if( ( (T_solnstored_start - n_soln_steps_stored*dt)<= _time) && (_time<= (T_solnstored_end - dt*n_soln_steps_stored)))
+    {
+        reconstruct_solution((T_solnstored_start - n_soln_steps_stored*dt));
+        get_solution_at_time(_time);
+    }
+    else
+    {
+        pcout<<"Shouldn't have reached here in AdjointMarch::get_solution_at_time(). Aborting.."<<std::endl<<std::flush;
+        std::abort();
+    }
+}
     
 template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
 void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
 load_solution_at_time(const double _time)
 {
-    const int steps = _time/dt;
-    const int restart_index = restart_index_terminal - (int)((T+T_extra)/dt) + steps;
+    const int steps_k = (T + T_extra - _time)/(dt*n_soln_steps_stored);
+    const int restart_index = restart_index_terminal - steps_k + 1;
 
     // Computes restart index string
     std::string restart_index_string = std::to_string(restart_index);
