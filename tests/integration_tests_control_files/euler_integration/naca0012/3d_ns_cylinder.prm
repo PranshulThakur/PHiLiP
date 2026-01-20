@@ -17,8 +17,8 @@ set do_renumber_dofs = false
 #set use_curvilinear_split_form = true
 set use_inverse_mass_on_the_fly = true
 set use_weight_adjusted_mass = true
-set overintegration = 0
 #set output_face_results_vtk = true
+set flux_nodes_type = GLL
 
 subsection euler
   set reference_length = 1.0
@@ -77,13 +77,13 @@ end
 subsection flow_solver
   set flow_case_type = naca0012
   set poly_degree = 2
-  set final_time = 720.0
+  set final_time = 300.0
   set end_exactly_at_final_time = false
-  set constant_time_step = 0.001
+  set constant_time_step = 0.0005
   set steady_state = false
   set output_restart_files = true
   set restart_files_directory_name = restart_files
-  set output_restart_files_every_x_steps = 480
+  set output_restart_files_every_x_steps = 20000
   subsection grid
     set grid_degree = 2
   end
