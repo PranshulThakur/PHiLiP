@@ -435,13 +435,13 @@ compute_R_b_d_h_vecs()
         {
             for(unsigned int k2 = 0; k2<n_subspace_vectors; ++k2)
             {
-                pcout_R<<std::setprecision(16)<<R[k1][k2]<<"\n";
+                pcout_R<<std::setprecision(16)<<R[k1][k2]<<std::endl;
             }
-            pcout_b<<std::setprecision(16)<<b[k1]<<"\n";
-            pcout_d<<std::setprecision(16)<<integrals_d[k1]<<"\n";
+            pcout_b<<std::setprecision(16)<<b[k1]<<std::endl;
+            pcout_d<<std::setprecision(16)<<integrals_d[k1]<<std::endl;
         }
-        pcout_J_c<<std::setprecision(16)<<integral_jc<<"\n";
-        pcout_h<<std::setprecision(16)<<integral_h<<"\n";
+        pcout_J_c<<std::setprecision(16)<<integral_jc<<std::endl;
+        pcout_h<<std::setprecision(16)<<integral_h<<std::endl;
         
         #if PHILIP_DIM>1
         if( ((i-1)*delT <= T/2.0) && (i*delT> T/2.0))
@@ -465,6 +465,12 @@ compute_R_b_d_h_vecs()
         pcout<<lyapunov_exp[k]<<", ";
     }
     pcout<<std::endl;
+
+    cout_R.close(); 
+    cout_b.close(); 
+    cout_d.close(); 
+    cout_h.close(); 
+    cout_J_c.close(); 
 }
 
 template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
@@ -571,7 +577,7 @@ get_solution_at_time(const double _time)
     }
     else
     {
-        pcout<<"Shouldn't have reached here in AdjointMarch::get_solution_at_time(). Aborting.."<<std::endl<<std::flush;
+        pcout<<"Shouldn't have reached here in AdjointMarch::get_solution_at_time(). Aborting.."<<std::endl;
         std::abort();
     }
 }
