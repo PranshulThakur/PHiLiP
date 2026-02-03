@@ -60,6 +60,8 @@ public:
 
     /// Compute drag
     double compute_drag(std::shared_ptr<DGBase<dim, double>> dg) const;
+
+    double get_functional_average() const override;
 };
 
 } // FlowSolver namespace

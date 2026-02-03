@@ -29,7 +29,7 @@ class AdjointMarch
     Parameters::AllParameters param_perturbed;
     dealii::ConditionalOStream pcout; ///< Parallel std::cout that only outputs on mpi_rank==0
 
-    static const int n_rk_stages = 4;
+    static const int n_rk_stages = 3;
     std::array<VectorType,n_rk_stages> Ytilde_rk;
     std::array<VectorType,n_rk_stages> mass_inv_residuals_rk;
 

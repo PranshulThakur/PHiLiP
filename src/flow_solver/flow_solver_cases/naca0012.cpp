@@ -154,6 +154,12 @@ void NACA0012<dim,nstate>::steady_state_postprocessing(std::shared_ptr<DGBase<di
 }
 
 template <int dim, int nstate>
+double NACA0012<dim,nstate>::get_functional_average() const
+{
+    return functional_avg;
+}
+
+template <int dim, int nstate>
 void NACA0012<dim, nstate>::compute_unsteady_data_and_write_to_table(
         const unsigned int current_iteration,
         const double current_time,
@@ -163,7 +169,7 @@ void NACA0012<dim, nstate>::compute_unsteady_data_and_write_to_table(
     // Compute aerodynamic values
     const double lift = 0.0; //this->compute_lift(dg);
     const double drag = this->compute_drag(dg);
-    if(current_time>150.0)
+    if(current_time>200.0)
     {
         functional_sum += drag;
         countval_functional++;

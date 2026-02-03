@@ -228,6 +228,14 @@ double FlowSolverCaseBase<dim, nstate>::get_time_step() const
     return this->time_step;
 }
 
+template <int dim, int nstate>
+double FlowSolverCaseBase<dim, nstate>::get_functional_average() const
+{
+    std::cout<<"Shouldn't have reached here in get_functional_average() of FlowSolverCaseBase. Aborting..."<<std::endl;
+    std::abort();
+    return 0;
+}
+
 template class FlowSolverCaseBase<PHILIP_DIM,1>;
 template class FlowSolverCaseBase<PHILIP_DIM,2>;
 template class FlowSolverCaseBase<PHILIP_DIM,3>;
