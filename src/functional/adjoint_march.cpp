@@ -87,6 +87,7 @@ compute_QR_decomposition(const std::array<VectorType,n_col> &A,
     for(unsigned int i=0; i<n_col; ++i)
     {
         qr_factorization.append_column(A[i]);
+        Q[i].reinit(dg->solution);
     }
     // Compute Q
     for(unsigned int i=0; i<n_col; ++i)
