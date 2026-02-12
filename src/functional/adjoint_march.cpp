@@ -1,5 +1,6 @@
 #include "adjoint_march.h"
 #include "dg/dg_factory.hpp"
+#include <deal.II/lac/qr.h>
 
 namespace PHiLiP {
 
@@ -82,6 +83,30 @@ compute_QR_decomposition(const std::array<VectorType,n_col> &A,
                           std::array<VectorType,n_col> &Q,
                           std::array<std::array<double,n_col>,n_col> &R) const
 {
+    dealii::QR<VectorType> qr_factorization;
+    for(unsigned int i=0; i<n_col; ++i)
+    {
+        qr_factorization.append_column(A[i]);
+    }
+    // Compute Q
+    for(unsigned int i=0; i<n_col; ++i)
+    {
+        dealii::Vector<double> x(n_col);
+        x[i] = 1.0;
+        qr_factorization.multiply_with_Q(Q[i],x);
+    }
+
+    dealii::LAPACKFullMatrix<double> R_temp = qr_factorization.get_R();
+    for(unsigned int i=0; i<n_col; ++i)
+    {
+        for(unsigned int j=0; j<n_col; ++j)
+        {
+            R[i][j] = R_temp(i,j);
+        }
+    }
+
+
+/*
     for(unsigned int i=0; i<n_col; ++i)
     {
         Q[i].reinit(dg->solution);
@@ -106,11 +131,11 @@ compute_QR_decomposition(const std::array<VectorType,n_col> &A,
         Q[i]/=R[i][i];
         Q[i].update_ghost_values();        
     }
-
+*/
     // Check for linear independence
     for(int i=0; i<n_col; ++i)
     {
-        if(R[i][i]<1.0e-5) 
+        if(abs(R[i][i])<1.0e-5) 
         {
             std::cout<<"Linearly dependent"<<std::endl;
             std::abort();
@@ -432,7 +457,7 @@ compute_R_b_d_h_vecs()
         // compute lyapunov exp
         for(unsigned int k=0; k<n_subspace_vectors; ++k)
         {
-            lyapunov_exp[k] += log(R[k][k]);
+            lyapunov_exp[k] += log(abs(R[k][k]));
         }
 
         // Write R, b, integral_jc, integral_h and integrals_d to file.
@@ -508,7 +533,7 @@ compute_lyapunov_exponents()
         for(unsigned int s=0; s<n_subspace_vectors; ++s)
         {
             Y[s] = Q[s];
-            lyapunov_exp[s] += log(R[s][s]); 
+            lyapunov_exp[s] += log(abs(R[s][s])); 
         }
 
         pcout<<"Current lyapunov exponents: ";
@@ -683,156 +708,6 @@ apply_f_u_transposed(const std::array<VectorType,n_subspace_vectors+1> &in_vec, 
     }
 }
 
-/*
-template<int n_int_grid_points,int n_subspace_vectors>
-int AdjointMarch<n_int_grid_points,n_subspace_vectors>::
-compute_unstable_subspace_dimension() const
-{
-    std::array<double,n_subspace_vectors> lyapunov_exponents;
-    for(int i=0; i<n_subspace_vectors; ++i)
-    {
-        lyapunov_exponents[i] = 0.0;
-        for(int j=0; j<K; ++j)
-        {
-            lyapunov_exponents[i] += log(R_vec[j][i][i]);
-        }
-        lyapunov_exponents[i]/=T;
-    }
-
-    int dimension_unstable = 0;
-    for(int i=0; i<n_subspace_vectors; ++i)
-    {
-        if(lyapunov_exponents[i]>0.0) {++dimension_unstable;}
-        else {break;}
-    }
-/a*
-    for(int i=0;i<n_subspace_vectors; ++i)
-    {
-        for(int j=0; j<K; ++j)
-        {
-            std::cout<<R_vec[j][i][i];
-            if(j<(K-1)) {std::cout<<" ";}
-            else {std::cout<<" Lyapunov exponent = "<<lyapunov_exponents[i]<<"\n"<<"\n";}
-        }
-    }
-
-    std::cout<<"Unstable subspace dimension = "<<dimension_unstable<<std::endl;
-*a/
-    return dimension_unstable;
-}
-    
-template<int n_int_grid_points,int n_subspace_vectors>
-void AdjointMarch<n_int_grid_points,n_subspace_vectors>::
-compute_s_stable_backward_march()
-{
-    for(int i=n_unstable; i<n_subspace_vectors; ++i)
-    {
-        s_vec[K-1][i] = 0.0;
-    }
-
-    for(int i=(K-1); i>=1; --i)
-    {
-        for(int j=n_unstable; j<n_subspace_vectors; ++j)
-        {
-            s_vec[i-1][j] = -b_vec[i][j];
-            for(int k=j; k<n_subspace_vectors; ++k)
-            {
-                s_vec[i-1][j] += R_vec[i][j][k]*s_vec[i][k];
-            }
-        }
-    }
-}
-
-template<int n_int_grid_points,int n_subspace_vectors>
-void AdjointMarch<n_int_grid_points,n_subspace_vectors>::
-compute_s_unstable_forward_march()
-{
-    for(int i=0; i<K; ++i)
-    {
-        const bool i_is_positive = (i>0);
-        for(int j=(n_unstable-1); j>=0; --j)
-        {
-            // Compute rj
-            double rj=b_vec[i][j];
-            for(int k=n_unstable; k<n_subspace_vectors; ++k)
-            {
-                rj -= R_vec[i][j][k]*s_vec[i][k];
-            }
-            if(i_is_positive) {rj+= s_vec[i-1][j];}
-
-            // Compute sj
-            s_vec[i][j] = rj;
-            for(int k=j+1; k<n_unstable; ++k)
-            {
-                s_vec[i][j] -= R_vec[i][j][k]*s_vec[i][k];
-            }
-            s_vec[i][j]/=R_vec[i][j][j];
-        }
-    }
-}
-
-template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
-void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
-load_R_b_d_h_vecs()
-{
-    R_vec.resize(K);
-    s_vec.resize(K);
-    b_vec.resize(K);
-    d_vec.resize(K);
-    h_vec.resize(K);
-    integralJc_vec.resize(K);
-    
-    std::ifstream in_R("R_vec.txt");
-    std::ifstream in_b("b_vec.txt");
-    std::ifstream in_d("d_vec.txt");
-    std::ifstream in_h("h_vec.txt");
-    std::ifstream in_Jc("integral_J_c.txt");
-    for(unsigned int i=K-1; i>=0; --i)
-    {
-        
-    }
-}
-
-template<int n_int_grid_points,int n_subspace_vectors>
-double AdjointMarch<n_int_grid_points,n_subspace_vectors>::
-compute_sensitivity()
-{
-    compute_R_b_d_h_vecs();
-    n_unstable = compute_unstable_subspace_dimension();
-    compute_s_stable_backward_march();
-    compute_s_unstable_forward_march();
-
-    // J_c = 0, hence ignoring that term.
-    double sensitivity = 0.0;
-    for(int i=0; i<K; ++i)
-    {
-        for(int j=0; j<n_subspace_vectors; ++j)
-        {
-            sensitivity += s_vec[i][j]*d_vec[i][j];
-        }
-        sensitivity += h_vec[i];
-    }
-    sensitivity/=T;
-    return sensitivity;
-}
-
-template<int n_int_grid_points,int n_subspace_vectors>
-double AdjointMarch<n_int_grid_points,n_subspace_vectors>::
-compute_f_dot_adjoint_average() const
-{
-    double f_dot_adj_avg = 0.0;
-    for(int i=0; i<K; ++i)
-    {
-        for(int j=0; j<n_subspace_vectors; ++j)
-        {
-            f_dot_adj_avg += s_vec[i][j]*d_f_vec[i][j];
-        }
-        f_dot_adj_avg += h_f_vec[i];
-    }
-    f_dot_adj_avg/=T;
-    return abs(f_dot_adj_avg);
-}
-*/
 #if PHILIP_DIM != 1
 //template class AdjointMarch<PHILIP_DIM, PHILIP_DIM+2, 20, dealii::parallel::distributed::Triangulation<PHILIP_DIM>>;
 template class AdjointMarch<PHILIP_DIM, PHILIP_DIM+2, 15, dealii::parallel::distributed::Triangulation<PHILIP_DIM>>;
