@@ -37,7 +37,7 @@ int EulerNACA0012<dim,nstate>
     pcout<<"Functional average used for stablized march = "<<functional_avg<<std::endl;
     std::unique_ptr<AdjointMarch<dim, nstate, 15>> adjoint_march = std::make_unique<AdjointMarch<dim, nstate, 15>>(flow_solver->dg,30,dt,delT,T,T_extra, functional_avg);  
 
-    adjoint_march->compute_R_b_d_h_vecs();
+    adjoint_march->compute_R_b_d_h_Jc_vecs();
     
     /*
 {

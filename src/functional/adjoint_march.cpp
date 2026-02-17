@@ -155,7 +155,7 @@ advance_in_time(const std::array<VectorType,n_subspace_vectors+1> & psi_nplus,
     // Compute and store Ytilde
     for(int istage = 0; istage<n_rk_stages; ++istage)
     {
-        Ytilde_rk[istage] = 0;
+        Ytilde_rk[istage] *= 0;
 
         for( int jstage=0; jstage<istage; ++jstage)
         {
@@ -182,6 +182,7 @@ advance_in_time(const std::array<VectorType,n_subspace_vectors+1> & psi_nplus,
         std::array<VectorType,n_subspace_vectors+1> temp;
         for(unsigned int s=0;s<n_subspace_vectors+1; ++s)
         {
+            temp[s].reinit(dg->solution);
             temp[s] = psi_nplus[s];
             temp[s] *= b_rk[kstage];
             for(unsigned int jstage=kstage+1; jstage<n_rk_stages; ++jstage)
@@ -202,6 +203,7 @@ advance_in_time(const std::array<VectorType,n_subspace_vectors+1> & psi_nplus,
     // Compute psi_n
     for(unsigned int s=0; s<n_subspace_vectors+1; ++s)
     {
+        psi_n[s].reinit(dg->solution);
         psi_n[s] = psi_nplus[s];
         for(int kstage=0; kstage<n_rk_stages; ++kstage)
         {
@@ -211,6 +213,7 @@ advance_in_time(const std::array<VectorType,n_subspace_vectors+1> & psi_nplus,
 
     // residual has been assembled at time minus.
     // functional has been assembled at time minus if compute_nonhom_term == true.
+    // dg->solution is at time minus
 }
 template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
 void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
@@ -223,11 +226,11 @@ advance_in_time_hom(const std::array<VectorType,n_subspace_vectors> & psi_n,
     for(unsigned int k=0; k<n_subspace_vectors; ++k)
     {
         psi_n_aug[k] = psi_n[k];
-        psi_nminus_aug[k].reinit(dg->right_hand_side);
+        psi_nminus_aug[k].reinit(dg->solution);
     }
-    psi_n_aug[n_subspace_vectors].reinit(dg->right_hand_side); 
-    psi_n_aug[n_subspace_vectors]=0;
-    psi_nminus_aug[n_subspace_vectors].reinit(dg->right_hand_side);
+    psi_n_aug[n_subspace_vectors].reinit(dg->solution); 
+    psi_n_aug[n_subspace_vectors]*=0;
+    psi_nminus_aug[n_subspace_vectors].reinit(dg->solution);
 
     const bool compute_nonhom_term = false;
     advance_in_time(psi_n_aug,psi_nminus_aug,compute_nonhom_term);
@@ -237,6 +240,7 @@ advance_in_time_hom(const std::array<VectorType,n_subspace_vectors> & psi_n,
         psi_nminus[k] = psi_nminus_aug[k];
     }
     // residual has been assembled at time minus.
+    // dg->solution is at time minus
 }
 
 template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
@@ -252,10 +256,10 @@ advance_in_time_hom_and_nonhom(const std::array<VectorType,n_subspace_vectors> &
     for(unsigned int k=0; k<n_subspace_vectors; ++k)
     {
         psi_n_aug[k] = Y_n[k];
-        psi_nminus_aug[k].reinit(dg->right_hand_side);
+        psi_nminus_aug[k].reinit(dg->solution);
     }
     psi_n_aug[n_subspace_vectors]= v_n;
-    psi_nminus_aug[n_subspace_vectors].reinit(dg->right_hand_side);
+    psi_nminus_aug[n_subspace_vectors].reinit(dg->solution);
 
     const bool compute_nonhom_term = true;
     advance_in_time(psi_n_aug,psi_nminus_aug,compute_nonhom_term);
@@ -267,6 +271,7 @@ advance_in_time_hom_and_nonhom(const std::array<VectorType,n_subspace_vectors> &
     v_nminus = psi_nminus_aug[n_subspace_vectors];
     // residual has been assembled at time minus.
     // functional has been assembled at time minus.
+    // dg->solution is at time minus
 }
     
 template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
@@ -280,12 +285,14 @@ compute_Y_terminal(std::array< VectorType, n_subspace_vectors> &Y_terminal)
     dg->apply_inverse_global_mass_matrix(dg->right_hand_side,Y_augmented[0]);
     for(unsigned int i=1; i<n_subspace_vectors+1; ++i)
     {
-        Y_augmented[i].reinit(dg->right_hand_side);
-        Y_augmented[i] = 0;
-        if(Y_augmented[i].get_partitioner()->in_local_range(i-1))
-        {
-            Y_augmented[i][i-1] = 1.0;
-        }
+        Y_augmented[i].reinit(dg->solution);
+        Y_augmented[i]*= 0;
+        
+        std::vector<unsigned int> indices(1);
+        indices[0] = i-1;
+        std::vector<double> values(1);
+        values[0] = 1.0;
+        Y_augmented[i].add(indices,values);
     }
     for(unsigned int i=0; i<n_subspace_vectors+1; ++i)
     {
@@ -364,7 +371,7 @@ compute_v_terminal(VectorType &v_terminal)
     
 template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
 void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
-compute_R_b_d_h_vecs()
+compute_R_b_d_h_Jc_vecs()
 {
     //std::cout<<"Here 1"<<std::endl;
     std::ofstream cout_R("R_vec.txt"); dealii::ConditionalOStream pcout_R(cout_R, dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0);
@@ -409,6 +416,7 @@ compute_R_b_d_h_vecs()
             const double current_time = (i-1)*delT + j*dt;
             if(j==nsteps)
             {
+                get_solution_at_time(current_time);
                 compute_df_dc_and_dJ_dc(f_c,integrand_J_c[j]);
                 for(unsigned int k=0; k<n_subspace_vectors; ++k)
                 {
@@ -429,9 +437,9 @@ compute_R_b_d_h_vecs()
             compute_df_dc_and_dJ_dc(f_c,integrand_J_c[j-1]);
             for(unsigned int k=0; k<n_subspace_vectors; ++k)
             {
-                integrand_d[k][j-1] = Y[k]*f_c;
+                integrand_d[k][j-1] = Y_minus[k]*f_c;
             }
-            integrand_h[j-1] = v*f_c;
+            integrand_h[j-1] = v_minus*f_c;
             //========================================
         } // nsteps ends
         pcout<<"================================================================"<<std::endl;
@@ -453,7 +461,6 @@ compute_R_b_d_h_vecs()
             b[k] = -(Q[k]*v_minus);
             v.add(b[k],Q[k]);
         }
-        v.update_ghost_values();
 
         // compute lyapunov exp
         for(unsigned int k=0; k<n_subspace_vectors; ++k)
@@ -572,7 +579,7 @@ reconstruct_solution(const double initial_time)
         soln_stored[i+1] = soln_stored[i];
         for(int istage = 0; istage<n_rk_stages; ++istage)
         {
-            Ytilde_rk[istage] = 0;
+            Ytilde_rk[istage] *= 0;
 
             for( int jstage=0; jstage<istage; ++jstage)
             {
@@ -676,7 +683,9 @@ template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
 void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
 compute_df_dc_and_dJ_dc(VectorType &f_c, double &J_c)
 {
-    // Assumes dg->assemble_residual() and functional->evaluate_functional() have already been called earlier.
+    // Assumes that the solution is already loaded in at the required time.
+    dg->solution.update_ghost_values();
+    dg->assemble_residual();
     dg_perturbed->solution = dg->solution;
     dg_perturbed->solution.update_ghost_values();
     dg_perturbed->assemble_residual();
@@ -689,7 +698,7 @@ compute_df_dc_and_dJ_dc(VectorType &f_c, double &J_c)
     f_c.update_ghost_values();
 
     J_c = functional_perturbed->evaluate_functional();
-    J_c -= functional->current_functional_value;
+    J_c -= functional->evaluate_functional();
     J_c/= perturbation_mach;
 }
     
