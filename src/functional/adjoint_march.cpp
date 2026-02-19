@@ -8,7 +8,7 @@ template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
 AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
 AdjointMarch(std::shared_ptr<DGBase<dim,double,MeshType>> _dg,
              const int _restart_index_terminal,
-             const double dt_, const double delT_, const double T_, const double T_extra_, const double j_bar_, const double _perturbation_mach) // Total trajecotry length is T+T_extra
+             const double dt_, const double delT_, const double T_, const double T_extra_, const double j_bar_, const double _perturbation_val) // Total trajecotry length is T+T_extra
     : dg(_dg)
     , restart_index_terminal(_restart_index_terminal)
     , dt(dt_)
@@ -18,12 +18,13 @@ AdjointMarch(std::shared_ptr<DGBase<dim,double,MeshType>> _dg,
     , K(T/delT)
     , nsteps(delT/dt)
     , j_bar(j_bar_)
-    , perturbation_mach(_perturbation_mach)
+    , perturbation_val(_perturbation_val)
     , param_perturbed(*(dg->all_parameters))
     , pcout(std::cout, dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD)==0)
 {
     // Initialize and allocate perturbed variables
-    param_perturbed.euler_param.mach_inf = dg->all_parameters->euler_param.mach_inf + perturbation_mach;
+    //param_perturbed.euler_param.mach_inf = dg->all_parameters->euler_param.mach_inf + perturbation_val;
+    param_perturbed.navier_stokes_param.reynolds_number_inf = dg->all_parameters->navier_stokes_param.reynolds_number_inf + perturbation_val;
     dg_perturbed = DGFactory<dim,double>::create_discontinuous_galerkin(&param_perturbed, param_perturbed.flow_solver_param.poly_degree, param_perturbed.flow_solver_param.max_poly_degree_for_adaptation, param_perturbed.flow_solver_param.grid_degree, dg->triangulation);
     dg_perturbed->allocate_system(false,false,false);
 
@@ -287,12 +288,11 @@ compute_Y_terminal(std::array< VectorType, n_subspace_vectors> &Y_terminal)
     {
         Y_augmented[i].reinit(dg->solution);
         Y_augmented[i]*= 0;
-        
-        std::vector<unsigned int> indices(1);
-        indices[0] = i-1;
-        std::vector<double> values(1);
-        values[0] = 1.0;
-        Y_augmented[i].add(indices,values);
+
+        if(Y_augmented[i].locally_owned_elements().is_element(i-1))
+        {
+            Y_augmented[i][i-1] = 1.0;
+        }
     }
     for(unsigned int i=0; i<n_subspace_vectors+1; ++i)
     {
@@ -692,14 +692,14 @@ compute_df_dc_and_dJ_dc(VectorType &f_c, double &J_c)
 
     VectorType R_c = dg_perturbed->right_hand_side;
     R_c -= dg->right_hand_side;
-    R_c /= perturbation_mach;
+    R_c /= perturbation_val;
     f_c = R_c;
     dg->apply_inverse_global_mass_matrix(R_c,f_c);
     f_c.update_ghost_values();
 
     J_c = functional_perturbed->evaluate_functional();
     J_c -= functional->evaluate_functional();
-    J_c/= perturbation_mach;
+    J_c/= perturbation_val;
 }
     
 template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
