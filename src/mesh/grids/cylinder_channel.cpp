@@ -14,11 +14,12 @@ void cylindrical_channel(
     const unsigned int height_bottom,
     const unsigned int height_top,
     const double  depth,
-    unsigned int  depth_division,
+    unsigned int  depth_division, //4
     const double  shell_region_radius,
-    const unsigned int   n_shells,
-    const double         skewness,
+    const unsigned int   n_shells, //14
+    const double         skewness, //2.75
     const bool           use_transfinite_region,
+    const unsigned int 	n_cells_per_shell, //60
     const unsigned int n_refinements)
 {
 /*
@@ -98,9 +99,8 @@ void cylindrical_channel(
 
         const double inner_radius = 0.5;
         const double outer_radius = 30.0;
-        const unsigned int N_shells = 14;
-        const double Skewness = 2.75;
-        const unsigned int 	n_cells_per_shell = 60;
+        const unsigned int N_shells = n_shells; //14
+        const double Skewness = skewness; //2.75
         const bool 	colorize = true;
 
         dealii::GridGenerator::concentric_hyper_shells(tria_2, center, inner_radius, outer_radius,N_shells, Skewness, n_cells_per_shell, colorize);
@@ -108,7 +108,7 @@ void cylindrical_channel(
     {
         dealii::Triangulation<3> tria;
         // extrude to 3d
-        dealii::GridGenerator::extrude_triangulation(tria_2, 4, 2.0, tria, true);
+        dealii::GridGenerator::extrude_triangulation(tria_2, depth_division, 2.0, tria, true);
         // set up the new 3d manifolds
         const dealii::types::manifold_id      cylindrical_manifold_id = 0;
         const dealii::types::manifold_id      tfi_manifold_id         = 1;
@@ -483,6 +483,7 @@ template void cylindrical_channel<PHILIP_DIM>(
     const unsigned int  n_shells,
     const double skewness,
     const bool  use_transfinite_region,
+    const unsigned int 	n_cells_per_shell, //60
     const unsigned int n_refinements);
 
 template void dealiiuniform_channel_with_cylinder<PHILIP_DIM>(

@@ -126,6 +126,7 @@ public:
     unsigned int depth_division_cyl;
     double       shell_region_radius_cyl;
     unsigned int n_shells_cyl;
+    unsigned int n_cells_per_shell_cyl;
     double       skewness_cyl;
     bool         use_transfinite_region_cyl;
 

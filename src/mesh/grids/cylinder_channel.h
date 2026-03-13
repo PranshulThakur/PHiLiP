@@ -22,6 +22,7 @@ void cylindrical_channel(
     const unsigned int  n_shells,
     const double skewness,
     const bool  use_transfinite_region,
+    const unsigned int 	n_cells_per_shell, //60
     const unsigned int n_refinements);
 
 template <int dim>

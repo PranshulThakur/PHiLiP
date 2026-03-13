@@ -93,6 +93,7 @@ std::shared_ptr<Triangulation> NACA0012<dim,nstate>::generate_grid() const
         unsigned int                     depth_division = this->all_param.flow_solver_param.depth_division_cyl;
         const double                     shell_region_radius = this->all_param.flow_solver_param.shell_region_radius_cyl;
         const unsigned int               n_shells = this->all_param.flow_solver_param.n_shells_cyl;
+        const unsigned int               n_cells_per_shell = this->all_param.flow_solver_param.n_cells_per_shell_cyl;
         const double                     skewness = this->all_param.flow_solver_param.skewness_cyl;
         const bool                       use_transfinite_region = this->all_param.flow_solver_param.use_transfinite_region_cyl;
 
@@ -108,6 +109,7 @@ std::shared_ptr<Triangulation> NACA0012<dim,nstate>::generate_grid() const
         n_shells,
         skewness,
         use_transfinite_region,
+        n_cells_per_shell,
         number_of_refinements);
         std::cout<<"Done generating grid"<<std::endl;
         return grid;

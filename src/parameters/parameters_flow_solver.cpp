@@ -193,6 +193,9 @@ void FlowSolverParam::declare_parameters(dealii::ParameterHandler &prm)
             prm.declare_entry("n_shells_cyl", "2",
                               dealii::Patterns::Integer(0, dealii::Patterns::Integer::max_int_value),
                               "Cylinder n_shells.");
+            prm.declare_entry("n_cells_per_shell_cyl", "2",
+                              dealii::Patterns::Integer(0, dealii::Patterns::Integer::max_int_value),
+                              "Cylinder n_cells_per_shell_cyl.");
             prm.declare_entry("skewness_cyl", "2.0",
                               dealii::Patterns::Double(-dealii::Patterns::Double::max_double_value, dealii::Patterns::Double::max_double_value),
                               "skewness_cyl.");
@@ -474,6 +477,7 @@ void FlowSolverParam::parse_parameters(dealii::ParameterHandler &prm)
             depth_division_cyl = prm.get_integer("depth_division_cyl");
             shell_region_radius_cyl = prm.get_double("shell_region_radius_cyl");
             n_shells_cyl = prm.get_integer("n_shells_cyl");
+            n_cells_per_shell_cyl = prm.get_integer("n_cells_per_shell_cyl");
             skewness_cyl = prm.get_double("skewness_cyl");
             use_transfinite_region_cyl = prm.get_bool("use_transfinite_region_cyl");
 
