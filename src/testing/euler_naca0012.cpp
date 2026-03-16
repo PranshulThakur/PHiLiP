@@ -35,7 +35,9 @@ int EulerNACA0012<dim,nstate>
     const double T_extra = 10.0;
     const double functional_avg = flow_solver->flow_solver_case->get_functional_average();
     pcout<<"Functional average used for stablized march = "<<functional_avg<<std::endl;
-    std::unique_ptr<AdjointMarch<dim, nstate, 15>> adjoint_march = std::make_unique<AdjointMarch<dim, nstate, 15>>(flow_solver->dg,30,dt,delT,T,T_extra, functional_avg);  
+    const int restart_index_terminal = param.flow_solver_param.final_time/(20000*dt);
+    pcout<<"restart index terminal = "<<restart_index_terminal<<std::endl;
+    std::unique_ptr<AdjointMarch<dim, nstate, 15>> adjoint_march = std::make_unique<AdjointMarch<dim, nstate, 15>>(flow_solver->dg,restart_index_terminal,dt,delT,T,T_extra, functional_avg);  
 
     adjoint_march->compute_R_b_d_h_Jc_vecs();
     
