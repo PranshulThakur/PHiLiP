@@ -373,20 +373,15 @@ template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
 void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
 compute_R_b_d_h_Jc_vecs()
 {
-    //std::cout<<"Here 1"<<std::endl;
-    std::ofstream cout_R("R_vec.txt"); dealii::ConditionalOStream pcout_R(cout_R, dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0);
-    std::ofstream cout_b("b_vec.txt"); dealii::ConditionalOStream pcout_b(cout_b, dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0);
-    std::ofstream cout_d("d_vec.txt"); dealii::ConditionalOStream pcout_d(cout_d, dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0);
-    std::ofstream cout_h("h_vec.txt"); dealii::ConditionalOStream pcout_h(cout_h, dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0);
-    std::ofstream cout_J_c("integral_J_c.txt"); dealii::ConditionalOStream pcout_J_c(cout_J_c, dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0);
-
     std::array<VectorType,n_subspace_vectors> Y;
     VectorType v;
+    int index_start = K;
     //std::cout<<"Here 2"<<std::endl;
     compute_Y_terminal(Y);
     //std::cout<<"Here 3"<<std::endl;
     compute_v_terminal(v);
     //std::cout<<"Here 4"<<std::endl;
+    output_adjoint_restarts(Y,v,K*delT);
     std::array<VectorType,n_subspace_vectors> Y_minus;
     VectorType v_minus;
     // Initialize minus vectors
@@ -413,7 +408,7 @@ compute_R_b_d_h_Jc_vecs()
     VectorType f_c;
 
     pcout<<"Runs nonhomogeneous:"<<std::endl;
-    for(int i=K; i>0; --i) // Between Ti and T_{i-1}
+    for(int i=index_start; i>0; --i) // Between Ti and T_{i-1}
     {
         for(int j=nsteps; j>0; --j) // Between j and j-1
         {           
@@ -471,32 +466,10 @@ compute_R_b_d_h_Jc_vecs()
         }
         b_vec[i-1] = b;
 
-        // Write R, b, integral_jc, integral_h and integrals_d to file.
-        for(unsigned int k1=0; k1<n_subspace_vectors; ++k1)
+        if( ( ( (int)((i-1)*delT) ) % 5 ) == 0 )
         {
-            for(unsigned int k2 = 0; k2<n_subspace_vectors; ++k2)
-            {
-                pcout_R<<std::setprecision(16)<<R[k1][k2]<<std::endl;
-            }
-            pcout_b<<std::setprecision(16)<<b[k1]<<std::endl;
-            pcout_d<<std::setprecision(16)<<integrals_d[k1]<<std::endl;
+            output_adjoint_restarts(Q,v,(i-1)*delT);
         }
-        pcout_J_c<<std::setprecision(16)<<integral_jc<<std::endl;
-        pcout_h<<std::setprecision(16)<<integral_h<<std::endl;
-        
-        #if PHILIP_DIM>1
-        if( ((i-1)*delT <= T/2.0) && (i*delT> T/2.0))
-        {
-            pcout<<"Outputting Y_{i-1}(t_{i-1}) and v_{i-1}(t_{i-1}) at i = "<<i<<std::endl;
-            for(unsigned int k=0; k<n_subspace_vectors;++k)
-            {
-                std::string filenameY = "Y_" + std::to_string(k);
-                save_vector(Y[k],filenameY);
-            }
-            save_vector(v,"v");
-            pcout<<"Done outputting Y_{i-1}(t_{i-1}) and v_{i-1}(t_{i-1}) at i = "<<i<<std::endl;
-        }
-        #endif
     } // K loop
     
     pcout<<"Lyapunov exponents: "; 
@@ -517,11 +490,97 @@ compute_R_b_d_h_Jc_vecs()
     }
     pcout<<std::endl;
 
+}
+template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
+void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
+output_adjoint_restarts(const std::array<VectorType,n_subspace_vectors> & Q, 
+                        const VectorType &v, 
+                        const double current_time) const
+{
+    std::ofstream cout_R("R_vec_T" + std::to_string(current_time)  + ".txt"); dealii::ConditionalOStream pcout_R(cout_R, dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0);
+    std::ofstream cout_b("b_vec_T" + std::to_string(current_time)  + ".txt"); dealii::ConditionalOStream pcout_b(cout_b, dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0);
+    std::ofstream cout_d("d_vec_T" + std::to_string(current_time)  + ".txt"); dealii::ConditionalOStream pcout_d(cout_d, dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0);
+    std::ofstream cout_h("h_vec_T" + std::to_string(current_time)  + ".txt"); dealii::ConditionalOStream pcout_h(cout_h, dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0);
+    std::ofstream cout_J_c("integral_J_c_T" + std::to_string(current_time)  + ".txt"); dealii::ConditionalOStream pcout_J_c(cout_J_c, dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0);
+
+    int index_end = current_time/delT;
+    for(int i=K; i>index_end; --i)
+    {
+        // Write R, b, integral_jc, integral_h and integrals_d to file.
+        for(unsigned int k1=0; k1<n_subspace_vectors; ++k1)
+        {
+            for(unsigned int k2 = 0; k2<n_subspace_vectors; ++k2)
+            {
+                pcout_R<<std::setprecision(16)<<R_vec[i-1][k1][k2]<<std::endl;
+            }
+            pcout_b<<std::setprecision(16)<<b_vec[i-1][k1]<<std::endl;
+            pcout_d<<std::setprecision(16)<<d_vec[i-1][k1]<<std::endl;
+        }
+        pcout_J_c<<std::setprecision(16)<<integral_jc_vec[i-1]<<std::endl;
+        pcout_h<<std::setprecision(16)<<h_vec[i-1]<<std::endl;        
+    }
+    
     cout_R.close(); 
     cout_b.close(); 
     cout_d.close(); 
     cout_h.close(); 
     cout_J_c.close(); 
+    
+    #if PHILIP_DIM > 1
+    for(unsigned int k=0; k<n_subspace_vectors;++k)
+    {
+        std::string filenameQ = "Q_T" + std::to_string(current_time) + "_subspacevec_" + std::to_string(k);
+        save_vector(Q[k],filenameQ);
+    }
+    std::string filenamev = "v_T" + std::to_string(current_time);
+    save_vector(v,filenamev);
+    #endif
+}
+
+template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
+void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
+read_adjoint_restarts(std::array<VectorType,n_subspace_vectors> & Q, 
+                      VectorType &v, 
+                      const double current_time)
+{
+    std::ifstream cin_R("R_vec_T" + std::to_string(current_time)  + ".txt"); 
+    std::ifstream cin_b("b_vec_T" + std::to_string(current_time)  + ".txt"); 
+    std::ifstream cin_d("d_vec_T" + std::to_string(current_time)  + ".txt"); 
+    std::ifstream cin_h("h_vec_T" + std::to_string(current_time)  + ".txt"); 
+    std::ifstream cin_J_c("integral_J_c_T" + std::to_string(current_time)  + ".txt"); 
+
+    int index_end = current_time/delT;
+    for(int i=K; i>index_end; --i)
+    {
+        // Write R, b, integral_jc, integral_h and integrals_d to file.
+        for(unsigned int k1=0; k1<n_subspace_vectors; ++k1)
+        {
+            for(unsigned int k2 = 0; k2<n_subspace_vectors; ++k2)
+            {
+                cin_R>>R_vec[i-1][k1][k2];
+            }
+            cin_b>>b_vec[i-1][k1];
+            cin_d>>d_vec[i-1][k1];
+        }
+        cin_J_c>>integral_jc_vec[i-1];
+        cin_h>>h_vec[i-1];        
+    }
+    
+    cin_R.close(); 
+    cin_b.close(); 
+    cin_d.close(); 
+    cin_h.close(); 
+    cin_J_c.close(); 
+    
+    #if PHILIP_DIM > 1
+    for(unsigned int k=0; k<n_subspace_vectors;++k)
+    {
+        std::string filenameQ = "Q_T" + std::to_string(current_time) + "_subspacevec_" + std::to_string(k);
+        load_vector(Q[k],filenameQ);
+    }
+    std::string filenamev = "v_T" + std::to_string(current_time);
+    load_vector(v,filenamev);
+    #endif
 }
 
 template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
