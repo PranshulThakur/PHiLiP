@@ -118,6 +118,10 @@ void FlowSolverParam::declare_parameters(dealii::ParameterHandler &prm)
         prm.declare_entry("restart_computation_from_file", "false",
                           dealii::Patterns::Bool(),
                           "Restarts the computation from the restart file. False by default.");
+        
+        prm.declare_entry("use_adjoint_restart_files", "false",
+                          dealii::Patterns::Bool(),
+                          "Restarts the computation from the restart adjoint file. False by default.");
 
         prm.declare_entry("output_restart_files", "false",
                           dealii::Patterns::Bool(),
@@ -142,6 +146,10 @@ void FlowSolverParam::declare_parameters(dealii::ParameterHandler &prm)
         prm.declare_entry("expected_order_at_final_time", "0.0",
                   dealii::Patterns::Double(0.0, 10.0),
                   "For convergence tests related to limiters, expected order of accuracy for final run.");
+        
+        prm.declare_entry("adjoint_restart_time", "0.0",
+                  dealii::Patterns::Double(0.0, 10000.0),
+                  "Adjoint restart time.");
 
         prm.enter_subsection("grid");
         {
@@ -448,6 +456,7 @@ void FlowSolverParam::parse_parameters(dealii::ParameterHandler &prm)
         sensitivity_table_filename = prm.get("sensitivity_table_filename");
         restart_computation_from_file = prm.get_bool("restart_computation_from_file");
         output_restart_files = prm.get_bool("output_restart_files");
+        use_adjoint_restart_files = prm.get_bool("use_adjoint_restart_files");
         restart_files_directory_name = prm.get("restart_files_directory_name");
         // Check if directory exists - see https://stackoverflow.com/a/18101042
         struct stat info_restart;
@@ -460,6 +469,7 @@ void FlowSolverParam::parse_parameters(dealii::ParameterHandler &prm)
         output_restart_files_every_x_steps = prm.get_integer("output_restart_files_every_x_steps");
         output_restart_files_every_dt_time_intervals = prm.get_double("output_restart_files_every_dt_time_intervals");
         expected_order_at_final_time = prm.get_double("expected_order_at_final_time");
+        adjoint_restart_time = prm.get_double("adjoint_restart_time");
 
         prm.enter_subsection("grid");
         {

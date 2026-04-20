@@ -97,6 +97,9 @@ public:
     int output_restart_files_every_x_steps; ///< Outputs the restart files every x steps
     double output_restart_files_every_dt_time_intervals; ///< Outputs the restart files at time intervals of dt
 
+    bool use_adjoint_restart_files;
+    double adjoint_restart_time;
+
     /// Parameters related to mesh generation
     unsigned int grid_degree; ///< Polynomial degree of the grid
     double grid_left_bound; ///< Left bound of domain for hyper_cube mesh based cases

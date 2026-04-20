@@ -32,12 +32,12 @@ int EulerNACA0012<dim,nstate>
     const double dt = param.flow_solver_param.constant_time_step;
     const double delT = 1.0;
     const double T = 100.0;
-    const double T_extra = 10.0;
+    const double T_extra = (dt == 0.0002)? 8.0 : 10.0;
     const double functional_avg = flow_solver->flow_solver_case->get_functional_average();
     pcout<<"Functional average used for stablized march = "<<functional_avg<<std::endl;
     const int restart_index_terminal = param.flow_solver_param.final_time/(20000*dt);
     pcout<<"restart index terminal = "<<restart_index_terminal<<std::endl;
-    std::unique_ptr<AdjointMarch<dim, nstate, 15>> adjoint_march = std::make_unique<AdjointMarch<dim, nstate, 15>>(flow_solver->dg,restart_index_terminal,dt,delT,T,T_extra, functional_avg);  
+    std::unique_ptr<AdjointMarch<dim, nstate, 15>> adjoint_march = std::make_unique<AdjointMarch<dim, nstate, 15>>(flow_solver->dg,restart_index_terminal,dt,delT,T,T_extra, functional_avg, param.flow_solver_param.use_adjoint_restart_files, param.flow_solver_param.adjoint_restart_time);  
 
     adjoint_march->compute_R_b_d_h_Jc_vecs();
     
