@@ -49,10 +49,10 @@ class AdjointMarch
     std::vector<int> stable_indices;
     std::vector<int> neutral_indices;
     std::vector<std::array<std::array<double,n_subspace_vectors>,n_subspace_vectors>> R_vec;
-    std::vector<std::array<double,n_subspace_vectors>> s_vec;
     std::vector<std::array<double,n_subspace_vectors>> b_vec;
     std::vector<std::array<double,n_subspace_vectors>> d_vec;
     std::vector<double> h_vec;
+    std::vector<double> integral_jc_vec;
     std::array<double, n_subspace_vectors> lyapunov_exp;
     void compute_s_stable_backward_march();
     void compute_s_unstable_forward_march();
@@ -93,6 +93,8 @@ public:
     double compute_f_dot_adjoint_average() const;
     void compute_df_dc_and_dJ_dc(VectorType &f_c, double &J_c);
     void compute_R_b_d_h_Jc_vecs();
+    void output_adjoint_restarts() const;
+    void read_adjoint_restarts();
     #if PHILIP_DIM>1
     void save_vector(const VectorType &v, const std::string filename) const;
     void load_vector(VectorType &v, const std::string filename);

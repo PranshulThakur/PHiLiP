@@ -397,12 +397,16 @@ compute_R_b_d_h_Jc_vecs()
     }
     std::array<VectorType,n_subspace_vectors> Q;
     std::array<std::array<double,n_subspace_vectors>,n_subspace_vectors> R;
+    R_vec.resize(K);
+    d_vec.resize(K);
+    b_vec.resize(K);
+    h_vec.resize(K);
+    integral_jc_vec.resize(K);
     
     std::array<std::vector<double>,n_subspace_vectors> integrand_d;
     for(unsigned int k=0; k<n_subspace_vectors; ++k) 
     {
         integrand_d[k].resize(nsteps+1);
-        lyapunov_exp[k] = 0.0;
     }
     std::vector<double> integrand_h(nsteps+1);
     std::vector<double> integrand_J_c(nsteps+1);
@@ -445,15 +449,19 @@ compute_R_b_d_h_Jc_vecs()
         pcout<<"================================================================"<<std::endl;
         // Compute integrals
         const double integral_jc = simpson_integration(integrand_J_c, nsteps, dt);
+        integral_jc_vec[i-1] = integral_jc;
         const double integral_h = simpson_integration(integrand_h, nsteps, dt);
+        h_vec[i-1] = integral_h;
         std::array<double,n_subspace_vectors> integrals_d;
         for(unsigned int k=0; k<n_subspace_vectors; ++k)
         {
             integrals_d[k] = simpson_integration(integrand_d[k], nsteps, dt);
         }
+        d_vec[i-1] = integrals_d;
 
         // Compute QR and variables for the next iteration
         compute_QR_decomposition<n_subspace_vectors>(Y_minus, Q, R);
+        R_vec[i-1] = R;
         std::array<double, n_subspace_vectors> b;
         for(unsigned int k=0; k<n_subspace_vectors; ++k)
         {
@@ -461,12 +469,7 @@ compute_R_b_d_h_Jc_vecs()
             b[k] = -(Q[k]*v_minus);
             v.add(b[k],Q[k]);
         }
-
-        // compute lyapunov exp
-        for(unsigned int k=0; k<n_subspace_vectors; ++k)
-        {
-            lyapunov_exp[k] += log(abs(R[k][k]));
-        }
+        b_vec[i-1] = b;
 
         // Write R, b, integral_jc, integral_h and integrals_d to file.
         for(unsigned int k1=0; k1<n_subspace_vectors; ++k1)
@@ -497,9 +500,19 @@ compute_R_b_d_h_Jc_vecs()
     } // K loop
     
     pcout<<"Lyapunov exponents: "; 
+    // compute lyapunov exp
     for(unsigned int k=0; k<n_subspace_vectors; ++k)
     {
+        lyapunov_exp[k] = 0;
+        for(int i=K; i>0; --i)
+        {
+            lyapunov_exp[k] += log(abs(R_vec[i-1][k][k]));
+        }
         lyapunov_exp[k] /= T;
+    }
+
+    for(unsigned int k=0; k<n_subspace_vectors; ++k)
+    {
         pcout<<lyapunov_exp[k]<<", ";
     }
     pcout<<std::endl;
