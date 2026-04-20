@@ -8,7 +8,7 @@ template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
 AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
 AdjointMarch(std::shared_ptr<DGBase<dim,double,MeshType>> _dg,
              const int _restart_index_terminal,
-             const double dt_, const double delT_, const double T_, const double T_extra_, const double j_bar_, const double _perturbation_val) // Total trajecotry length is T+T_extra
+             const double dt_, const double delT_, const double T_, const double T_extra_, const double j_bar_, const bool _use_adjoint_restart_files, const double _adjoint_restart_time, const double _perturbation_val) // Total trajecotry length is T+T_extra
     : dg(_dg)
     , restart_index_terminal(_restart_index_terminal)
     , dt(dt_)
@@ -18,6 +18,8 @@ AdjointMarch(std::shared_ptr<DGBase<dim,double,MeshType>> _dg,
     , K(T/delT)
     , nsteps(delT/dt)
     , j_bar(j_bar_)
+    , use_adjoint_restart_files(_use_adjoint_restart_files)
+    , adjoint_restart_time(_adjoint_restart_time)
     , perturbation_val(_perturbation_val)
     , param_perturbed(*(dg->all_parameters))
     , pcout(std::cout, dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD)==0)
@@ -57,7 +59,20 @@ AdjointMarch(std::shared_ptr<DGBase<dim,double,MeshType>> _dg,
     a_rk[1][0] = 1.0; a_rk[2][0] = 0.25; a_rk[2][1] = 0.25;
     b_rk[0] = 1.0/6.0; b_rk[1] = 1.0/6.0; b_rk[2] = 2.0/3.0;
 
-    reconstruct_solution(T+T_extra - n_soln_steps_stored*dt);
+    if(! use_adjoint_restart_files)
+    {
+        reconstruct_solution(T+T_extra - n_soln_steps_stored*dt);
+    }
+    else
+    {
+        // Find the interval in which adjoint_restart_time exists
+        double reconstruct_time = T + T_extra;
+        while(adjoint_restart_time <= reconstruct_time)
+        {
+            reconstruct_time -= n_soln_steps_stored*dt;
+        }
+        reconstruct_solution(reconstruct_time);
+    }
 }
 
 template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
@@ -375,13 +390,31 @@ compute_R_b_d_h_Jc_vecs()
 {
     std::array<VectorType,n_subspace_vectors> Y;
     VectorType v;
+    for(unsigned int k=0; k<n_subspace_vectors; ++k)
+    {
+        Y[k].reinit(dg->solution);
+    }
+    v.reinit(dg->solution);
     int index_start = K;
-    //std::cout<<"Here 2"<<std::endl;
-    compute_Y_terminal(Y);
-    //std::cout<<"Here 3"<<std::endl;
-    compute_v_terminal(v);
-    //std::cout<<"Here 4"<<std::endl;
-    output_adjoint_restarts(Y,v,K*delT);
+    R_vec.resize(K);
+    d_vec.resize(K);
+    b_vec.resize(K);
+    h_vec.resize(K);
+    integral_jc_vec.resize(K);
+    if(! use_adjoint_restart_files)
+    {
+        //std::cout<<"Here 2"<<std::endl;
+        compute_Y_terminal(Y);
+        //std::cout<<"Here 3"<<std::endl;
+        compute_v_terminal(v);
+        //std::cout<<"Here 4"<<std::endl;
+        output_adjoint_restarts(Y,v,K*delT);
+    }
+    else
+    {
+        read_adjoint_restarts(Y,v,adjoint_restart_time);
+        index_start = adjoint_restart_time/delT;
+    }
     std::array<VectorType,n_subspace_vectors> Y_minus;
     VectorType v_minus;
     // Initialize minus vectors
@@ -392,11 +425,6 @@ compute_R_b_d_h_Jc_vecs()
     }
     std::array<VectorType,n_subspace_vectors> Q;
     std::array<std::array<double,n_subspace_vectors>,n_subspace_vectors> R;
-    R_vec.resize(K);
-    d_vec.resize(K);
-    b_vec.resize(K);
-    h_vec.resize(K);
-    integral_jc_vec.resize(K);
     
     std::array<std::vector<double>,n_subspace_vectors> integrand_d;
     for(unsigned int k=0; k<n_subspace_vectors; ++k) 

@@ -25,6 +25,8 @@ class AdjointMarch
     const int K;
     const int nsteps;
     const double j_bar;
+    const bool use_adjoint_restart_files;
+    const double adjoint_restart_time;
     const double perturbation_val;
     Parameters::AllParameters param_perturbed;
     dealii::ConditionalOStream pcout; ///< Parallel std::cout that only outputs on mpi_rank==0
@@ -84,7 +86,7 @@ class AdjointMarch
 public:
     AdjointMarch(std::shared_ptr<DGBase<dim,double,MeshType>> _dg,
                  const int _restart_index_terminal,
-                 const double dt_, const double delT_, const double T_, const double T_extra_, const double j_bar_, const double _perturbation_val = 1.0e-5); // Total trajecotry length is T+T_extra
+                 const double dt_, const double delT_, const double T_, const double T_extra_, const double j_bar_, const bool _use_adjoint_restart_files = false, const double _adjoint_restart_time = 0, const double _perturbation_val = 1.0e-5); // Total trajecotry length is T+T_extra
     ~AdjointMarch(){};
     double compute_sensitivity();
     void get_solution_at_time(const double _time);
@@ -93,8 +95,8 @@ public:
     double compute_f_dot_adjoint_average() const;
     void compute_df_dc_and_dJ_dc(VectorType &f_c, double &J_c);
     void compute_R_b_d_h_Jc_vecs();
-    void output_adjoint_restarts() const;
-    void read_adjoint_restarts();
+    void output_adjoint_restarts(const std::array<VectorType,n_subspace_vectors> & Q, const VectorType &v, const double current_time) const;
+    void read_adjoint_restarts(std::array<VectorType,n_subspace_vectors> & Q, VectorType &v, const double current_time);
     #if PHILIP_DIM>1
     void save_vector(const VectorType &v, const std::string filename) const;
     void load_vector(VectorType &v, const std::string filename);
