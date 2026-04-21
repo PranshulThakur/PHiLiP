@@ -99,6 +99,7 @@ public:
 
     bool use_adjoint_restart_files;
     double adjoint_restart_time;
+    double functional_average;
 
     /// Parameters related to mesh generation
     unsigned int grid_degree; ///< Polynomial degree of the grid

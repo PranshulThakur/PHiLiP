@@ -150,6 +150,10 @@ void FlowSolverParam::declare_parameters(dealii::ParameterHandler &prm)
         prm.declare_entry("adjoint_restart_time", "0.0",
                   dealii::Patterns::Double(0.0, 10000.0),
                   "Adjoint restart time.");
+              
+      prm.declare_entry("functional_average", "0.0",
+                        dealii::Patterns::Double(-dealii::Patterns::Double::max_double_value, dealii::Patterns::Double::max_double_value),
+                        "Functional average.");
 
         prm.enter_subsection("grid");
         {
@@ -470,6 +474,7 @@ void FlowSolverParam::parse_parameters(dealii::ParameterHandler &prm)
         output_restart_files_every_dt_time_intervals = prm.get_double("output_restart_files_every_dt_time_intervals");
         expected_order_at_final_time = prm.get_double("expected_order_at_final_time");
         adjoint_restart_time = prm.get_double("adjoint_restart_time");
+        functional_average = prm.get_double("functional_average");
 
         prm.enter_subsection("grid");
         {
