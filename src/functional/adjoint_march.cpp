@@ -702,7 +702,7 @@ template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
 void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
 get_solution_at_time(const double _time)
 {
-    if( (T_solnstored_start<= _time) && (_time<= T_solnstored_end))
+    if( (T_solnstored_start-1.0e-14<= _time) && (_time<= T_solnstored_end+1.0e-14))
     {
         const int vector_index = (_time - T_solnstored_start)/dt;
         dg->solution = soln_stored[vector_index];
@@ -734,7 +734,7 @@ load_solution_at_time(const double _time)
     restart_index_string.insert(0, number_of_zeros, '0');
     const std::string prefix = "restart-";
     const std::string restart_filename_without_extension = prefix+restart_index_string;
-    //std::cout<<restart_filename_without_extension<<std::endl;
+    pcout<<dg->all_parameters->flow_solver_param.restart_files_directory_name + std::string("/") +restart_filename_without_extension<<std::endl;
 #if PHILIP_DIM>1
     dg->triangulation->load(dg->all_parameters->flow_solver_param.restart_files_directory_name + std::string("/") + restart_filename_without_extension);
     
