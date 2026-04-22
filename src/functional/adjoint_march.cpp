@@ -413,7 +413,7 @@ compute_R_b_d_h_Jc_vecs()
     else
     {
         read_adjoint_restarts(Y,v,adjoint_restart_time);
-        index_start = adjoint_restart_time/delT;
+        index_start = std::round(adjoint_restart_time/delT);
     }
     std::array<VectorType,n_subspace_vectors> Y_minus;
     VectorType v_minus;
@@ -531,7 +531,7 @@ output_adjoint_restarts(const std::array<VectorType,n_subspace_vectors> & Q,
     std::ofstream cout_h("restart_files/h_vec_T" + std::to_string(current_time)  + ".txt"); dealii::ConditionalOStream pcout_h(cout_h, dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0);
     std::ofstream cout_J_c("restart_files/integral_J_c_T" + std::to_string(current_time)  + ".txt"); dealii::ConditionalOStream pcout_J_c(cout_J_c, dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0);
 
-    int index_end = current_time/delT;
+    int index_end = std::round(current_time/delT);
     for(int i=K; i>index_end; --i)
     {
         // Write R, b, integral_jc, integral_h and integrals_d to file.
@@ -577,7 +577,7 @@ read_adjoint_restarts(std::array<VectorType,n_subspace_vectors> & Q,
     std::ifstream cin_h("restart_files/h_vec_T" + std::to_string(current_time)  + ".txt"); 
     std::ifstream cin_J_c("restart_files/integral_J_c_T" + std::to_string(current_time)  + ".txt"); 
 
-    int index_end = current_time/delT;
+    int index_end = std::round(current_time/delT);
     for(int i=K; i>index_end; --i)
     {
         // Write R, b, integral_jc, integral_h and integrals_d to file.
@@ -704,7 +704,7 @@ get_solution_at_time(const double _time)
 {
     if( (T_solnstored_start-1.0e-14<= _time) && (_time<= T_solnstored_end+1.0e-14))
     {
-        const int vector_index = (_time - T_solnstored_start)/dt;
+        const int vector_index = std::round((_time - T_solnstored_start)/dt);
         dg->solution = soln_stored[vector_index];
         dg->solution.update_ghost_values();
     }
