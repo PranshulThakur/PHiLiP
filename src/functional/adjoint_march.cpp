@@ -724,7 +724,7 @@ template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
 void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
 load_solution_at_time(const double _time)
 {
-    const int steps_k = (T + T_extra - _time)/(dt*n_soln_steps_stored);
+    const int steps_k = std::round((T + T_extra - _time)/(dt*n_soln_steps_stored));
     const int restart_index = restart_index_terminal - steps_k + 1;
 
     // Computes restart index string
