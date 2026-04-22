@@ -10,21 +10,20 @@ set dimension = 3
 # <advection|diffusion|convection_diffusion>.
 set pde_type  = navier_stokes
 set use_weak_form = false
-set conv_num_flux = roe #two_point_flux_with_lax_friedrichs_dissipation
-#set two_point_num_flux_type = CH
-#set use_split_form = true
-#set use_curvilinear_split_form = true
+set conv_num_flux = two_point_flux_with_lax_friedrichs_dissipation
+set two_point_num_flux_type = CH
+set use_split_form = true
+set use_curvilinear_split_form = true
 set use_inverse_mass_on_the_fly = true
 set use_weight_adjusted_mass = true
 #set output_face_results_vtk = true
-
 subsection euler
   set reference_length = 1.0
   set mach_infinity = 0.093
 end
 
 subsection navier_stokes
-  set reynolds_number_inf = 1200.0
+  set reynolds_number_inf = 1000.0
   set prandtl_number = 0.71
   set temperature_inf = 283.0 
 end
@@ -74,21 +73,24 @@ end
 
 subsection flow_solver
   set flow_case_type = naca0012
-  set poly_degree = 2
-  set final_time = 300.0
+  set poly_degree = 1
+  set final_time = 2.0
   set end_exactly_at_final_time = false
-  set constant_time_step = 0.0005
+  set constant_time_step = 0.01
   set steady_state = false
   set output_restart_files = true
   set restart_files_directory_name = restart_files
-  set output_restart_files_every_x_steps = 20000
+  set output_restart_files_every_x_steps = 20
+  set use_adjoint_restart_files = true
+  set functional_average = 0
+  set adjoint_restart_time = 1.0 
   subsection grid
     set grid_degree = 2
 
     set depth_division_cyl = 4
-    set n_shells_cyl = 14
-    set n_cells_per_shell_cyl = 60
-    set skewness_cyl = 2.75
+    set n_shells_cyl = 4
+    set n_cells_per_shell_cyl = 5
+    set skewness_cyl = 1.00
   end
 end
 
