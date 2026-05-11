@@ -53,7 +53,7 @@ void NACA0012<dim,nstate>::display_additional_flow_case_specific_parameters() co
 template <int dim, int nstate>
 std::shared_ptr<Triangulation> NACA0012<dim,nstate>::generate_grid() const
 {
-/*
+
     //Dummy triangulation
     if constexpr(dim==2) {
         std::shared_ptr<Triangulation> grid = std::make_shared<Triangulation>(
@@ -72,53 +72,16 @@ std::shared_ptr<Triangulation> NACA0012<dim,nstate>::generate_grid() const
         std::shared_ptr<HighOrderGrid<dim,double>> naca0012_mesh = read_gmsh<dim, dim> (mesh_filename, this->all_param.do_renumber_dofs, 0, use_mesh_smoothing);
         return naca0012_mesh->triangulation;
     }
-*/         
-/*        const std::string mesh_filename = this->all_param.flow_solver_param.input_mesh_filename+std::string(".msh");
+         
+        const std::string mesh_filename = this->all_param.flow_solver_param.input_mesh_filename+std::string(".msh");
         const bool use_mesh_smoothing = false;
         std::shared_ptr<HighOrderGrid<dim,double>> naca0012_mesh = read_gmsh<dim, dim> (mesh_filename, this->all_param.do_renumber_dofs, 0, use_mesh_smoothing);
         return naca0012_mesh->triangulation;
-*/
-        std::cout<<"Generating grid"<<std::endl;
-        std::shared_ptr <Triangulation> grid = std::make_shared<Triangulation>(
-        this->mpi_communicator,
-        typename dealii::Triangulation<dim>::MeshSmoothing(
-            dealii::Triangulation<dim>::smoothing_on_refinement |
-            dealii::Triangulation<dim>::smoothing_on_coarsening));
-        const unsigned int number_of_refinements = this->all_param.flow_solver_param.number_of_mesh_refinements;
-        const unsigned int length_left = this->all_param.flow_solver_param.length_left_cyl;
-        const unsigned int length_right = this->all_param.flow_solver_param.length_right_cyl;
-        const unsigned int height_bottom = this->all_param.flow_solver_param.height_bottom_cyl;
-        const unsigned int height_top = this->all_param.flow_solver_param.height_top_cyl;
-        const unsigned int depth  = this->all_param.flow_solver_param.depth_cyl;
-        unsigned int                     depth_division = this->all_param.flow_solver_param.depth_division_cyl;
-        const double                     shell_region_radius = this->all_param.flow_solver_param.shell_region_radius_cyl;
-        const unsigned int               n_shells = this->all_param.flow_solver_param.n_shells_cyl;
-        const unsigned int               n_cells_per_shell = this->all_param.flow_solver_param.n_cells_per_shell_cyl;
-        const double                     skewness = this->all_param.flow_solver_param.skewness_cyl;
-        const bool                       use_transfinite_region = this->all_param.flow_solver_param.use_transfinite_region_cyl;
-
-    Grids::cylindrical_channel<dim>(
-        *grid,
-        length_left,
-        length_right,
-        height_bottom,
-        height_top,
-        depth,
-        depth_division,
-        shell_region_radius,
-        n_shells,
-        skewness,
-        use_transfinite_region,
-        n_cells_per_shell,
-        number_of_refinements);
-        std::cout<<"Done generating grid"<<std::endl;
-        return grid;
 }
 
 template <int dim, int nstate>
 void NACA0012<dim,nstate>::set_higher_order_grid(std::shared_ptr<DGBase<dim, double>> dg) const
-{ (void) dg;
-/*
+{
     const std::string mesh_filename = this->all_param.flow_solver_param.input_mesh_filename+std::string(".msh");
     const bool use_mesh_smoothing = false;
     std::shared_ptr<HighOrderGrid<dim,double>> naca0012_mesh = read_gmsh<dim, dim> (mesh_filename, this->all_param.do_renumber_dofs, 0, use_mesh_smoothing);
@@ -126,7 +89,6 @@ void NACA0012<dim,nstate>::set_higher_order_grid(std::shared_ptr<DGBase<dim, dou
     for (int i=0; i<this->all_param.flow_solver_param.number_of_mesh_refinements; ++i) {
         dg->high_order_grid->refine_global();
     }
-*/
 }
 
 template <int dim, int nstate>
@@ -171,7 +133,7 @@ void NACA0012<dim, nstate>::compute_unsteady_data_and_write_to_table(
     // Compute aerodynamic values
     const double lift = 0.0; //this->compute_lift(dg);
     const double drag = this->compute_drag(dg);
-    if(current_time>200.0)
+    if(current_time>400.0)
     {
         functional_sum += drag;
         countval_functional++;

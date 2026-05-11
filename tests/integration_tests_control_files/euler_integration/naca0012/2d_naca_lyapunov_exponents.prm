@@ -4,7 +4,7 @@
 set test_type = euler_naca0012
 
 # Number of dimensions
-set dimension = 3
+set dimension = 2
 
 # The PDE we want to solve. Choices are
 # <advection|diffusion|convection_diffusion>.
@@ -19,13 +19,12 @@ set use_weight_adjusted_mass = true
 #set output_face_results_vtk = true
 subsection euler
   set reference_length = 1.0
-  set mach_infinity = 0.093
+  set mach_infinity = 0.2
+  set angle_of_attack = 20.0
 end
 
 subsection navier_stokes
-  set reynolds_number_inf = 1000.0
-  set prandtl_number = 0.71
-  set temperature_inf = 283.0 
+  set reynolds_number_inf = 2400.0
 end
 
 subsection functional
@@ -73,24 +72,21 @@ end
 
 subsection flow_solver
   set flow_case_type = naca0012
-  set poly_degree = 1
-  set final_time = 2.0
+  set poly_degree = 2
+  set final_time = 2000.0
   set end_exactly_at_final_time = false
-  set constant_time_step = 0.01
+  set constant_time_step = 0.0001
   set steady_state = false
   set output_restart_files = true
   set restart_files_directory_name = restart_files
-  set output_restart_files_every_x_steps = 20
-  set use_adjoint_restart_files = true
+  set output_restart_files_every_x_steps = 20000
+  set use_adjoint_restart_files = false
   set functional_average = 0
   set adjoint_restart_time = 1.0 
   subsection grid
     set grid_degree = 2
-
-    set depth_division_cyl = 4
-    set n_shells_cyl = 4
-    set n_cells_per_shell_cyl = 5
-    set skewness_cyl = 1.00
+    set number_of_mesh_refinements = 0
+    set input_mesh_filename = ../../../meshes/naca0012_hopw_ref2
   end
 end
 

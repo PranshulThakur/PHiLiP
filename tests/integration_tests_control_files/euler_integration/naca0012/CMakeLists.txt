@@ -17,21 +17,18 @@ set_tests_labels(2D_EULER_INTEGRATION_NACA0012_SUBSONIC_LONG    EULER_INTEGRATIO
                                                                 LONG
                                                                 INTEGRATION_TEST)
 
-configure_file(3d_ns_cylinder.prm 3d_ns_cylinder.prm COPYONLY)
+configure_file(2d_naca_lyapunov_exponents.prm 2d_naca_lyapunov_exponents.prm COPYONLY)
 add_test(
-  NAME 3D_NS_CYLINDER
-  COMMAND mpirun -np ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_3D -i ${CMAKE_CURRENT_BINARY_DIR}/3d_ns_cylinder.prm
+  NAME 2D_NACA_LYAPUNOV_EXPONENTS
+  COMMAND mpirun -np ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_2D -i ${CMAKE_CURRENT_BINARY_DIR}/2d_naca_lyapunov_exponents.prm
   WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
 )
-set_tests_labels(3D_NS_CYLINDER                                 EULER_INTEGRATION
+set_tests_labels(2D_NACA_LYAPUNOV_EXPONENTS                     EULER_INTEGRATION
                                                                 NACA0012
-                                                                3D
+                                                                2D
                                                                 PARALLEL
                                                                 NAVIER_STOKES
-                                                                IMPLICIT
-                                                                WEAK
                                                                 UNCOLLOCATED
-                                                                MANUFACTURED_SOLUTION
                                                                 CONVERGENCE
                                                                 LONG
                                                                 INTEGRATION_TEST)
