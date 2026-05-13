@@ -26,7 +26,7 @@ AdjointMarch(std::shared_ptr<DGBase<dim,double,MeshType>> _dg,
 {
     // Initialize and allocate perturbed variables
     //param_perturbed.euler_param.mach_inf = dg->all_parameters->euler_param.mach_inf + perturbation_val;
-    param_perturbed.navier_stokes_param.reynolds_number_inf = dg->all_parameters->navier_stokes_param.reynolds_number_inf + perturbation_val;
+    param_perturbed.euler_param.angle_of_attack = dg->all_parameters->euler_param.angle_of_attack + perturbation_val;
     dg_perturbed = DGFactory<dim,double>::create_discontinuous_galerkin(&param_perturbed, param_perturbed.flow_solver_param.poly_degree, param_perturbed.flow_solver_param.max_poly_degree_for_adaptation, param_perturbed.flow_solver_param.grid_degree, dg->triangulation);
     dg_perturbed->allocate_system(false,false,false);
 
