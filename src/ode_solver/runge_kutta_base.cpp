@@ -29,7 +29,7 @@ void RungeKuttaBase<dim, real, n_rk_stages, MeshType>::step_in_time(real dt, con
     }
     dt = this->adjust_time_step(dt);
     this->sum_stages(dt, pseudotime); // u_np1 = u_n + dt* sum(k_i * b_i)
-    this->dg->solution = this->solution_update; 
+    this->dg->solution = this->solution_update;
      // Calculate numerical entropy with FR correction. Does nothing if use has not selected param.
     this->FR_entropy_contribution_RRK_solver = relaxation_runge_kutta->compute_FR_entropy_contribution(dt, this->dg, this->rk_stage, true);
     this->apply_limiter(dt);

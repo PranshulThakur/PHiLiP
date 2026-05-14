@@ -37,7 +37,9 @@ public:
     /// Function to adjust time step size
     real adjust_time_step (real dt) override;
 
-protected:
+    std::array<dealii::LinearAlgebra::distributed::Vector<double>,3> soln_stored;
+
+public:
     /// Stores Butcher tableau a and b, which specify the RK method
     std::shared_ptr<RKTableauButcherBase<dim,real,MeshType>> butcher_tableau;
 };

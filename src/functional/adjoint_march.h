@@ -4,6 +4,7 @@
 #include "dg/dg_base.hpp"
 #include "physics/physics.h"
 #include "functional.h"
+#include "ode_solver/runge_kutta_ode_solver.h"
 
 namespace PHiLiP {
 
@@ -32,12 +33,11 @@ class AdjointMarch
     dealii::ConditionalOStream pcout; ///< Parallel std::cout that only outputs on mpi_rank==0
 
     static const int n_rk_stages = 3;
-    std::array<VectorType,n_rk_stages> Ytilde_rk;
-    std::array<VectorType,n_rk_stages> mass_inv_residuals_rk;
 
     std::array<std::array<double,n_rk_stages>,n_rk_stages> a_rk;
     std::array<double,n_rk_stages> b_rk;
     std::array< std::array<VectorType,n_subspace_vectors+1>, n_rk_stages> lambda_rk;
+    std::array< std::array<VectorType,n_subspace_vectors+1>, n_rk_stages> lambda_tilde_rk;
     
     static const int n_soln_steps_stored = 20000;
     std::array<VectorType,n_soln_steps_stored+1> soln_stored;
@@ -56,6 +56,8 @@ class AdjointMarch
     std::vector<double> h_vec;
     std::vector<double> integral_jc_vec;
     std::array<double, n_subspace_vectors> lyapunov_exp;
+    
+    std::shared_ptr<PHiLiP::ODE::RungeKuttaODESolver<dim,double,3,MeshType>> rk_solver;
     void compute_s_stable_backward_march();
     void compute_s_unstable_forward_march();
     void compute_unstable_neutral_stable_subspace_indices();

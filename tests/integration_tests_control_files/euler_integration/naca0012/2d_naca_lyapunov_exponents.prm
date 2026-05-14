@@ -14,8 +14,8 @@ set conv_num_flux = two_point_flux_with_lax_friedrichs_dissipation
 set two_point_num_flux_type = CH
 set use_split_form = true
 set use_curvilinear_split_form = true
-set use_inverse_mass_on_the_fly = true
-set use_weight_adjusted_mass = true
+#set use_inverse_mass_on_the_fly = true
+#set use_weight_adjusted_mass = true
 #set output_face_results_vtk = true
 subsection euler
   set reference_length = 1.0
@@ -53,7 +53,7 @@ subsection linear solver
     set ilut_fill                 = 10
 
     # Linear residual tolerance for convergence of the linear system
-    set linear_residual_tolerance = 1e-13
+    set linear_residual_tolerance = 1e-4
 
     # Maximum number of iterations for linear solver
     set max_iterations            = 2000
@@ -67,15 +67,15 @@ end
 subsection ODE solver
   #set output_solution_every_x_steps = 1
   set ode_solver_type = runge_kutta
-  set runge_kutta_method = ssprk3_ex
+  set runge_kutta_method = dirk_3_im #ssprk3_ex
 end
 
 subsection flow_solver
   set flow_case_type = naca0012
-  set poly_degree = 4
+  set poly_degree = 2
   set final_time = 2000.0
   set end_exactly_at_final_time = false
-  set constant_time_step = 0.000001
+  set constant_time_step = 0.01
   set steady_state = false
   set output_restart_files = true
   set restart_files_directory_name = restart_files
@@ -86,7 +86,7 @@ subsection flow_solver
   subsection grid
     set grid_degree = 2
     set number_of_mesh_refinements = 0
-    set input_mesh_filename = ../../../meshes/naca0012_mesh4
+    set input_mesh_filename = ../../../meshes/naca0012_mesh2
   end
 end
 

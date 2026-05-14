@@ -1,4 +1,5 @@
 #include "runge_kutta_ode_solver.h"
+#include "linear_solver/linear_solver.h"
 
 namespace PHiLiP {
 namespace ODE {
@@ -22,7 +23,6 @@ void RungeKuttaODESolver<dim,real,n_rk_stages,MeshType>::calculate_stage_solutio
         }
     } //sum(a_ij *k_j), explicit part
 
-    
     if(pseudotime) {
         const double CFL = dt;
         this->dg->time_scale_solution_update(this->rk_stage[istage], CFL);
@@ -52,12 +52,45 @@ void RungeKuttaODESolver<dim,real,n_rk_stages,MeshType>::calculate_stage_solutio
 
         this->rk_stage[istage].add(1.0, temp_u);
         */
+        dealii::LinearAlgebra::distributed::Vector<double> delY(this->dg->solution);
+        dealii::LinearAlgebra::distributed::Vector<double> Y_guess(this->dg->solution);
+        dealii::LinearAlgebra::distributed::Vector<double> rhs(this->dg->solution);
+        Y_guess = this->rk_stage[istage];
+        delY = Y_guess;
+        rhs = Y_guess;
+        int n_newton_iterations = 0;
+        while( rhs.linfty_norm() > 1.0e-5*(this->rk_stage[istage].linfty_norm()+1.0e-5) )
+        {
+            this->dg->solution = Y_guess;
+            if(n_newton_iterations > 4)
+            {
+                this->dg->assemble_residual(true);
+                this->dg->system_matrix *= -dt*butcher_tableau->get_a(istage,istage);
+                this->dg->add_mass_matrices(1.0);
 
+                n_newton_iterations = 0;
+            }
+
+            this->dg->assemble_residual();
+            rhs = this->dg->right_hand_side;
+            rhs *= dt*butcher_tableau->get_a(istage,istage);
+            delY = this->rk_stage[istage];
+            delY -= Y_guess;
+            this->dg->global_mass_matrix.vmult_add(rhs,delY);
+            solve_linear(this->dg->system_matrix,rhs,delY,this->ODESolverBase<dim,real,MeshType>::all_parameters->linear_solver_param);
+            Y_guess += delY;
+
+            n_newton_iterations++;
+        }
+        this->rk_stage[istage] = Y_guess;
+        /*
         //JFNK version
         this->solver.solve(dt*this->butcher_tableau->get_a(istage,istage), this->rk_stage[istage]);
         this->rk_stage[istage] = this->solver.current_solution_estimate;
+        */
 
     } // u_n + dt * sum(a_ij * k_j) <explicit> + dt * a_ii * u^(istage) <implicit>
+    soln_stored[istage] = this->rk_stage[istage];
     
     // If using the entropy formulation of RRK, solutions must be stored.
     // Call store_stage_solutions before overwriting rk_stage with the derivative.

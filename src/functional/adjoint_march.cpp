@@ -1,6 +1,8 @@
 #include "adjoint_march.h"
 #include "dg/dg_factory.hpp"
 #include <deal.II/lac/qr.h>
+#include "linear_solver/linear_solver.h"
+#include "ode_solver/runge_kutta_methods/runge_kutta_methods.h"
 
 namespace PHiLiP {
 
@@ -35,12 +37,10 @@ AdjointMarch(std::shared_ptr<DGBase<dim,double,MeshType>> _dg,
     // Initialize rk variables
     for(int istage = 0; istage<n_rk_stages; ++istage)
     {
-        Ytilde_rk[istage].reinit(dg->solution);
-        mass_inv_residuals_rk[istage].reinit(dg->solution);
-
         for(unsigned int s=0; s<n_subspace_vectors+1; ++s)
         {
             lambda_rk[istage][s].reinit(dg->solution);
+            lambda_tilde_rk[istage][s].reinit(dg->solution);
         }
 
         for(int jstage = 0; jstage<n_rk_stages; ++jstage)
@@ -55,9 +55,20 @@ AdjointMarch(std::shared_ptr<DGBase<dim,double,MeshType>> _dg,
     //a_rk[1][0] = 0.5; a_rk[2][1] = 0.5; a_rk[3][2] = 1.0;
     //b_rk[0] = 1.0/6.0; b_rk[1] = 1.0/3.0; b_rk[2] = 1.0/3.0; b_rk[3] = 1.0/6.0;
     
-    // For rk3ssp
-    a_rk[1][0] = 1.0; a_rk[2][0] = 0.25; a_rk[2][1] = 0.25;
-    b_rk[0] = 1.0/6.0; b_rk[1] = 1.0/6.0; b_rk[2] = 2.0/3.0;
+    // For 3rd order dirk
+    std::shared_ptr<PHiLiP::ODE::RKTableauButcherBase<dim,double,MeshType>> rk_tableau_butcher = std::make_shared<PHiLiP::ODE::DIRK3Implicit<dim, double, MeshType>>  (3, "3nd order diagonally-implicit (implicit)");
+    std::shared_ptr<PHiLiP::ODE::EmptyRRKBase<dim,double,MeshType>> RRK_object = std::make_shared<PHiLiP::ODE::EmptyRRKBase<dim,double,MeshType>> (rk_tableau_butcher);
+    rk_solver  = std::make_shared<PHiLiP::ODE::RungeKuttaODESolver<dim,double,3,MeshType>>(dg,rk_tableau_butcher,RRK_object);
+    rk_solver->allocate_runge_kutta_system();
+    
+    for(int istage = 0; istage<3; ++istage)
+    {
+        for(int jstage = 0; jstage<3; ++jstage)
+        {
+            a_rk[istage][jstage] = rk_solver->butcher_tableau->get_a(istage,jstage);
+        }
+        b_rk[istage] = rk_solver->butcher_tableau->get_b(istage);
+    }
 
     if(! use_adjoint_restart_files)
     {
@@ -167,52 +178,47 @@ advance_in_time(const std::array<VectorType,n_subspace_vectors+1> & psi_nplus,
                 const bool compute_nonhom_term)
 {
     // Assumes the solution is already loaded in at time n
-     
-    // Compute and store Ytilde
-    for(int istage = 0; istage<n_rk_stages; ++istage)
+    std::array<VectorType,n_subspace_vectors+1> psi_nplus_tilde;
+    for(unsigned int s=0; s<n_subspace_vectors+1; ++s)
     {
-        Ytilde_rk[istage] *= 0;
-
-        for( int jstage=0; jstage<istage; ++jstage)
-        {
-            Ytilde_rk[istage].add(a_rk[istage][jstage],mass_inv_residuals_rk[jstage]);
-        }
-        Ytilde_rk[istage] *= dt;
-
-        Ytilde_rk[istage] += dg->solution;
-
-        if(istage <(n_rk_stages-1))
-        {
-            dg->solution = Ytilde_rk[istage];
-            dg->solution.update_ghost_values();
-            dg->assemble_residual();
-            dg->apply_inverse_global_mass_matrix(dg->right_hand_side,mass_inv_residuals_rk[istage]);
-            dg->solution = Ytilde_rk[0];
-        }
+        psi_nplus_tilde[s] = psi_nplus[s];
+        dg->global_inverse_mass_matrix.vmult(psi_nplus_tilde[s],psi_nplus[s]);
     }
+
+    rk_solver->step_in_time(dt,false);
 
     for(int kstage=n_rk_stages-1; kstage>=0; --kstage)
     {
-        dg->solution = Ytilde_rk[kstage];
+        dg->solution = rk_solver->soln_stored[kstage];
         dg->solution.update_ghost_values();
+        dg->assemble_residual(true);
         std::array<VectorType,n_subspace_vectors+1> temp;
+        std::array<VectorType,n_subspace_vectors+1> rhs;
         for(unsigned int s=0;s<n_subspace_vectors+1; ++s)
         {
-            temp[s].reinit(dg->solution);
-            temp[s] = psi_nplus[s];
+            temp[s] = psi_nplus_tilde[s];
+            rhs[s] = temp[s];
             temp[s] *= b_rk[kstage];
             for(unsigned int jstage=kstage+1; jstage<n_rk_stages; ++jstage)
             {
-                temp[s].add(a_rk[jstage][kstage],lambda_rk[jstage][s]);
+                temp[s].add(a_rk[jstage][kstage],lambda_tilde_rk[jstage][s]);
             }
             temp[s] *= dt;
+            dg->system_matrix_transpose.vmult(rhs[s],temp[s]);
         }
         
-        apply_f_u_transposed(temp,lambda_rk[kstage]);
         if(compute_nonhom_term)
         {
             functional->evaluate_functional(true);
-            lambda_rk[kstage][n_subspace_vectors].add(dt*b_rk[kstage],functional->dIdw);
+            rhs[n_subspace_vectors].add(dt*b_rk[kstage],functional->dIdw);
+        }
+
+        dg->system_matrix_transpose *= -dt*a_rk[kstage][kstage];
+        dg->system_matrix_transpose.add(1.0,dg->global_mass_matrix);
+        for(unsigned int s=0;s<n_subspace_vectors+1; ++s)
+        {
+            solve_linear(dg->system_matrix_transpose,rhs[s],lambda_tilde_rk[kstage][s], dg->all_parameters->linear_solver_param);
+            dg->global_mass_matrix.vmult(lambda_rk[kstage][s],lambda_tilde_rk[kstage][s]);
         }
     }
 
@@ -675,27 +681,9 @@ reconstruct_solution(const double initial_time)
 
     for(int i=0; i<n_soln_steps_stored; ++i)
     {
-        // Move from soln_stored[i] to soln_stored[i+1].
-        soln_stored[i+1] = soln_stored[i];
-        for(int istage = 0; istage<n_rk_stages; ++istage)
-        {
-            Ytilde_rk[istage] *= 0;
-
-            for( int jstage=0; jstage<istage; ++jstage)
-            {
-                Ytilde_rk[istage].add(a_rk[istage][jstage],mass_inv_residuals_rk[jstage]);
-            }
-            Ytilde_rk[istage] *= dt;
-
-            Ytilde_rk[istage] += soln_stored[i];
-
-            dg->solution = Ytilde_rk[istage];
-            dg->solution.update_ghost_values();
-            dg->assemble_residual();
-            dg->apply_inverse_global_mass_matrix(dg->right_hand_side,mass_inv_residuals_rk[istage]);
-            soln_stored[i+1].add(dt*b_rk[istage],mass_inv_residuals_rk[istage]);
-        }
-    } // i loop 0 -> n_soln_steps_stored ends.
+        rk_solver->step_in_time(dt,false);
+        soln_stored[i+1] = dg->solution;
+    } 
 }
 
 template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
