@@ -78,6 +78,11 @@ void RungeKuttaODESolver<dim,real,n_rk_stages,MeshType>::calculate_stage_solutio
             delY -= Y_guess;
             this->dg->global_mass_matrix.vmult_add(rhs,delY);
             solve_linear(this->dg->system_matrix,rhs,delY,this->ODESolverBase<dim,real,MeshType>::all_parameters->linear_solver_param);
+            if(std::isnan(delY.l2_norm())) 
+            {
+                this->pcout << " ERROR: Linear solver failed and delY is nan. Aborting..." << std::endl;
+                std::abort();
+            }
             Y_guess += delY;
 
             n_newton_iterations++;
