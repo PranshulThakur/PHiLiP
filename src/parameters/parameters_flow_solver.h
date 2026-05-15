@@ -96,7 +96,8 @@ public:
     unsigned int restart_file_index; ///< Index of desired restart file for restarting the computation from
     int output_restart_files_every_x_steps; ///< Outputs the restart files every x steps
     double output_restart_files_every_dt_time_intervals; ///< Outputs the restart files at time intervals of dt
-
+    
+    bool run_flow_solver;
     bool use_adjoint_restart_files;
     double adjoint_restart_time;
     double functional_average;

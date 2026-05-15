@@ -20,6 +20,10 @@ RungeKuttaBase<dim, real, n_rk_stages, MeshType>::RungeKuttaBase(std::shared_ptr
 template<int dim, typename real, int n_rk_stages, typename MeshType>
 void RungeKuttaBase<dim, real, n_rk_stages, MeshType>::step_in_time(real dt, const bool pseudotime)
 {
+    this->dg->assemble_residual(true);
+    this->dg->system_matrix *= -dt*0.435866521508458999416019;
+    this->dg->add_mass_matrices(1.0);
+
     this->original_time_step = dt;
     this->solution_update = this->dg->solution; //storing u_n
     for (int istage = 0; istage < n_rk_stages; ++istage){

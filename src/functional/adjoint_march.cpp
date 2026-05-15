@@ -59,7 +59,7 @@ AdjointMarch(std::shared_ptr<DGBase<dim,double,MeshType>> _dg,
     std::shared_ptr<PHiLiP::ODE::RKTableauButcherBase<dim,double,MeshType>> rk_tableau_butcher = std::make_shared<PHiLiP::ODE::DIRK3Implicit<dim, double, MeshType>>  (3, "3nd order diagonally-implicit (implicit)");
     std::shared_ptr<PHiLiP::ODE::EmptyRRKBase<dim,double,MeshType>> RRK_object = std::make_shared<PHiLiP::ODE::EmptyRRKBase<dim,double,MeshType>> (rk_tableau_butcher);
     rk_solver  = std::make_shared<PHiLiP::ODE::RungeKuttaODESolver<dim,double,3,MeshType>>(dg,rk_tableau_butcher,RRK_object);
-    rk_solver->allocate_runge_kutta_system();
+    rk_solver->allocate_ode_system();
     
     for(int istage = 0; istage<3; ++istage)
     {

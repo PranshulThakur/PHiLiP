@@ -119,6 +119,10 @@ void FlowSolverParam::declare_parameters(dealii::ParameterHandler &prm)
                           dealii::Patterns::Bool(),
                           "Restarts the computation from the restart file. False by default.");
         
+        prm.declare_entry("run_flow_solver", "true",
+                          dealii::Patterns::Bool(),
+                          "Run flow solver in the test case. True by default.");
+        
         prm.declare_entry("use_adjoint_restart_files", "false",
                           dealii::Patterns::Bool(),
                           "Restarts the computation from the restart adjoint file. False by default.");
@@ -461,6 +465,7 @@ void FlowSolverParam::parse_parameters(dealii::ParameterHandler &prm)
         restart_computation_from_file = prm.get_bool("restart_computation_from_file");
         output_restart_files = prm.get_bool("output_restart_files");
         use_adjoint_restart_files = prm.get_bool("use_adjoint_restart_files");
+        run_flow_solver = prm.get_bool("run_flow_solver");
         restart_files_directory_name = prm.get("restart_files_directory_name");
         // Check if directory exists - see https://stackoverflow.com/a/18101042
         struct stat info_restart;

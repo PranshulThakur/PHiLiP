@@ -28,11 +28,8 @@ int EulerNACA0012<dim,nstate>
     param.ode_solver_param.allocate_matrix_dRdW = true; 
     std::unique_ptr<FlowSolver::FlowSolver<dim,nstate>> flow_solver = FlowSolver::FlowSolverFactory<dim,nstate>::select_flow_case(&param, parameter_handler);
     double functional_avg = param.flow_solver_param.functional_average;
-    if(! param.flow_solver_param.use_adjoint_restart_files)
+    if(param.flow_solver_param.run_flow_solver)
     {
-        flow_solver->dg->assemble_residual(true);
-        flow_solver->dg->system_matrix *= -param.flow_solver_param.constant_time_step*0.435866521508458999416019;
-        flow_solver->dg->add_mass_matrices(1.0);
         flow_solver->run(); // outputs restart files.
         functional_avg = flow_solver->flow_solver_case->get_functional_average();
     }
