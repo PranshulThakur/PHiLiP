@@ -467,6 +467,7 @@ compute_R_b_d_h_Jc_vecs()
             v = v_minus;
             // Compute integrands to be integrated
             //=========================================
+            get_solution_at_time(current_time-dt);
             compute_df_dc_and_dJ_dc(f_c,integrand_J_c[j-1]);
             for(unsigned int k=0; k<n_subspace_vectors; ++k)
             {
