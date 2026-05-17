@@ -31,6 +31,7 @@ AdjointMarch(std::shared_ptr<DGBase<dim,double,MeshType>> _dg,
     param_perturbed.euler_param.angle_of_attack = dg->all_parameters->euler_param.angle_of_attack + perturbation_val;
     dg_perturbed = DGFactory<dim,double>::create_discontinuous_galerkin(&param_perturbed, param_perturbed.flow_solver_param.poly_degree, param_perturbed.flow_solver_param.max_poly_degree_for_adaptation, param_perturbed.flow_solver_param.grid_degree, dg->triangulation);
     dg_perturbed->allocate_system(false,false,false);
+    param_perturbed.linear_solver_param.linear_residual = 1.0e-7;
 
     functional = FunctionalFactory<dim,nstate,double,MeshType>::create_Functional(dg->all_parameters, dg);
     functional_perturbed = FunctionalFactory<dim,nstate,double,MeshType>::create_Functional(&param_perturbed, dg_perturbed);
@@ -217,7 +218,7 @@ advance_in_time(const std::array<VectorType,n_subspace_vectors+1> & psi_nplus,
         dg->system_matrix_transpose.add(1.0,dg->global_mass_matrix);
         for(unsigned int s=0;s<n_subspace_vectors+1; ++s)
         {
-            solve_linear(dg->system_matrix_transpose,rhs[s],lambda_tilde_rk[kstage][s], dg->all_parameters->linear_solver_param);
+            solve_linear(dg->system_matrix_transpose,rhs[s],lambda_tilde_rk[kstage][s], param_perturbed.linear_solver_param);
             dg->global_mass_matrix.vmult(lambda_rk[kstage][s],lambda_tilde_rk[kstage][s]);
         }
     }
