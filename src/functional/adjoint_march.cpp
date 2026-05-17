@@ -304,7 +304,7 @@ compute_Y_terminal(std::array< VectorType, n_subspace_vectors> &Y_terminal)
     get_solution_at_time(T+T_extra);
     dg->assemble_residual();
     Y_augmented[0] = dg->right_hand_side;
-    dg->apply_inverse_global_mass_matrix(dg->right_hand_side,Y_augmented[0]);
+    dg->global_inverse_mass_matrix.vmult(Y_augmented[0],dg->right_hand_side);
     for(unsigned int i=1; i<n_subspace_vectors+1; ++i)
     {
         Y_augmented[i].reinit(dg->solution);
@@ -383,7 +383,7 @@ compute_v_terminal(VectorType &v_terminal)
     const double j_val_T = functional->evaluate_functional(); 
     dg->assemble_residual();
     VectorType f_val = dg->right_hand_side;
-    dg->apply_inverse_global_mass_matrix(dg->right_hand_side,f_val);
+    dg->global_inverse_mass_matrix.vmult(f_val,dg->right_hand_side);
     v_terminal = f_val;
     v_terminal *= ((j_bar - j_val_T)/(f_val*f_val));
     v_terminal.update_ghost_values();
@@ -783,7 +783,7 @@ compute_df_dc_and_dJ_dc(VectorType &f_c, double &J_c)
     R_c -= dg->right_hand_side;
     R_c /= perturbation_val;
     f_c = R_c;
-    dg->apply_inverse_global_mass_matrix(R_c,f_c);
+    dg->global_inverse_mass_matrix.vmult(f_c,R_c);
     f_c.update_ghost_values();
 
     J_c = functional_perturbed->evaluate_functional();
@@ -797,7 +797,7 @@ apply_f_u_transposed(const std::array<VectorType,n_subspace_vectors+1> &in_vec, 
 {
     for(unsigned int k=0; k<n_subspace_vectors+1; ++k)
     {
-        dg->apply_inverse_global_mass_matrix(in_vec[k],dg->duals[k]);
+        dg->global_inverse_mass_matrix.vmult(dg->duals[k],in_vec[k]);
         dg->duals[k].update_ghost_values();
     }
     dg->assemble_residual(true);

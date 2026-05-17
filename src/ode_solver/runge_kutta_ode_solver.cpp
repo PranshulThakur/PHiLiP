@@ -162,8 +162,9 @@ void RungeKuttaODESolver<dim,real,n_rk_stages,MeshType>::allocate_runge_kutta_sy
     
     }
     if(this->all_parameters->use_inverse_mass_on_the_fly == false) {
-        this->pcout << " evaluating inverse mass matrix..." << std::flush;
+        this->pcout << " evaluating mass and inverse mass matrix..." << std::flush;
         this->dg->evaluate_mass_matrices(true); // creates and stores global inverse mass matrix
+        this->dg->evaluate_mass_matrices(false); // creates and stores global mass matrix
         //RRK needs both mass matrix and inverse mass matrix
         if (this->ode_param.use_relaxation_runge_kutta) {
             this->dg->evaluate_mass_matrices(false); // creates and stores global mass matrix
