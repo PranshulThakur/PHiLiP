@@ -28,22 +28,25 @@ int EulerNACA0012<dim,nstate>
     param.ode_solver_param.allocate_matrix_dRdW = true; 
     std::unique_ptr<FlowSolver::FlowSolver<dim,nstate>> flow_solver = FlowSolver::FlowSolverFactory<dim,nstate>::select_flow_case(&param, parameter_handler);
     double functional_avg = param.flow_solver_param.functional_average;
+    /*
     if(param.flow_solver_param.run_flow_solver)
     {
         flow_solver->run(); // outputs restart files.
         functional_avg = flow_solver->flow_solver_case->get_functional_average();
     }
+    */
     
     const double dt = param.flow_solver_param.constant_time_step;
     const double delT = 0.2;
-    const double T = 6000*delT;
-    const double T_extra = 1000*delT;
+    const double T = 1200;
+    const double T_extra = 400;
     pcout<<"Functional average used for stablized march = "<<std::setprecision(16)<<functional_avg<<std::endl;
     const int restart_index_terminal = param.flow_solver_param.final_time/(20000*dt);
     pcout<<"restart index terminal = "<<restart_index_terminal<<std::endl;
     std::unique_ptr<AdjointMarch<dim, nstate, 15>> adjoint_march = std::make_unique<AdjointMarch<dim, nstate, 15>>(flow_solver->dg,restart_index_terminal,dt,delT,T,T_extra, functional_avg, param.flow_solver_param.use_adjoint_restart_files, param.flow_solver_param.adjoint_restart_time);  
 
-    adjoint_march->compute_R_b_d_h_Jc_vecs();
+    //adjoint_march->compute_R_b_d_h_Jc_vecs();
+    adjoint_march->compute_lyapunov_exponents_forward_tangent();
     
     /*
 {

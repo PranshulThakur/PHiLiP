@@ -70,21 +70,6 @@ AdjointMarch(std::shared_ptr<DGBase<dim,double,MeshType>> _dg,
         }
         b_rk[istage] = rk_solver->butcher_tableau->get_b(istage);
     }
-
-    if(! use_adjoint_restart_files)
-    {
-        reconstruct_solution(T+T_extra - n_soln_steps_stored*dt);
-    }
-    else
-    {
-        // Find the interval in which adjoint_restart_time exists
-        double reconstruct_time = T + T_extra;
-        while(adjoint_restart_time <= reconstruct_time)
-        {
-            reconstruct_time -= n_soln_steps_stored*dt;
-        }
-        reconstruct_solution(reconstruct_time);
-    }
 }
 
 template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
@@ -395,6 +380,20 @@ template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
 void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
 compute_R_b_d_h_Jc_vecs()
 {
+    if(! use_adjoint_restart_files)
+    {
+        reconstruct_solution(T+T_extra - n_soln_steps_stored*dt);
+    }
+    else
+    {
+        // Find the interval in which adjoint_restart_time exists
+        double reconstruct_time = T + T_extra;
+        while(adjoint_restart_time <= reconstruct_time)
+        {
+            reconstruct_time -= n_soln_steps_stored*dt;
+        }
+        reconstruct_solution(reconstruct_time);
+    }
     std::array<VectorType,n_subspace_vectors> Y;
     VectorType v;
     for(unsigned int k=0; k<n_subspace_vectors; ++k)
@@ -621,54 +620,193 @@ read_adjoint_restarts(std::array<VectorType,n_subspace_vectors> & Q,
 
 template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
 void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
-compute_lyapunov_exponents()
+output_tangent_restarts(const std::array<VectorType,n_subspace_vectors> & Q, 
+                        const double current_time) const
 {
-    std::array<VectorType,n_subspace_vectors> Y;
-    compute_Y_terminal(Y);
-    std::array<VectorType,n_subspace_vectors> Y_minus;
-    for(unsigned int k=0; k<n_subspace_vectors; ++k)
+    std::ofstream cout_R("restart_files/R_vec_T" + std::to_string(current_time)  + ".txt"); dealii::ConditionalOStream pcout_R(cout_R, dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0);
+
+    const int seg = std::round(current_time/delT);
+    for(int i=0; i<=seg; ++i)
     {
-        Y_minus[k] = Y[k];
+        // Write R, b, integral_jc, integral_h and integrals_d to file.
+        for(unsigned int k1=0; k1<n_subspace_vectors; ++k1)
+        {
+            for(unsigned int k2 = 0; k2<n_subspace_vectors; ++k2)
+            {
+                pcout_R<<std::setprecision(16)<<R_vec[i][k1][k2]<<std::endl;
+            }
+        }
     }
+    
+    cout_R.close(); 
+    
+    #if PHILIP_DIM > 1
+    for(unsigned int k=0; k<n_subspace_vectors;++k)
+    {
+        std::string filenameQ = "restart_files/Q_T" + std::to_string(current_time) + "_subspacevec_" + std::to_string(k);
+        save_vector(Q[k],filenameQ);
+    }
+    std::string filename_sol = "restart_files/solution_T" + std::to_string(current_time);
+    save_vector(dg->solution, filename_sol);
+    #endif
+}
+template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
+void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
+read_tangent_restarts(std::array<VectorType,n_subspace_vectors> & Q, 
+                      const double current_time)
+{
+    std::ifstream cin_R("restart_files/R_vec_T" + std::to_string(current_time)  + ".txt"); 
+
+    const int seg = std::round(current_time/delT);
+    for(int i=0; i<=seg; ++i)
+    {
+        // Write R, b, integral_jc, integral_h and integrals_d to file.
+        for(unsigned int k1=0; k1<n_subspace_vectors; ++k1)
+        {
+            for(unsigned int k2 = 0; k2<n_subspace_vectors; ++k2)
+            {
+                cin_R>>R_vec[i][k1][k2];
+            }
+        }
+    }
+    
+    cin_R.close(); 
+    
+    #if PHILIP_DIM > 1
+    for(unsigned int k=0; k<n_subspace_vectors;++k)
+    {
+        std::string filenameQ = "restart_files/Q_T" + std::to_string(current_time) + "_subspacevec_" + std::to_string(k);
+        load_vector(Q[k],filenameQ);
+    }
+    std::string filename_sol = "restart_files/solution_T" + std::to_string(current_time);
+    load_vector(dg->solution, filename_sol);
+    #endif
+}
+
+template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
+void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
+compute_lyapunov_exponents_forward_tangent()
+{
+    if(!use_adjoint_restart_files)
+    {
+        // Get the solution on the attractor
+        const double T_attractor = T_extra;
+        const int n_steps_attractor = T_attractor/dt;
+
+        for(int i=0; i<n_steps_attractor; ++i)
+        {
+            pcout<<"\nTime while getting onto the attractor = "<<i*dt<<std::endl;
+            rk_solver->step_in_time(dt,false);
+        }
+    }
+
+    const int n_steps_segment = delT/dt;
+    
+    std::array<VectorType,n_subspace_vectors> delu;
+    std::array<VectorType,n_subspace_vectors> delY_i;
+    std::array<std::array<VectorType,n_subspace_vectors>,n_rk_stages> dRdY_times_delY;
     std::array<VectorType,n_subspace_vectors> Q;
     std::array<std::array<double,n_subspace_vectors>,n_subspace_vectors> R;
-
-    const int m_T = T/dt;
+    R_vec.resize(K);
     for(unsigned int s=0; s<n_subspace_vectors; ++s)
     {
-        lyapunov_exp[s] = 0.0;
-    }
+        delu[s].reinit(dg->solution);
+        delY_i[s].reinit(dg->solution);
+        Q[s].reinit(dg->solution);
+        delu[s]*= 0;
 
-    for(int i=m_T; i>0; --i)
+        if(delu[s].locally_owned_elements().is_element(s))
+        {
+            delu[s][s] = 1.0;
+        }
+        delu[s].update_ghost_values();
+        
+        for(unsigned int i=0; i<n_rk_stages; ++i)
+        {
+            dRdY_times_delY[i][s].reinit(dg->solution);
+        }
+    }
+    const int seg_start = use_adjoint_restart_files ? (std::round(adjoint_restart_time/delT)+1) : 0;
+    if(use_adjoint_restart_files)
     {
-        const double current_time = i*dt;
-        pcout<<"Current time = "<<current_time<<std::endl;
-        get_solution_at_time(current_time-dt);
-        advance_in_time_hom(Y,Y_minus);
-        compute_QR_decomposition<n_subspace_vectors>(Y_minus,Q,R);
+        read_tangent_restarts(delu,adjoint_restart_time);
+    }
+    VectorType rhs(dg->solution);
+    for( int seg=seg_start; seg<K; ++seg)
+    {
+        for( int n=0; n<n_steps_segment; ++n)
+        {
+            pcout<<"\nCurrent time = "<<seg*delT + n*dt<<std::endl;
+            rk_solver->step_in_time(dt,false);
+
+            // Step linearized equations in time
+            for(unsigned int i=0; i<n_rk_stages; ++i)
+            {
+                dg->solution = rk_solver->soln_stored[i];
+                dg->assemble_residual(true);
+                dg->system_matrix*= -dt*rk_solver->butcher_tableau->get_a(i,i);
+                dg->system_matrix.add(1.0,dg->global_mass_matrix);
+                for(unsigned int s=0; s<n_subspace_vectors; ++s)
+                {
+                    dg->global_mass_matrix.vmult(rhs,delu[s]);
+
+                    for(unsigned int j=0; j<i; ++j)
+                    {
+                        rhs.add(dt*rk_solver->butcher_tableau->get_a(i,j),dRdY_times_delY[j][s]); 
+                    }
+
+                    solve_linear(dg->system_matrix,rhs,delY_i[s],param_perturbed.linear_solver_param);
+                }
+
+                dg->system_matrix.add(-1.0,dg->global_mass_matrix);
+                dg->system_matrix /= (-dt*rk_solver->butcher_tableau->get_a(i,i));
+                for(unsigned int s=0; s<n_subspace_vectors; ++s)
+                {
+                    dg->system_matrix.vmult(dRdY_times_delY[i][s],delY_i[s]);
+                }
+
+            }
+
+            for(unsigned int s=0; s<n_subspace_vectors; ++s)
+            {
+                for(unsigned int i=0; i<n_rk_stages; ++i)
+                {
+                    dRdY_times_delY[i][s] *= dt*rk_solver->butcher_tableau->get_b(i);
+                    dg->global_inverse_mass_matrix.vmult_add(delu[s],dRdY_times_delY[i][s]);
+                }
+            }
+        }
+        // Compute QR decomposition of delu.
+        compute_QR_decomposition<n_subspace_vectors>(delu, Q, R);
+        R_vec[seg] = R;
+
         for(unsigned int s=0; s<n_subspace_vectors; ++s)
         {
-            Y[s] = Q[s];
-            lyapunov_exp[s] += log(abs(R[s][s])); 
+            delu[s] = Q[s];
         }
-
-        pcout<<"Current lyapunov exponents: ";
-        const double elapsed_time = T - (current_time-dt);
-        for(unsigned int k=0; k<n_subspace_vectors; ++k)
+        if( (  seg % 10 ) == 0 )
         {
-            pcout<<lyapunov_exp[k]/elapsed_time<<", ";
+            output_tangent_restarts(Q,seg*delT);
         }
-        pcout<<std::endl;
     }
     
     pcout<<"Lyapunov exponents: "; 
+    // compute lyapunov exp
     for(unsigned int k=0; k<n_subspace_vectors; ++k)
     {
+        lyapunov_exp[k] = 0;
+        for(int i=0; i<K; ++i)
+        {
+            lyapunov_exp[k] += log(abs(R_vec[i][k][k]));
+        }
         lyapunov_exp[k] /= T;
+    }
+
+    for(unsigned int k=0; k<n_subspace_vectors; ++k)
+    {
         pcout<<lyapunov_exp[k]<<", ";
     }
     pcout<<std::endl;
-
 }
 
 template <int dim, int nstate, int n_subspace_vectors, typename MeshType>

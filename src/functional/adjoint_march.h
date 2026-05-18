@@ -99,11 +99,13 @@ public:
     void compute_R_b_d_h_Jc_vecs();
     void output_adjoint_restarts(const std::array<VectorType,n_subspace_vectors> & Q, const VectorType &v, const double current_time) const;
     void read_adjoint_restarts(std::array<VectorType,n_subspace_vectors> & Q, VectorType &v, const double current_time);
+    void output_tangent_restarts(const std::array<VectorType,n_subspace_vectors> & Q, const double current_time) const;
+    void read_tangent_restarts(std::array<VectorType,n_subspace_vectors> & Q, const double current_time);
     #if PHILIP_DIM>1
     void save_vector(const VectorType &v, const std::string filename) const;
     void load_vector(VectorType &v, const std::string filename);
     #endif
-    void compute_lyapunov_exponents();
+    void compute_lyapunov_exponents_forward_tangent();
 
 };
 } // PHiLiP namespace
