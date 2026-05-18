@@ -55,11 +55,14 @@ void RungeKuttaODESolver<dim,real,n_rk_stages,MeshType>::calculate_stage_solutio
         dealii::LinearAlgebra::distributed::Vector<double> delY(this->dg->solution);
         dealii::LinearAlgebra::distributed::Vector<double> Y_guess(this->dg->solution);
         dealii::LinearAlgebra::distributed::Vector<double> rhs(this->dg->solution);
+        dealii::LinearAlgebra::distributed::Vector<double> Minv_rhs(this->dg->solution);
         Y_guess = this->rk_stage[istage];
         delY = Y_guess;
         rhs = Y_guess;
+        Minv_rhs *= 0;
+        Minv_rhs.add(1.0);
         int n_newton_iterations = 0;
-        while( rhs.linfty_norm() > 1.0e-5*(this->rk_stage[istage].linfty_norm()+1.0e-5) )
+        while( Minv_rhs.l2_norm() > 1.0e-7)
         {
             this->dg->solution = Y_guess;
             if(n_newton_iterations > 4)
@@ -77,6 +80,8 @@ void RungeKuttaODESolver<dim,real,n_rk_stages,MeshType>::calculate_stage_solutio
             delY = this->rk_stage[istage];
             delY -= Y_guess;
             this->dg->global_mass_matrix.vmult_add(rhs,delY);
+            this->dg->global_inverse_mass_matrix.vmult(Minv_rhs,rhs);
+            if(Minv_rhs.l2_norm() <= 1.0e-7) {break;}
             solve_linear(this->dg->system_matrix,rhs,delY,this->ODESolverBase<dim,real,MeshType>::all_parameters->linear_solver_param);
             if(std::isnan(delY.l2_norm())) 
             {

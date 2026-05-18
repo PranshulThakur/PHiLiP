@@ -31,7 +31,7 @@ AdjointMarch(std::shared_ptr<DGBase<dim,double,MeshType>> _dg,
     param_perturbed.euler_param.angle_of_attack = dg->all_parameters->euler_param.angle_of_attack + perturbation_val;
     dg_perturbed = DGFactory<dim,double>::create_discontinuous_galerkin(&param_perturbed, param_perturbed.flow_solver_param.poly_degree, param_perturbed.flow_solver_param.max_poly_degree_for_adaptation, param_perturbed.flow_solver_param.grid_degree, dg->triangulation);
     dg_perturbed->allocate_system(false,false,false);
-    param_perturbed.linear_solver_param.linear_residual = 1.0e-7;
+    param_perturbed.linear_solver_param.linear_residual = 1.0e-14;
 
     functional = FunctionalFactory<dim,nstate,double,MeshType>::create_Functional(dg->all_parameters, dg);
     functional_perturbed = FunctionalFactory<dim,nstate,double,MeshType>::create_Functional(&param_perturbed, dg_perturbed);
@@ -726,25 +726,28 @@ compute_lyapunov_exponents_forward_tangent()
             dRdY_times_delY[i][s].reinit(dg->solution);
         }
     }
+    
     const int seg_start = use_adjoint_restart_files ? (std::round(adjoint_restart_time/delT)+1) : 0;
     if(use_adjoint_restart_files)
     {
         read_tangent_restarts(delu,adjoint_restart_time);
     }
     VectorType rhs(dg->solution);
+    VectorType soln_nplus=dg->solution;
     for( int seg=seg_start; seg<K; ++seg)
     {
         for( int n=0; n<n_steps_segment; ++n)
         {
             pcout<<"\nCurrent time = "<<seg*delT + n*dt<<std::endl;
             rk_solver->step_in_time(dt,false);
+            soln_nplus = dg->solution;
 
             // Step linearized equations in time
             for(unsigned int i=0; i<n_rk_stages; ++i)
             {
                 dg->solution = rk_solver->soln_stored[i];
                 dg->assemble_residual(true);
-                dg->system_matrix*= -dt*rk_solver->butcher_tableau->get_a(i,i);
+                dg->system_matrix*= (-dt*rk_solver->butcher_tableau->get_a(i,i));
                 dg->system_matrix.add(1.0,dg->global_mass_matrix);
                 for(unsigned int s=0; s<n_subspace_vectors; ++s)
                 {
@@ -775,6 +778,7 @@ compute_lyapunov_exponents_forward_tangent()
                     dg->global_inverse_mass_matrix.vmult_add(delu[s],dRdY_times_delY[i][s]);
                 }
             }
+            dg->solution = soln_nplus;
         }
         // Compute QR decomposition of delu.
         compute_QR_decomposition<n_subspace_vectors>(delu, Q, R);
