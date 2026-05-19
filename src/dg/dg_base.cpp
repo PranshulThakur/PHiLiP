@@ -1123,19 +1123,9 @@ typename std::enable_if<!std::is_same<adtype, double>::value,void>::type
         rhs_aux,
         compute_auxiliary_right_hand_side,
         dual_dot_residual);
-
-    std::array<adtype,n_duals> dual_dot_residual2;
-    for(unsigned int k=0; k<n_duals; ++k)
-    {
-        dual_dot_residual2[k]=0;
-        for(unsigned int i=0; i<n_soln_dofs; ++i)
-        {
-            dual_dot_residual2[k] += rhs[i]*duals[k][soln_dofs_indices[i]];
-        }
-    }
     
     if (compute_dRdW || compute_dRdX) {
-        /*
+        
         if(compute_auxiliary_right_hand_side){
             for(int idim=0; idim<dim; idim++){
                 for (unsigned int itest=0; itest<n_soln_dofs; ++itest) {
@@ -1143,16 +1133,12 @@ typename std::enable_if<!std::is_same<adtype, double>::value,void>::type
                 }
             }
         }
-        */
-        //else{
-           // for (unsigned int itest=0; itest<n_soln_dofs; ++itest) {
-           //     th.registerOutput(rhs[itest]);
-            //}
-        for(unsigned int k=0; k<n_duals; ++k)
-        {
-                th.registerOutput(dual_dot_residual2[k]);
-        }
-        //}
+        
+        else{
+            for (unsigned int itest=0; itest<n_soln_dofs; ++itest) {
+                th.registerOutput(rhs[itest]);
+                }
+            }
     } else if (compute_d2R) {
         th.registerOutput(dual_dot_residual);
     }
@@ -1179,12 +1165,8 @@ typename std::enable_if<!std::is_same<adtype, double>::value,void>::type
     if (compute_dRdW) {
         typename TH::JacobianType& jac = th.createJacobian();
         th.evalJacobian(jac);
-    for(unsigned int k=0; k<n_duals; ++k)
-    {
         for (unsigned int itest=0; itest<n_soln_dofs; ++itest) {
-            duals_transpose_dRdW[k][soln_dofs_indices[itest]] += jac(k,itest);
-
-        /*
+        
             std::vector<real> residual_derivatives(n_soln_dofs);
             for (unsigned int idof = 0; idof < n_soln_dofs; ++idof) {
                 const unsigned int i_dx = idof+w_start;
@@ -1193,9 +1175,8 @@ typename std::enable_if<!std::is_same<adtype, double>::value,void>::type
             }
             const bool elide_zero_values = false;
             this->system_matrix.add(soln_dofs_indices[itest], soln_dofs_indices, residual_derivatives, elide_zero_values);
-        */
+     
         }
-    }
         th.deleteJacobian(jac);
     }
     
@@ -1408,18 +1389,8 @@ typename std::enable_if<!std::is_same<adtype, double>::value,void>::type
         compute_auxiliary_right_hand_side,
         dual_dot_residual);
     
-    std::array<adtype,n_duals> dual_dot_residual2;
-    for(unsigned int k=0; k<n_duals; ++k)
-    {
-        dual_dot_residual2[k]=0;
-        for(unsigned int i=0; i<n_soln_dofs; ++i)
-        {
-            dual_dot_residual2[k] += rhs[i]*duals[k][soln_dofs_indices[i]];
-        }
-    }
-
     if (compute_dRdW || compute_dRdX) {
-        /*
+        
         if(compute_auxiliary_right_hand_side){
             for(int idim=0; idim<dim; idim++){
                 for (unsigned int itest=0; itest<n_soln_dofs; ++itest) {
@@ -1427,16 +1398,12 @@ typename std::enable_if<!std::is_same<adtype, double>::value,void>::type
                 }
             }
         }
-        */
-        //else{
-            //for (unsigned int itest=0; itest<n_soln_dofs; ++itest) {
-            //    th.registerOutput(rhs[itest]);
-            //}
-        for(unsigned int k=0; k<n_duals; ++k)
-        {
-            th.registerOutput(dual_dot_residual2[k]);
+        
+        else{
+            for (unsigned int itest=0; itest<n_soln_dofs; ++itest) {
+                th.registerOutput(rhs[itest]);
+            }
         }
-        //}
     } else if (compute_d2R) {
         th.registerOutput(dual_dot_residual);
     }
@@ -1462,14 +1429,8 @@ typename std::enable_if<!std::is_same<adtype, double>::value,void>::type
     if (compute_dRdW) {
         typename TH::JacobianType& jac = th.createJacobian();
         th.evalJacobian(jac);
-    for(unsigned int k=0; k<n_duals; ++k)
-    {
         for (unsigned int itest=0; itest<n_soln_dofs; ++itest) {
             
-            duals_transpose_dRdW[k][soln_dofs_indices[itest]] += jac(k,itest);
-
-        /*
-
             std::vector<real> residual_derivatives(n_soln_dofs);
             for (unsigned int idof = 0; idof < n_soln_dofs; ++idof) {
                 const unsigned int i_dx = idof+w_start;
@@ -1478,9 +1439,7 @@ typename std::enable_if<!std::is_same<adtype, double>::value,void>::type
             }
             const bool elide_zero_values = false;
             this->system_matrix.add(soln_dofs_indices[itest], soln_dofs_indices, residual_derivatives, elide_zero_values);
-        */
         }
-    }
         th.deleteJacobian(jac);
 
     }
@@ -1894,33 +1853,15 @@ typename std::enable_if<!std::is_same<adtype, double>::value,void>::type
             is_a_subface,
             neighbor_i_subface);
 
-    std::array<adtype,n_duals> dual_dot_residual2;
-    for(unsigned int k=0; k<n_duals; ++k)
-    {
-        dual_dot_residual2[k]=0;
-        for(unsigned int i=0; i<n_soln_dofs_int; ++i)
-        {
-            dual_dot_residual2[k] += rhs_int[i]*duals[k][soln_dofs_indices_int[i]];
-        }
-        for(unsigned int i=0; i<n_soln_dofs_ext; ++i)
-        {
-            dual_dot_residual2[k] += rhs_ext[i]*duals[k][soln_dofs_indices_ext[i]];
-        }
-    }
-
     if (compute_dRdW || compute_dRdX) {
-    /*
+    
         for (unsigned int itest=0; itest<n_soln_dofs_int; ++itest) {
             th.registerOutput(rhs_int[itest]);
         }
         for (unsigned int itest=0; itest<n_soln_dofs_ext; ++itest) {
             th.registerOutput(rhs_ext[itest]);
         }
-        */
-        for(unsigned int k=0; k<n_duals; ++k)
-        {
-            th.registerOutput(dual_dot_residual2[k]);
-        }
+        
     } else if (compute_d2R) {
         th.registerOutput(dual_dot_residual);
     }
@@ -1961,18 +1902,7 @@ typename std::enable_if<!std::is_same<adtype, double>::value,void>::type
         th.evalJacobian(jac);
 
         if (compute_dRdW) {
-            for(unsigned int k=0; k<n_duals; ++k)
-            {
-                for (unsigned int itest_int=0; itest_int<n_soln_dofs_int; ++itest_int) 
-                {
-                    duals_transpose_dRdW[k][soln_dofs_indices_int[itest_int]] += jac(k,itest_int);
-                }
-                for (unsigned int itest_ext=0; itest_ext<n_soln_dofs_ext; ++itest_ext) 
-                {
-                    duals_transpose_dRdW[k][soln_dofs_indices_ext[itest_ext]] += jac(k,itest_ext + n_soln_dofs_int);
-                }
-            }
-        /*
+        
             std::vector<real> residual_derivatives(n_soln_dofs_int);
 
             for (unsigned int itest_int=0; itest_int<n_soln_dofs_int; ++itest_int) {
@@ -2017,7 +1947,7 @@ typename std::enable_if<!std::is_same<adtype, double>::value,void>::type
                 }
                 this->system_matrix.add(soln_dofs_indices_ext[itest_ext], soln_dofs_indices_ext, residual_derivatives, elide_zero_values);
             }
-            */
+            
         }
 
         if (compute_dRdX) {
@@ -2706,10 +2636,11 @@ void DGBase<dim,real,MeshType>::assemble_residual (const bool compute_dRdW, cons
             , dealii::ExcMessage("Can only do one at a time compute_dRdW or compute_dRdX or compute_d2R"));
 
     max_artificial_dissipation_coeff = 0.0;
+    solution.update_ghost_values();
     //pcout << "Assembling DG residual...";
     if (compute_dRdW) {
         pcout << " with dRdW...";
-/*
+
         auto diff_sol = solution;
         diff_sol -= solution_dRdW;
         const double l2_norm_sol = diff_sol.l2_norm();
@@ -2721,15 +2652,9 @@ void DGBase<dim,real,MeshType>::assemble_residual (const bool compute_dRdW, cons
             const double l2_norm_node = diff_node.l2_norm();
 
             if (l2_norm_node == 0.0) {
-                auto diff_dual = dual;
-                diff_dual -= dual_d2R;
-                const double l2_norm_dual = diff_dual.l2_norm();
-                if(l2_norm_dual==0)
-                {
-                    if (CFL_mass_dRdW == CFL_mass) {
-                        pcout << " which is already assembled..." << std::endl;
-                        return;
-                    }
+                if (CFL_mass_dRdW == CFL_mass) {
+                    pcout << " which is already assembled..." << std::endl;
+                    //return;
                 }
             }
         }
@@ -2741,15 +2666,10 @@ void DGBase<dim,real,MeshType>::assemble_residual (const bool compute_dRdW, cons
         }
 
         solution_dRdW = solution;
-        volume_nodes_dRdW = high_order_grid->volume_nodes;
-    */
+        volume_nodes_dRdW = high_order_grid->volume_nodes;   
         CFL_mass_dRdW = CFL_mass;
-        for(unsigned int k=0; k<n_duals; ++k)
-        {
-            duals_transpose_dRdW[k] = 0;
-        }
 
-        //system_matrix = 0;
+        system_matrix = 0;
     }
     if (compute_dRdX) {
         pcout << " with dRdX...";
@@ -2778,7 +2698,7 @@ void DGBase<dim,real,MeshType>::assemble_residual (const bool compute_dRdW, cons
         }
         dRdXv = 0;
     }
-    /*if (compute_d2R) {
+    if (compute_d2R) {
         pcout << " with d2RdWdW, d2RdWdX, d2RdXdX...";
         auto diff_sol = solution;
         diff_sol -= solution_d2R;
@@ -2815,7 +2735,7 @@ void DGBase<dim,real,MeshType>::assemble_residual (const bool compute_dRdW, cons
         d2RdWdW = 0;
         d2RdWdX = 0;
         d2RdXdX = 0;
-     }*/
+     }
     right_hand_side = 0;
 
 
@@ -2990,12 +2910,6 @@ void DGBase<dim,real,MeshType>::assemble_residual (const bool compute_dRdW, cons
     right_hand_side.update_ghost_values();
     check_same_coords_strongdg = false;
     if ( compute_dRdW ) {
-        for(unsigned int k=0; k<n_duals; ++k)
-        {
-            duals_transpose_dRdW[k].compress(dealii::VectorOperation::add);
-            duals_transpose_dRdW[k].update_ghost_values();
-        }
-        /*
         system_matrix.compress(dealii::VectorOperation::add);
 
         if (global_mass_matrix.m() != system_matrix.m()) {
@@ -3019,8 +2933,6 @@ void DGBase<dim,real,MeshType>::assemble_residual (const bool compute_dRdW, cons
         bool copy_values = true;
         system_matrix_transpose.reinit(*output_matrix, copy_values);
         delete(output_matrix);
-        */
-
     }
     if ( compute_dRdX ) dRdXv.compress(dealii::VectorOperation::add);
     if ( compute_d2R ) {
@@ -3028,8 +2940,6 @@ void DGBase<dim,real,MeshType>::assemble_residual (const bool compute_dRdW, cons
         d2RdXdX.compress(dealii::VectorOperation::add);
         d2RdWdX.compress(dealii::VectorOperation::add);
     }
-    //if ( compute_dRdW ) system_matrix.compress(dealii::VectorOperation::insert);
-    //system_matrix.print(std::cout);
 
 } // end of assemble_system_explicit ()
 
@@ -3606,7 +3516,7 @@ void DGBase<dim,real,MeshType>::allocate_system (
 
     // Set the assemble resiudla time to 0 for clock_t type
     assemble_residual_time = 0.0;
-/*
+
     // System matrix allocation
     if (compute_dRdW || compute_dRdX || compute_d2R) {
         dealii::DynamicSparsityPattern dsp(locally_relevant_dofs);
@@ -3617,7 +3527,7 @@ void DGBase<dim,real,MeshType>::allocate_system (
         
         system_matrix.reinit(locally_owned_dofs, sparsity_pattern, mpi_communicator);
     }
-*/
+
     // Make sure that derivatives are cleared when reallocating DG objects.
     // The call to assemble the derivatives will reallocate those derivatives
     // if they are ever needed.
@@ -3642,7 +3552,7 @@ void DGBase<dim,real,MeshType>::allocate_system (
         volume_nodes_dRdX.reinit(high_order_grid->volume_nodes);
         volume_nodes_dRdX *= 0.0;
     }
-/*
+
     if (compute_d2R) {
         solution_d2R.reinit(solution);
         solution_d2R *= 0.0;
@@ -3651,7 +3561,7 @@ void DGBase<dim,real,MeshType>::allocate_system (
         dual_d2R.reinit(dual);
         dual_d2R *= 0.0;
     }
-*/
+
 }
 
 template <int dim, typename real, typename MeshType>
@@ -3810,8 +3720,8 @@ void DGBase<dim,real,MeshType>::evaluate_mass_matrices (bool do_inverse_mass_mat
     OPERATOR::local_Flux_Reconstruction_operator_aux<dim,2*dim> reference_FR_aux(1, max_degree, init_grid_degree, FR_Type_Aux);
     OPERATOR::derivative_p<dim,2*dim> deriv_p(1, max_degree, init_grid_degree);
 
-    auto first_cell = dof_handler.begin_active();
-    const bool Cartesian_first_element = (first_cell->manifold_id() == dealii::numbers::flat_manifold_id);
+    //auto first_cell = dof_handler.begin_active();
+    const bool Cartesian_first_element = false; //(first_cell->manifold_id() == dealii::numbers::flat_manifold_id);
 
     reinit_operators_for_mass_matrix(Cartesian_first_element, max_degree, init_grid_degree, mapping_basis, basis, reference_mass_matrix, reference_FR, reference_FR_aux, deriv_p);
 
@@ -3821,7 +3731,7 @@ void DGBase<dim,real,MeshType>::evaluate_mass_matrices (bool do_inverse_mass_mat
 
         if (!cell->is_locally_owned()) continue;
 
-        const bool Cartesian_element = (cell->manifold_id() == dealii::numbers::flat_manifold_id);
+        const bool Cartesian_element = false;//(cell->manifold_id() == dealii::numbers::flat_manifold_id);
 
         const unsigned int fe_index_curr_cell = cell->active_fe_index();
         const unsigned int curr_grid_degree   = high_order_grid->fe_system.tensor_degree();//in the future the metric cell's should store a local grid degree. currently high_order_grid dof_handler_grid doesn't have that capability

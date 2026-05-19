@@ -4,6 +4,7 @@
 #include "dg/dg_base.hpp"
 #include "physics/physics.h"
 #include "functional.h"
+#include "ode_solver/runge_kutta_ode_solver.h"
 
 namespace PHiLiP {
 
@@ -32,12 +33,11 @@ class AdjointMarch
     dealii::ConditionalOStream pcout; ///< Parallel std::cout that only outputs on mpi_rank==0
 
     static const int n_rk_stages = 3;
-    std::array<VectorType,n_rk_stages> Ytilde_rk;
-    std::array<VectorType,n_rk_stages> mass_inv_residuals_rk;
 
     std::array<std::array<double,n_rk_stages>,n_rk_stages> a_rk;
     std::array<double,n_rk_stages> b_rk;
     std::array< std::array<VectorType,n_subspace_vectors+1>, n_rk_stages> lambda_rk;
+    std::array< std::array<VectorType,n_subspace_vectors+1>, n_rk_stages> lambda_tilde_rk;
     
     static const int n_soln_steps_stored = 20000;
     std::array<VectorType,n_soln_steps_stored+1> soln_stored;
@@ -56,6 +56,8 @@ class AdjointMarch
     std::vector<double> h_vec;
     std::vector<double> integral_jc_vec;
     std::array<double, n_subspace_vectors> lyapunov_exp;
+    
+    std::shared_ptr<PHiLiP::ODE::RungeKuttaODESolver<dim,double,3,MeshType>> rk_solver;
     void compute_s_stable_backward_march();
     void compute_s_unstable_forward_march();
     void compute_unstable_neutral_stable_subspace_indices();
@@ -86,7 +88,7 @@ class AdjointMarch
 public:
     AdjointMarch(std::shared_ptr<DGBase<dim,double,MeshType>> _dg,
                  const int _restart_index_terminal,
-                 const double dt_, const double delT_, const double T_, const double T_extra_, const double j_bar_, const bool _use_adjoint_restart_files = false, const double _adjoint_restart_time = 0, const double _perturbation_val = 1.0e-5); // Total trajecotry length is T+T_extra
+                 const double dt_, const double delT_, const double T_, const double T_extra_, const double j_bar_, const bool _use_adjoint_restart_files = false, const double _adjoint_restart_time = 0, const double _perturbation_val = 1.0e-4); // Total trajecotry length is T+T_extra
     ~AdjointMarch(){};
     double compute_sensitivity();
     void get_solution_at_time(const double _time);
@@ -97,11 +99,13 @@ public:
     void compute_R_b_d_h_Jc_vecs();
     void output_adjoint_restarts(const std::array<VectorType,n_subspace_vectors> & Q, const VectorType &v, const double current_time) const;
     void read_adjoint_restarts(std::array<VectorType,n_subspace_vectors> & Q, VectorType &v, const double current_time);
+    void output_tangent_restarts(const std::array<VectorType,n_subspace_vectors> & Q, const double current_time) const;
+    void read_tangent_restarts(std::array<VectorType,n_subspace_vectors> & Q, const double current_time);
     #if PHILIP_DIM>1
     void save_vector(const VectorType &v, const std::string filename) const;
     void load_vector(VectorType &v, const std::string filename);
     #endif
-    void compute_lyapunov_exponents();
+    void compute_lyapunov_exponents_forward_tangent();
 
 };
 } // PHiLiP namespace

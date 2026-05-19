@@ -481,6 +481,7 @@ public:
      *  since storing the 2nd order partials of the residual is a very large 3rd order tensor.
      */
     static const unsigned int n_duals = 16;
+    dealii::LinearAlgebra::distributed::Vector<double> dual;
     std::array<dealii::LinearAlgebra::distributed::Vector<real>,n_duals> duals;
     std::array<dealii::LinearAlgebra::distributed::Vector<real>,n_duals> duals_transpose_dRdW;
 

@@ -136,8 +136,8 @@ int test (
     }
     dRdW_fd.compress(dealii::VectorOperation::add);
 
-    //dRdW_fd.add(-1.0,dg->system_matrix); 
-    
+    dRdW_fd.add(-1.0,dg->system_matrix); 
+   /* 
     double diff_l2_norm = 0.0;  
     for(unsigned int k=0; k<13; ++k)
     {
@@ -161,14 +161,14 @@ int test (
             diff_l2_norm += diff_vec.l2_norm();
         }
     }
+    */
 
-    //const double diff_lone_norm = dRdW_fd.l1_norm();
-    //const double diff_linf_norm = dRdW_fd.linfty_norm();
-    //pcout << "(dRdW_FD - dRdW_AD) L1-norm = " << diff_lone_norm << std::endl;
-    //pcout << "(dRdW_FD - dRdW_AD) Linf-norm = " << diff_linf_norm << std::endl;
-    //if (diff_lone_norm > TOLERANCE)
-    pcout << "(dRdW_FD - dRdW_AD) L2-norm = " << diff_l2_norm << std::endl;
-    if (diff_l2_norm > TOLERANCE) 
+    const double diff_lone_norm = dRdW_fd.l1_norm();
+    const double diff_linf_norm = dRdW_fd.linfty_norm();
+    pcout << "(dRdW_FD - dRdW_AD) L1-norm = " << diff_lone_norm << std::endl;
+    pcout << "(dRdW_FD - dRdW_AD) Linf-norm = " << diff_linf_norm << std::endl;
+    pcout << "dRdW_AD L1-norm = " << dg->system_matrix_transpose.l1_norm() << std::endl;
+    if (diff_lone_norm > TOLERANCE)
     {
         const unsigned int n_digits = 5;
         const unsigned int n_spacing = 7+n_digits;
