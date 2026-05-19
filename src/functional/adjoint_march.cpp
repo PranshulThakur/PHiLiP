@@ -623,23 +623,26 @@ void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
 output_tangent_restarts(const std::array<VectorType,n_subspace_vectors> & Q, 
                         const double current_time) const
 {
-    std::ofstream cout_R("restart_files/R_vec_T" + std::to_string(current_time)  + ".txt"); dealii::ConditionalOStream pcout_R(cout_R, dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0);
-
-    const int seg = std::round(current_time/delT);
-    for(int i=0; i<=seg; ++i)
+    if(dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD)==0)
     {
-        // Write R, b, integral_jc, integral_h and integrals_d to file.
-        for(unsigned int k1=0; k1<n_subspace_vectors; ++k1)
+        std::ofstream cout_R("restart_files/R_vec_T" + std::to_string(current_time)  + ".txt"); 
+
+        const int seg = std::round(current_time/delT);
+        for(int i=0; i<=seg; ++i)
         {
-            for(unsigned int k2 = 0; k2<n_subspace_vectors; ++k2)
+            // Write R, b, integral_jc, integral_h and integrals_d to file.
+            for(unsigned int k1=0; k1<n_subspace_vectors; ++k1)
             {
-                pcout_R<<std::setprecision(16)<<R_vec[i][k1][k2]<<std::endl;
+                for(unsigned int k2 = 0; k2<n_subspace_vectors; ++k2)
+                {
+                    cout_R<<std::setprecision(16)<<R_vec[i][k1][k2]<<std::endl;
+                }
             }
         }
-    }
-    
-    cout_R.close(); 
-    
+        
+        cout_R.close(); 
+     }
+
     #if PHILIP_DIM > 1
     for(unsigned int k=0; k<n_subspace_vectors;++k)
     {
