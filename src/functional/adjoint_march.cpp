@@ -152,7 +152,7 @@ compute_QR_decomposition(const std::array<VectorType,n_col> &A,
         if(abs(R[i][i])<1.0e-5) 
         {
             std::cout<<"Linearly dependent"<<std::endl;
-            std::abort();
+            pcout<<"R["<<i<<"]["<<i<<"] = "<<R[i][i]<<std::endl;
         }
     }
 }
