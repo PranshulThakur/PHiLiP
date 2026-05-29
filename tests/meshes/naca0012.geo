@@ -3,13 +3,14 @@ Include "airfoil_naca0012.geo";
 //+
 ymax = 12;
 xmax = 12;
-refinement_level = 3;
+refinement_level = 0;
 n_inlet = 9;
-n_vertical = 10;
-r_vertical = 1.1;
-n_airfoil = 4;
+n_vertical = 11;
+r_vertical = 1.9;
+n_airfoil = 8;
 n_wake = 9;
-r_wake = 1/0.93;
+//r_wake = 1/0.93;
+r_wake = 1.9;
 
 For i In {1:refinement_level}
     n_inlet = n_inlet*2 - 1;
@@ -74,7 +75,8 @@ Transfinite Curve {5 , 6} = n_airfoil Using Bump 2;
 //+
 Transfinite Curve {13} = n_wake Using Progression r_wake;
 //+
-Transfinite Curve {7, 8} = n_wake Using Bump 0.2;
+//Transfinite Curve {7, 8} = n_wake Using Bump 0.2;
+Transfinite Curve {7, 8} = n_wake Using Progression r_wake;
 //+
 Curve Loop(1) = {2, -3, 14, 4};
 //+
