@@ -6,20 +6,11 @@ xmax = 12;
 refinement_level = 0;
 n_inlet = 9;
 n_vertical = 11;
-r_vertical = 1.9;
+r_vertical = 1.7;
 n_airfoil = 8;
 n_wake = 9;
 //r_wake = 1/0.93;
 r_wake = 1.9;
-
-For i In {1:refinement_level}
-    n_inlet = n_inlet*2 - 1;
-    n_vertical = n_vertical*2-1;
-    n_airfoil = n_airfoil*2-1;
-    n_wake = n_wake*2-1;
-EndFor
-
-
 
 //+
 Point(131) = {-0.5, ymax, 0, 1.0};
@@ -115,6 +106,19 @@ Physical Curve("Farfield", 1004) = {2, 6, 8, 9, 10, 7, 5};
 Physical Surface("MeshInterior") = {1, 2, 3, 4, 5};
 //+
 Physical Curve("Airfoil", 1001) = {17, 14, 16};
+
+// Use a specific 2D algorithm (e.g., 8 = Delaunay for Quads, 11 = Quasi-structured Quads)
+Mesh.Algorithm = 8;
+
+// Set recombination strategy (1 = Blossom algorithm, isolates quads cleanly)
+Mesh.RecombineAll = 1;
+
+Mesh 2;
+SetOrder 2;
+For i In {1:refinement_level}
+    RefineMesh;
+    SetOrder 2;
+EndFor
 //+
 Show "*";
 //+
