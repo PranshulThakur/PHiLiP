@@ -3,6 +3,7 @@
 #include <deal.II/lac/qr.h>
 #include "linear_solver/linear_solver.h"
 #include "ode_solver/runge_kutta_methods/runge_kutta_methods.h"
+#include <random>
 
 namespace PHiLiP {
 
@@ -685,6 +686,50 @@ read_tangent_restarts(std::array<VectorType,n_subspace_vectors> & Q,
     load_vector(dg->solution, filename_sol);
     #endif
 }
+    
+template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
+void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
+get_delu_initial_random(std::array<VectorType,n_subspace_vectors> & Q) const
+{
+    std::array<VectorType,n_subspace_vectors> delu_0;
+    for(unsigned int s=0; s<n_subspace_vectors; ++s)
+    {
+        delu_0[s].reinit(dg->solution);
+        Q[s].reinit(dg->solution);
+    }
+
+    // 1. Seed with a hardware random device
+    std::random_device rd; 
+    
+    // 2. Initialize the standard C++20 Mersenne Twister engine
+    std::mt19937 gen(rd()); 
+    
+    // 3. Define the continuous uniform distribution [0.01, 1.0)
+    std::uniform_real_distribution<double> dist(0.01, 1.0); 
+    const unsigned int dofs_per_cell = dg->fe_collection[dg->max_degree].dofs_per_cell;
+    std::vector<dealii::types::global_dof_index> dofs_indices (dofs_per_cell);
+
+    for (auto cell = dg->dof_handler.begin_active(); cell!=dg->dof_handler.end(); ++cell) 
+    {
+        if (!cell->is_locally_owned()) continue;
+
+        cell->get_dof_indices (dofs_indices);
+        for(unsigned int idof = 0; idof<dofs_per_cell; ++idof)
+        {
+            for(unsigned int s=0; s<n_subspace_vectors; ++s)
+            {
+                delu_0[s][dofs_indices[idof]] = dist(gen); //random number
+            }
+        }
+    }
+
+    for(unsigned int s=0; s<n_subspace_vectors; ++s)
+    {
+        delu_0[s].update_ghost_values();
+    }
+    std::array<std::array<double,n_subspace_vectors>,n_subspace_vectors> R;
+    compute_QR_decomposition<n_subspace_vectors>(delu_0, Q, R);
+}
 
 template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
 void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
@@ -711,18 +756,19 @@ compute_lyapunov_exponents_forward_tangent()
     std::array<VectorType,n_subspace_vectors> Q;
     std::array<std::array<double,n_subspace_vectors>,n_subspace_vectors> R;
     R_vec.resize(K);
+    get_delu_initial_random(delu);
     for(unsigned int s=0; s<n_subspace_vectors; ++s)
     {
-        delu[s].reinit(dg->solution);
+        //delu[s].reinit(dg->solution);
         delY_i[s].reinit(dg->solution);
         Q[s].reinit(dg->solution);
-        delu[s]*= 0;
+        //delu[s]*= 0;
 
-        if(delu[s].locally_owned_elements().is_element(s))
-        {
-            delu[s][s] = 1.0;
-        }
-        delu[s].update_ghost_values();
+        //if(delu[s].locally_owned_elements().is_element(s))
+        //{
+        //    delu[s][s] = 1.0;
+        //}
+        //delu[s].update_ghost_values();
         
         for(unsigned int i=0; i<n_rk_stages; ++i)
         {

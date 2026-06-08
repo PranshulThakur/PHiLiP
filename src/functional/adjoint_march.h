@@ -92,6 +92,7 @@ public:
     ~AdjointMarch(){};
     double compute_sensitivity();
     void get_solution_at_time(const double _time);
+    void get_delu_initial_random(std::array<VectorType,n_subspace_vectors> & delu_initial) const;
     void load_solution_at_time(const double _time);
     void reconstruct_solution(const double initial_time);
     double compute_f_dot_adjoint_average() const;
