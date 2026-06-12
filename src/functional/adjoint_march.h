@@ -56,6 +56,8 @@ class AdjointMarch
     std::vector<double> h_vec;
     std::vector<double> integral_jc_vec;
     std::array<double, n_subspace_vectors> lyapunov_exp;
+    std::vector<double> lift_coeff_vec;
+    std::vector<double> drag_coeff_vec;
     
     std::shared_ptr<PHiLiP::ODE::RungeKuttaODESolver<dim,double,3,MeshType>> rk_solver;
     void compute_s_stable_backward_march();
@@ -102,6 +104,8 @@ public:
     void read_adjoint_restarts(std::array<VectorType,n_subspace_vectors> & Q, VectorType &v, const double current_time);
     void output_tangent_restarts(const std::array<VectorType,n_subspace_vectors> & Q, const double current_time) const;
     void read_tangent_restarts(std::array<VectorType,n_subspace_vectors> & Q, const double current_time);
+    void store_lift_and_drag_coeffs();
+    void output_lift_and_drag_coeffs() const;
     #if PHILIP_DIM>1
     void save_vector(const VectorType &v, const std::string filename) const;
     void load_vector(VectorType &v, const std::string filename);

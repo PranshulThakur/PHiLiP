@@ -4,6 +4,7 @@
 #include "linear_solver/linear_solver.h"
 #include "ode_solver/runge_kutta_methods/runge_kutta_methods.h"
 #include <random>
+#include "lift_drag.hpp"
 
 namespace PHiLiP {
 
@@ -745,7 +746,9 @@ compute_lyapunov_exponents_forward_tangent()
         {
             pcout<<"\nTime while getting onto the attractor = "<<i*dt<<std::endl;
             rk_solver->step_in_time(dt,false);
+            store_lift_and_drag_coeffs();
         }
+        output_lift_and_drag_coeffs();
     }
 
     const int n_steps_segment = delT/dt;
@@ -997,6 +1000,41 @@ apply_f_u_transposed(const std::array<VectorType,n_subspace_vectors+1> &in_vec, 
     {
         out_vec[k] = dg->duals_transpose_dRdW[k];
     }
+}
+
+template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
+void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
+store_lift_and_drag_coeffs()
+{
+    LiftDragFunctional<dim,dim+2,double,MeshType> lift_functional(dg, LiftDragFunctional<dim,dim+2,double,MeshType>::Functional_types::lift);
+    const double lift = lift_functional.evaluate_functional();
+    lift_coeff_vec.push_back(lift);
+    LiftDragFunctional<dim,dim+2,double,MeshType> drag_functional(dg, LiftDragFunctional<dim,dim+2,double,MeshType>::Functional_types::drag);
+    const double drag = drag_functional.evaluate_functional();
+    drag_coeff_vec.push_back(drag);
+}
+
+template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
+void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
+output_lift_and_drag_coeffs() const
+{
+    if(dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD)==0)
+    {
+        std::ofstream cout_lift("restart_files/lift_coeffs.txt"); 
+        std::ofstream cout_drag("restart_files/drag_coeffs.txt"); 
+        std::ofstream cout_time_liftdrag("restart_files/time_lift_drag_coeffs.txt"); 
+
+        for(unsigned int i=0; i<lift_coeff_vec.size(); ++i)
+        {
+            cout_lift<<std::setprecision(16)<<lift_coeff_vec[i]<<std::endl;
+            cout_drag<<std::setprecision(16)<<drag_coeff_vec[i]<<std::endl;
+            cout_time_liftdrag<<std::setprecision(16)<<dt*(i+1)<<std::endl;
+        }
+        
+        cout_lift.close(); 
+        cout_drag.close(); 
+        cout_time_liftdrag.close();
+     }
 }
 
 #if PHILIP_DIM != 1
