@@ -14,7 +14,7 @@ void NavierStokesParam::declare_parameters (dealii::ParameterHandler &prm)
         prm.declare_entry("reynolds_number_inf", "10000000.0",
                           dealii::Patterns::Double(1e-15, dealii::Patterns::Double::max_double_value),
                           "Farfield Reynolds number");
-        prm.declare_entry("temperature_inf", "273.15",
+        prm.declare_entry("temperature_inf", "293.15",
                           dealii::Patterns::Double(1e-15, dealii::Patterns::Double::max_double_value),
                           "Farfield temperature in degree Kelvin [K]. Default value is 273.15K. "
                           "NOTE: Must be consistent with specified Prandtl number.");

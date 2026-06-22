@@ -45,7 +45,7 @@ NavierStokes<dim, nstate, real>::NavierStokes(
     , reynolds_number_inf(reynolds_number_inf)
     , isothermal_wall_temperature(isothermal_wall_temperature) // Nondimensional - Free stream values
     , thermal_boundary_condition_type(thermal_boundary_condition_type)
-    , sutherlands_temperature(110.4) // Sutherland's temperature. Units: [K]
+    , sutherlands_temperature(110.5) // Sutherland's temperature. Units: [K]
     , freestream_temperature(temperature_inf) // Freestream temperature. Units: [K]
     , temperature_ratio(sutherlands_temperature/freestream_temperature)
 {
@@ -113,7 +113,7 @@ dealii::Tensor<1,dim,real2> NavierStokes<dim,nstate,real>
 
     dealii::Tensor<1,dim,real2> temperature_gradient;
     for (int d=0; d<dim; d++) {
-        temperature_gradient[d] = (this->gam*this->mach_inf_sqr*primitive_soln_gradient[nstate-1][d] - temperature*primitive_soln_gradient[0][d])/density;
+        temperature_gradient[d] = (this->gam*primitive_soln_gradient[nstate-1][d] - temperature*primitive_soln_gradient[0][d])/density;
     }
     return temperature_gradient;
 }
@@ -161,7 +161,7 @@ inline real2 NavierStokes<dim,nstate,real>
     /* Scaled nondimensionalized viscosity coefficient, $\hat{\mu}^{*}$
      * Reference: Masatsuka 2018 "I do like CFD", p.148, eq.(4.14.14)
      */
-    const real2 scaled_viscosity_coefficient = viscosity_coefficient/reynolds_number_inf;
+    const real2 scaled_viscosity_coefficient = viscosity_coefficient*this->mach_inf/reynolds_number_inf;
     
     return scaled_viscosity_coefficient;
 }
@@ -188,7 +188,7 @@ inline real2 NavierStokes<dim,nstate,real>
     /* Scaled nondimensionalized heat conductivity, $\hat{\kappa}^{*}$, given the scaled viscosity coefficient
      * Reference: Masatsuka 2018 "I do like CFD", p.148, eq.(4.14.13)
      */
-    const real2 scaled_heat_conductivity = scaled_viscosity_coefficient/(this->gamm1*this->mach_inf_sqr*prandtl_number_input);
+    const real2 scaled_heat_conductivity = scaled_viscosity_coefficient/(this->gamm1*prandtl_number_input);
     
     return scaled_heat_conductivity;
 }
@@ -480,7 +480,7 @@ dealii::Tensor<2,dim,real2> NavierStokes<dim,nstate,real>
 
     // Divergence of velocity
     // -- Initialize
-    real2 vel_divergence; // complex initializes it as 0+0i
+    real2 vel_divergence = 0.0; // complex initializes it as 0+0i
     if(std::is_same<real2,real>::value){ 
         vel_divergence = 0.0;
     }
