@@ -3,6 +3,7 @@
 #include <deal.II/lac/qr.h>
 #include "linear_solver/linear_solver.h"
 #include "ode_solver/runge_kutta_methods/runge_kutta_methods.h"
+#include <random>
 
 namespace PHiLiP {
 
@@ -287,20 +288,40 @@ void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
 compute_Y_terminal(std::array< VectorType, n_subspace_vectors> &Y_terminal) 
 {
     std::array< VectorType, n_subspace_vectors+1> Y_augmented;
+    for(int i=0; i<n_subspace_vectors+1; ++i)
+    {
+        Y_augmented[i].reinit(dg->solution);
+    }
     get_solution_at_time(T+T_extra);
     dg->assemble_residual();
     Y_augmented[0] = dg->right_hand_side;
     dg->global_inverse_mass_matrix.vmult(Y_augmented[0],dg->right_hand_side);
-    for(unsigned int i=1; i<n_subspace_vectors+1; ++i)
-    {
-        Y_augmented[i].reinit(dg->solution);
-        Y_augmented[i]*= 0;
 
-        if(Y_augmented[i].locally_owned_elements().is_element(i-1))
+    // 1. Seed with a hardware random device
+    std::random_device rd; 
+    
+    // 2. Initialize the standard C++20 Mersenne Twister engine
+    std::mt19937 gen(rd()); 
+    
+    // 3. Define the continuous uniform distribution [0.01, 1.0)
+    std::uniform_real_distribution<double> dist(0.01, 1.0); 
+    const unsigned int dofs_per_cell = dg->fe_collection[dg->max_degree].dofs_per_cell;
+    std::vector<dealii::types::global_dof_index> dofs_indices (dofs_per_cell);
+
+    for (auto cell = dg->dof_handler.begin_active(); cell!=dg->dof_handler.end(); ++cell) 
+    {
+        if (!cell->is_locally_owned()) continue;
+
+        cell->get_dof_indices (dofs_indices);
+        for(unsigned int idof = 0; idof<dofs_per_cell; ++idof)
         {
-            Y_augmented[i][i-1] = 1.0;
+            for(unsigned int s=1; s<n_subspace_vectors+1; ++s)
+            {
+                Y_augmented[s][dofs_indices[idof]] = dist(gen); //random number
+            }
         }
     }
+    
     for(unsigned int i=0; i<n_subspace_vectors+1; ++i)
     {
         Y_augmented[i].update_ghost_values();
