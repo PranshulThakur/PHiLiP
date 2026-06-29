@@ -37,9 +37,9 @@ int EulerNACA0012<dim,nstate>
     */
     
     const double dt = param.flow_solver_param.constant_time_step;
-    const double delT = 0.2;
-    const double T = 1200;
-    const double T_extra = 400;
+    const double delT = 1.0;
+    const double T = 8000;
+    const double T_extra = 2000;
     pcout<<"Functional average used for stablized march = "<<std::setprecision(16)<<functional_avg<<std::endl;
     const int restart_index_terminal = param.flow_solver_param.final_time/(20000*dt);
     pcout<<"restart index terminal = "<<restart_index_terminal<<std::endl;
