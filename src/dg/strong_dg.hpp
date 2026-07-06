@@ -847,6 +847,37 @@ public:
         dealii::Tensor<1,dim,std::vector<adtype>>          &local_auxiliary_RHS_ext);
 
 protected:
+    ///Evaluate the volume RHS for viscous term.
+    template <typename adtype>
+    void assemble_volume_term_viscous_primal(
+        const std::array<std::vector<adtype>,nstate>  &soln_coeff,
+        const unsigned int                            poly_degree,
+        OPERATOR::basis_functions<dim,2*dim>          &soln_basis,
+        OPERATOR::basis_functions<dim,2*dim>          &flux_basis,
+        OPERATOR::metric_operators<adtype,dim,2*dim>  &metric_oper,
+        dealii::Tensor<1,dim,std::vector<adtype>>     &local_auxiliary_RHS);
+    
+    ///Evaluate the boundary RHS for viscous term.
+    template <typename adtype>
+    void assemble_boundary_term_viscous_primal(
+        const std::array<std::vector<adtype>,nstate>  &soln_coeff,
+        const unsigned int                            poly_degree,
+        OPERATOR::basis_functions<dim,2*dim>          &soln_basis,
+        OPERATOR::basis_functions<dim,2*dim>          &flux_basis,
+        OPERATOR::metric_operators<adtype,dim,2*dim>  &metric_oper,
+        dealii::Tensor<1,dim,std::vector<adtype>>     &local_auxiliary_RHS);
+    
+    ///Evaluate the face RHS for viscous term.
+    template <typename adtype>
+    void assemble_face_term_viscous_primal(
+        const std::array<std::vector<adtype>,nstate>  &soln_coeff,
+        const unsigned int                            poly_degree,
+        OPERATOR::basis_functions<dim,2*dim>          &soln_basis,
+        OPERATOR::basis_functions<dim,2*dim>          &flux_basis,
+        OPERATOR::metric_operators<adtype,dim,2*dim>  &metric_oper,
+        dealii::Tensor<1,dim,std::vector<adtype>>     &local_auxiliary_RHS);
+
+protected:
     /// Strong form primary equation's volume right-hand-side.
     /**  We refer to Cicchino, Alexander, et al. "Provably stable flux reconstruction high-order methods on curvilinear elements." Journal of Computational Physics 463 (2022): 111259.
     * Conservative form Eq. (17): <br>
@@ -1001,6 +1032,146 @@ public:
     }
     
 }; // end of DGStrong class
+
+#if PHILIP_DIM==1 // dealii::parallel::distributed::Triangulation<dim> does not work for 1D
+template <int dim, int nspecies, int nstate, typename real, typename MeshType = dealii::Triangulation<dim>>
+#else
+template <int dim, int nspecies, int nstate, typename real, typename MeshType = dealii::parallel::distributed::Triangulation<dim>>
+#endif
+class EntropyStable_viscousBR2: public DGStrong<dim, nspecies, nstate, real, MeshType>
+{
+    public:
+        EntropyStable_viscousBR2();
+
+    private:
+    /// Projects values at the volume quadrature to obtain a polynomial and interpolates that polynomila to the face quadratures.
+    template <typename adtype>
+    void interpolate_to_face(
+        const unsigned int iface,
+        const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &T_at_vol,
+        OPERATOR::basis_functions<dim,2*dim> &flux_basis,
+        const unsigned int n_face_quad_pts,
+        std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &T_at_face) const;
+
+    /// Evaluates integral at the face
+    template <typename adtype>
+    void evaluate_face_integral(
+        const unsigned int iface,
+        const std::array<std::vector<adtype>,nstate> &sigma_dot_n_at_face,
+        const std::vector<adtype> &JxW_face,
+        OPERATOR::basis_functions<dim,2*dim> &soln_basis,
+        const unsigned int n_dofs_cell,
+        std::vector<adtype> &integral_val) const;
+
+    /// Computes polynomial based on the values at the face
+    template <typename adtype>
+    void compute_lift_polynomial(
+        const unsigned int iface,
+        const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &phi_at_face,
+        const std::vector<adtype> &JxW_face,
+        const std::vector<adtype> &JxW_vol,
+        OPERATOR::basis_functions<dim,2*dim> &flux_basis,
+        const unsigned int n_face_quad_pts,
+        const unsigned int n_vol_quad_pts,
+        const bool is_interior_face,
+        std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &re_out_vol) const;
+
+    /// Computes physical gradient of the entropy variable
+    template <typename adtype>
+    void compute_physical_grad_entropy_var(
+        const std::array<std::vector<adtype>,nstate>                       &entropy_var_coeff,
+        OPERATOR::basis_functions<dim,2*dim>                               &soln_basis,
+        OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper,
+        const unsigned int                                                 n_quad_pts,
+        std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>       &entropy_var_phys_grad) const;
+
+    /// Applies diffusion matrix entropy based (referred to as K in Jesse Chan's paper).
+    template <typename adtype>
+    void apply_diffusion_matrix_entropy_based(
+        const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_quads,
+        const unsigned int                                                 n_quad_pts,
+        const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
+        const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>   &T_in,
+        std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>         &T_out) const;
+
+    
+    /// Computes the volume integral of gradient of basis times diffusion matrix times input tensor
+    template <typename adtype>
+    void compute_gradbasis_diffusionmatrix_times_input_vol_integral(
+        const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_quads,
+        const unsigned int                                                 n_quad_pts,
+        const unsigned int                                                 n_dofs_cell,
+        OPERATOR::basis_functions<dim,2*dim>                               &soln_basis,
+        OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper,
+        const std::vector<double>                                          &weight_vect,
+        const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
+        const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>   &T_input,
+        std::vector<adtype>                                                &integral_val) const;
+
+    /// Assemble BR2 volume term.
+    template <typename adtype>
+    void assemble_volume_term_entropystable_br2(
+        const unsigned int                                                 poly_degree,
+        const std::array<std::vector<adtype>,nstate>                       &entropy_var_coeff,
+        const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_q,
+        const unsigned int                                                  n_quad_pts,
+        const unsigned int                                                  n_dofs_cell,
+        OPERATOR::basis_functions<dim,2*dim>                               &soln_basis,
+        OPERATOR::basis_functions<dim,2*dim>                               &flux_basis,
+        OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper,
+        const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
+        std::vector<adtype>                                                &vol_term) const;
+
+    /// Assemble BR2 face term.
+    template <typename adtype>
+    void assemble_face_term_entropystable_br2(
+        const unsigned int                                                 iface_int,
+        const unsigned int                                                 iface_ext,
+        const std::array<std::vector<adtype>,nstate>                       &entropy_var_coeff_int,
+        const std::array<std::vector<adtype>,nstate>                       &entropy_var_coeff_ext,
+        const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_vol_int,
+        const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_vol_ext,
+        const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_surf_int,
+        const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_surf_ext,
+        const std::vector<dealii::Tensor<1,dim,adtype>>                    &unit_phys_normal_int,
+        const std::vector<adtype>                                          &JxW_face,
+        const unsigned int                                                  poly_degree_int,
+        const unsigned int                                                  poly_degree_ext,
+        const unsigned int                                                  n_vol_quad_pts_int,
+        const unsigned int                                                  n_vol_quad_pts_ext,
+        const unsigned int                                                  n_dofs_cell_int,
+        const unsigned int                                                  n_dofs_cell_ext,
+        const unsigned int                                                  n_face_quad_pts,
+        OPERATOR::basis_functions<dim,2*dim>                               &soln_basis_int,
+        OPERATOR::basis_functions<dim,2*dim>                               &soln_basis_ext,
+        OPERATOR::basis_functions<dim,2*dim>                               &flux_basis_int,
+        OPERATOR::basis_functions<dim,2*dim>                               &flux_basis_ext,
+        OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper_int,
+        OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper_ext,
+        const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
+        std::vector<adtype>                                                &face_term_int,
+        std::vector<adtype>                                                &face_term_ext) const;
+
+    /// Assemble BR2 boundary term.
+    template <typename adtype>
+    void assemble_boundary_term_entropystable_br2(
+        const unsigned int                                                 iface,
+        const unsigned int                                                 boundary_id,
+        const unsigned int                                                 poly_degree,
+        const std::array<std::vector<adtype>,nstate>                       &entropy_var_coeff,
+        const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_vol_quads,
+        const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_surf_quads,
+        const unsigned int                                                  n_vol_quad_pts,
+        const unsigned int                                                  n_face_quad_pts,
+        const unsigned int                                                  n_dofs_cell,
+        OPERATOR::basis_functions<dim,2*dim>                               &soln_basis,
+        OPERATOR::basis_functions<dim,2*dim>                               &flux_basis,
+        OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper,
+        const std::vector<dealii::Tensor<1,dim,adtype>>                    &unit_phys_normal,
+        const std::vector<adtype>                                          &JxW_face,
+        const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
+        std::vector<adtype>                                                &boundary_term) const;
+};
 
 } // PHiLiP namespace
 
