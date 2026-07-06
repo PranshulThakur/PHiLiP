@@ -1,16 +1,16 @@
 Include "airfoil_naca0012.geo";
 
 //+
-ymax = 12;
-xmax = 12;
+ymax = 10;
+xmax = 10;
 refinement_level = 0;
 n_inlet = 9;
-n_vertical = 11;
-r_vertical = 1.7;
+n_vertical = 18;
+r_vertical = 1.5;
 n_airfoil = 8;
-n_wake = 9;
+n_wake = 12;
 //r_wake = 1/0.93;
-r_wake = 1.9;
+r_wake = 1.5;
 
 //+
 Point(131) = {-0.5, ymax, 0, 1.0};
