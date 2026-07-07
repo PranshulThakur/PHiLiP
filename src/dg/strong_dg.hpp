@@ -1033,29 +1033,32 @@ public:
     
 }; // end of DGStrong class
 
+/// Class containing functions pertaining to the entropy stable viscous discretization.
 #if PHILIP_DIM==1 // dealii::parallel::distributed::Triangulation<dim> does not work for 1D
 template <int dim, int nspecies, int nstate, typename real, typename MeshType = dealii::Triangulation<dim>>
 #else
 template <int dim, int nspecies, int nstate, typename real, typename MeshType = dealii::parallel::distributed::Triangulation<dim>>
 #endif
-class EntropyStable_viscousBR2: public DGStrong<dim, nspecies, nstate, real, MeshType>
+class EntropyStable_viscousBR2
 {
     public:
-        EntropyStable_viscousBR2();
+        EntropyStable_viscousBR2(){}
 
     private:
-    /// Projects values at the volume quadrature to obtain a polynomial and interpolates that polynomila to the face quadratures.
+    /// Projects tensor values at the volume quadrature to obtain a polynomial and interpolates that polynomial to the face quadratures.
     template <typename adtype>
     void interpolate_to_face(
+        std::vector<bool> face_orientation,
         const unsigned int iface,
         const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &T_at_vol,
         OPERATOR::basis_functions<dim,2*dim> &flux_basis,
         const unsigned int n_face_quad_pts,
         std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &T_at_face) const;
 
-    /// Evaluates integral at the face
+    /// Evaluates integral of a tensor at the face
     template <typename adtype>
     void evaluate_face_integral(
+        std::vector<bool> face_orientation,
         const unsigned int iface,
         const std::array<std::vector<adtype>,nstate> &sigma_dot_n_at_face,
         const std::vector<adtype> &JxW_face,
@@ -1066,12 +1069,12 @@ class EntropyStable_viscousBR2: public DGStrong<dim, nspecies, nstate, real, Mes
     /// Computes polynomial based on the values at the face
     template <typename adtype>
     void compute_lift_polynomial(
+        std::vector<bool> face_orientation,
         const unsigned int iface,
         const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &phi_at_face,
         const std::vector<adtype> &JxW_face,
         const std::vector<adtype> &JxW_vol,
         OPERATOR::basis_functions<dim,2*dim> &flux_basis,
-        const unsigned int n_face_quad_pts,
         const unsigned int n_vol_quad_pts,
         const bool is_interior_face,
         std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &re_out_vol) const;

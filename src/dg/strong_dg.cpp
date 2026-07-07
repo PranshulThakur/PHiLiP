@@ -3608,6 +3608,152 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::allocate_dual_vector(const boo
     }
 }
 
+//=========================================================================================================
+                //     Entropy Stable Viscous BR2 Scheme without auxiliary
+//=========================================================================================================
+template <int dim, int nspecies, int nstate, typename real, typename MeshType>
+template <typename adtype>
+void EntropyStable_viscousBR2<dim,nspecies,nstate,real,MeshType>::interpolate_to_face(
+    std::vector<bool> face_orientation,
+    const unsigned int iface,
+    const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &T_at_vol,
+    OPERATOR::basis_functions<dim,2*dim> &flux_basis,
+    const unsigned int n_face_quad_pts,
+    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &T_at_face) const
+{
+    for(unsigned int s=0; s<nstate; ++s)
+    {
+        for(unsigned int d=0; d<dim; ++d)
+        {
+            T_at_face[s][d].resize(n_face_quad_pts);
+        }
+    }
+
+    for(unsigned int s=0; s<nstate; ++s)
+    {
+        for(unsigned int d=0; d<dim; ++d)
+        {
+            flux_basis.matrix_vector_mult_surface_1D(face_orientation,
+                                                     iface, 
+                                                     T_at_vol[s][d],
+                                                     T_at_face[s][d],
+                                                     flux_basis.oneD_surf_operator,
+                                                     flux_basis.oneD_vol_operator);
+        }
+    }
+}
+    
+template <int dim, int nspecies, int nstate, typename real, typename MeshType>
+template <typename adtype>
+void EntropyStable_viscousBR2<dim,nspecies,nstate,real,MeshType>::evaluate_face_integral(
+    std::vector<bool> face_orientation,
+    const unsigned int iface,
+    const std::array<std::vector<adtype>,nstate> &sigma_dot_n_at_face,
+    const std::vector<adtype> &JxW_face,
+    OPERATOR::basis_functions<dim,2*dim> &soln_basis,
+    const unsigned int n_dofs_cell,
+    std::vector<adtype> &integral_val) const
+{
+    integral_val.resize(n_dofs_cell); 
+    const unsigned int n_shape_fns = n_dofs_cell/nstate;
+
+    for(unsigned int s=0; s<nstate; ++s)
+    {
+        std::vector<adtype> integral_1state(n_shape_fns);
+        soln_basis.inner_product_surface_1D_JxW(face_orientation, iface, sigma_dot_n_at_face[s],
+                                            JxW_face, integral_1state,
+                                            soln_basis.oneD_surf_operator,
+                                            soln_basis.oneD_vol_operator);
+        const unsigned int start_index = s*n_shape_fns;
+        for(unsigned int ishape = 0; ishape<n_shape_fns; ++ishape)
+        {
+            integral_val[start_index + ishape] = integral_1state[ishape];
+        }
+    }
+}
+    
+template <int dim, int nspecies, int nstate, typename real, typename MeshType>
+template <typename adtype>
+void EntropyStable_viscousBR2<dim,nspecies,nstate,real,MeshType>::compute_lift_polynomial(
+    std::vector<bool> face_orientation,
+    const unsigned int iface,
+    const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &phi_at_face,
+    const std::vector<adtype> &JxW_face,
+    const std::vector<adtype> &JxW_vol,
+    OPERATOR::basis_functions<dim,2*dim> &flux_basis,
+    const unsigned int n_vol_quad_pts,
+    const bool is_interior_face,
+    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &re_out_vol) const
+{
+    const unsigned int n_shape_fns_flux = n_vol_quad_pts; // collocated 
+    for(unsigned int s=0; s<nstate; ++s)
+    {
+        for(unsigned int d=0; d<dim; ++d)
+        {
+            re_out_vol[s][d].resize(n_shape_fns_flux);
+        }
+    }
+
+    for(unsigned int s=0; s<nstate; ++s)
+    {
+        for(unsigned int d=0; d<dim; ++d)
+        {
+            flux_basis.inner_product_surface_1D_JxW(face_orientation, iface,
+                                                phi_at_face[s][d],
+                                                JxW_face, re_out_vol[s][d],
+                                                flux_basis.oneD_surf_operator,
+                                                flux_basis.oneD_vol_operator);
+        }
+    }
+
+    const double mult_factor = is_interior_face ? 0.5 : 1.0;
+    for(unsigned int s=0; s<nstate; ++s)
+    {
+        for(unsigned int d=0; d<dim; ++d)
+        {
+            for(unsigned int iquad = 0; iquad<n_vol_quad_pts; ++iquad)
+            {
+                re_out_vol[s][d][iquad]*= -mult_factor/JxW_vol[iquad];
+            }
+        }
+    }
+}
+    
+template <int dim, int nspecies, int nstate, typename real, typename MeshType>
+template <typename adtype>
+void EntropyStable_viscousBR2<dim,nspecies,nstate,real,MeshType>::compute_physical_grad_entropy_var(
+    const std::array<std::vector<adtype>,nstate>                       &entropy_var_coeff,
+    OPERATOR::basis_functions<dim,2*dim>                               &soln_basis,
+    OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper,
+    const unsigned int                                                 n_quad_pts,
+    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>       &entropy_var_phys_grad) const
+{
+    // Entropy grad wrt reference coordinates
+    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> entropy_var_ref_grad;
+    for(unsigned int s=0; s<nstate; ++s)
+    {
+        for(unsigned int d=0; d<dim; ++d)
+        {
+            entropy_var_ref_grad[s][d].resize(n_quad_pts);
+        }
+        soln_basis.gradient_matrix_vector_mult_1D(entropy_var_coeff[s],
+                                                  entropy_var_ref_grad[s],
+                                                  soln_basis.oneD_vol_operator,
+                                                  soln_basis.oneD_grad_operator);
+    }
+    
+    // Entropy grad wrt physical coordinates
+    for(unsigned int s=0; s<nstate; ++s)
+    {
+        metric_oper.transform_reference_to_physical_grad_vector(entropy_var_ref_grad[s],
+                                                                metric_oper.metric_cofactor_vol,
+                                                                metric_oper.det_Jac_vol,
+                                                                entropy_var_phys_grad[s]);
+    }
+}
+
+
+
 #if PHILIP_SPECIES==1
     // using default MeshType = Triangulation
 // 1D: dealii::Triangulation<dim>;
