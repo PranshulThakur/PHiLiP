@@ -3751,6 +3751,167 @@ void EntropyStable_viscousBR2<dim,nspecies,nstate,real,MeshType>::compute_physic
                                                                 entropy_var_phys_grad[s]);
     }
 }
+    
+template <int dim, int nspecies, int nstate, typename real, typename MeshType>
+template <typename adtype>
+void EntropyStable_viscousBR2<dim,nspecies,nstate,real,MeshType>::apply_diffusion_matrix_entropy_based(
+        const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_quads,
+        const unsigned int                                                 n_quad_pts,
+        const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
+        const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>   &T_in,
+        std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>         &T_out) const
+{
+    //Resize
+    for(unsigned int s=0; s<nstate; ++s)
+    {
+        for(unsigned int d=0; d<dim; ++d)
+        {
+            T_out[s][d].resize(n_quad_pts);
+        }
+    }
+
+    for(unsigned int q = 0; q<n_quad_pts; ++q)
+    {
+        std::array<dealii::Tensor<1,dim,adtype>,nstate> T_in_at_q;
+        std::array<adtype,nstate> entropy_var_at_q;
+        for(unsigned int s=0; s<nstate; ++s)
+        {
+            for(unsigned int d=0; d<dim; ++d)
+            {
+                T_in_at_q[s][d] = T_in[s][d][q];
+            }
+            entropy_var_at_q[s] = entropy_var_at_quads[s][q];
+        }
+        std::array<dealii::Tensor<1,dim,adtype>,nstate> T_out_at_q = pde_physics.dissipative_flux_entropy_based(entropy_var_at_q, T_in_at_q);
+        for(unsigned int s=0; s<nstate; ++s)
+        {
+            for(unsigned int d=0; d<dim; ++d)
+            {
+                T_out[s][d][q] = T_out_at_q[s][d];
+            }
+        }
+    }
+}
+
+template <int dim, int nspecies, int nstate, typename real, typename MeshType>
+template <typename adtype>
+void EntropyStable_viscousBR2<dim,nspecies,nstate,real,MeshType>::compute_gradbasis_diffusionmatrix_times_input_vol_integral(
+    const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_quads,
+    const unsigned int                                                 n_quad_pts,
+    const unsigned int                                                 n_dofs_cell,
+    OPERATOR::basis_functions<dim,2*dim>                               &soln_basis,
+    OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper,
+    const std::vector<double>                                          &weight_vect,
+    const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
+    const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>   &T_input,
+    std::vector<adtype>                                                &integral_val) const
+{
+    const unsigned int n_shape_fns = n_dofs_cell / nstate; 
+    
+    // Form L = K*T
+    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>   L;
+    apply_diffusion_matrix_entropy_based(
+    entropy_var_at_quads,
+    n_quad_pts,
+    pde_physics,
+    T_input,
+    L);
+
+    // Form M = cof(J)^T*L
+    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>   M;
+    for(unsigned int s=0; s<nstate; ++s)
+    {
+        metric_oper.transform_physical_to_reference_vector(
+            L[s],
+            metric_oper.metric_cofactor_vol,
+            M[s]);
+    }
+
+    // Compute \int_k nabla basis * K*T d\Omega
+    integral_val.resize(n_dofs_cell);
+    std::vector<adtype> integral_val_1state(n_shape_fns);
+
+    for(unsigned int s=0; s<nstate; ++s)
+    {
+
+        soln_basis.inner_product(
+        M[s][0],
+        weight_vect,
+        integral_val_1state,
+        soln_basis.oneD_grad_operator,
+        soln_basis.oneD_vol_operator,
+        soln_basis.oneD_vol_operator,
+        false);
+
+        if(dim>=2)
+        {
+            soln_basis.inner_product(
+            M[s][1],
+            weight_vect,
+            integral_val_1state,
+            soln_basis.oneD_vol_operator,
+            soln_basis.oneD_grad_operator,
+            soln_basis.oneD_vol_operator,
+            true);
+        }
+
+
+        if(dim>=3)
+        {
+            soln_basis.inner_product(
+            M[s][2],
+            weight_vect,
+            integral_val_1state,
+            soln_basis.oneD_vol_operator,
+            soln_basis.oneD_vol_operator,
+            soln_basis.oneD_grad_operator,
+            true);
+        }
+
+        // Put values in integral_val vector.
+        const unsigned int start_index = s*n_shape_fns;
+        for(unsigned int ishape=0; ishape<n_shape_fns; ++ishape)
+        {
+            integral_val[start_index + ishape] = integral_val_1state[ishape];
+        }
+    }
+
+}
+    
+template <int dim, int nspecies, int nstate, typename real, typename MeshType>
+template <typename adtype>
+void EntropyStable_viscousBR2<dim,nspecies,nstate,real,MeshType>::assemble_volume_term_entropystable_br2(
+    const unsigned int                                                 poly_degree,
+    const std::array<std::vector<adtype>,nstate>                       &entropy_var_coeff,
+    const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_q,
+    const unsigned int                                                  n_quad_pts,
+    const unsigned int                                                  n_dofs_cell,
+    OPERATOR::basis_functions<dim,2*dim>                               &soln_basis,
+    OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper,
+    const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
+    std::vector<adtype>                                                &vol_term) const
+{
+    const std::vector<double> &weight_vect = this->volume_quadrature_collection[poly_degree].get_weights();
+    // Entropy grad wrt physical coordinates
+    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> entropy_var_phys_grad;
+    compute_physical_grad_entropy_var(
+       entropy_var_coeff,
+       soln_basis,
+       metric_oper,
+       n_quad_pts,
+       entropy_var_phys_grad);
+
+    compute_gradbasis_diffusionmatrix_times_input_vol_integral(
+        entropy_var_at_q,
+        n_quad_pts,
+        n_dofs_cell,
+        soln_basis,
+        metric_oper,
+        weight_vect,
+        pde_physics,
+        entropy_var_phys_grad,
+        vol_term); 
+}
 
 
 

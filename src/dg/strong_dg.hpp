@@ -1120,7 +1120,6 @@ class EntropyStable_viscousBR2
         const unsigned int                                                  n_quad_pts,
         const unsigned int                                                  n_dofs_cell,
         OPERATOR::basis_functions<dim,2*dim>                               &soln_basis,
-        OPERATOR::basis_functions<dim,2*dim>                               &flux_basis,
         OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper,
         const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
         std::vector<adtype>                                                &vol_term) const;
