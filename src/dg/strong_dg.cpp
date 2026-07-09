@@ -3913,6 +3913,324 @@ void EntropyStable_viscousBR2<dim,nspecies,nstate,real,MeshType>::assemble_volum
         vol_term); 
 }
 
+template <int dim, int nspecies, int nstate, typename real, typename MeshType>
+template <typename adtype>
+void EntropyStable_viscousBR2<dim,nspecies,nstate,real,MeshType>::assemble_face_term_entropystable_br2(
+    std::vector<bool>                                                  face_orientation_int,
+    std::vector<bool>                                                  face_orientation_ext,
+    const unsigned int                                                 iface_int,
+    const unsigned int                                                 iface_ext,
+    const std::array<std::vector<adtype>,nstate>                       &entropy_var_coeff_int,
+    const std::array<std::vector<adtype>,nstate>                       &entropy_var_coeff_ext,
+    const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_vol_int,
+    const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_vol_ext,
+    const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_surf_int,
+    const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_surf_ext,
+    const std::vector<dealii::Tensor<1,dim,adtype>>                    &unit_phys_normal_int,
+    const std::vector<adtype>                                          &JxW_face,
+    const unsigned int                                                  poly_degree_int,
+    const unsigned int                                                  poly_degree_ext,
+    const unsigned int                                                  n_vol_quad_pts_int,
+    const unsigned int                                                  n_vol_quad_pts_ext,
+    const unsigned int                                                  n_dofs_cell_int,
+    const unsigned int                                                  n_dofs_cell_ext,
+    const unsigned int                                                  n_face_quad_pts,
+    OPERATOR::basis_functions<dim,2*dim>                               &soln_basis_int,
+    OPERATOR::basis_functions<dim,2*dim>                               &soln_basis_ext,
+    OPERATOR::basis_functions<dim,2*dim>                               &flux_basis_int,
+    OPERATOR::basis_functions<dim,2*dim>                               &flux_basis_ext,
+    OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper_int,
+    OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper_ext,
+    const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
+    std::vector<adtype>                                                &face_term_int,
+    std::vector<adtype>                                                &face_term_ext) const
+{
+    face_term_int.resize(n_dofs_cell_int);
+    face_term_ext.resize(n_dofs_cell_ext);
+    const std::vector<double> &vol_quad_weights_int = this->volume_quadrature_collection[poly_degree_int].get_weights();
+    const std::vector<double> &vol_quad_weights_ext = this->volume_quadrature_collection[poly_degree_ext].get_weights();
+    std::vector<adtype> JxW_vol_int(n_vol_quad_pts_int);
+    std::vector<adtype> JxW_vol_ext(n_vol_quad_pts_ext);
+    for(unsigned int iquad=0; iquad<n_vol_quad_pts_int; ++iquad)
+    {
+        JxW_vol_int[iquad] = metric_oper_int.det_Jac_vol[iquad]*vol_quad_weights_int[iquad];
+    }
+    for(unsigned int iquad=0; iquad<n_vol_quad_pts_ext; ++iquad)
+    {
+        JxW_vol_ext[iquad] = metric_oper_ext.det_Jac_vol[iquad]*vol_quad_weights_ext[iquad];
+    }
+
+    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> entropy_var_phys_grad_int;
+    compute_physical_grad_entropy_var(
+       entropy_var_coeff_int,
+       soln_basis_int,
+       metric_oper_int,
+       n_vol_quad_pts_int,
+       entropy_var_phys_grad_int);
+    
+    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> entropy_var_phys_grad_ext;
+    compute_physical_grad_entropy_var(
+       entropy_var_coeff_ext,
+       soln_basis_ext,
+       metric_oper_ext,
+       n_vol_quad_pts_ext,
+       entropy_var_phys_grad_ext);
+
+    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> entropy_var_jump_at_face;
+    for(unsigned int s=0; s<nstate; ++s)
+    {
+        for(unsigned int d=0; d<dim; ++d)
+        {
+            entropy_var_jump_at_face[s][d].resize(n_face_quad_pts);
+        }
+    }
+
+
+    for(unsigned int s=0; s<nstate; ++s)
+    {
+        for(unsigned int d=0; d<dim; ++d)
+        {
+            for(unsigned int iquad=0; iquad<n_face_quad_pts; ++iquad)
+            {
+                entropy_var_jump_at_face[s][d][iquad] = (entropy_var_at_surf_int[s][iquad] - entropy_var_at_surf_ext[s][iquad])*unit_phys_normal_int[iquad][d];
+            }
+        }
+    }
+
+    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> re_int;
+    const bool is_interior_face = true;
+    compute_lift_polynomial(
+    face_orientation_int,
+    iface_int,
+    entropy_var_jump_at_face,
+    JxW_face,
+    JxW_vol_int,
+    flux_basis_int,
+    n_face_quad_pts,
+    n_vol_quad_pts_int,
+    is_interior_face,
+    re_int);
+    
+    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> re_ext;
+    compute_lift_polynomial(
+    face_orientation_ext,
+    iface_ext,
+    entropy_var_jump_at_face,
+    JxW_face,
+    JxW_vol_ext,
+    flux_basis_ext,
+    n_face_quad_pts,
+    n_vol_quad_pts_ext,
+    is_interior_face,
+    re_ext);
+
+    const double br2_factor = 2.0*dim + 1.0; // n_faces = 2*dim. br2_factor > n_faces for entropy stability.
+
+    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> tensor_int;
+    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> tensor_ext;
+    for(unsigned int s=0; s<nstate; ++s)
+    {
+        for(unsigned int d=0; d<dim; ++d)
+        {
+            tensor_int[s][d].resize(n_vol_quad_pts_int);
+            tensor_ext[s][d].resize(n_vol_quad_pts_ext);
+        }
+    }
+    
+    for(unsigned int q=0; q<n_vol_quad_pts_int; ++q)
+    {
+        for(unsigned int s=0; s<nstate; ++s)
+        {
+            for(unsigned int d=0; d<dim; ++d)
+            {
+                tensor_int[s][d][q] = entropy_var_phys_grad_int[s][d][q] + br2_factor*re_int[s][d][q];
+            }
+        }       
+    }
+
+    for(unsigned int q=0; q<n_vol_quad_pts_ext; ++q)
+    {
+        for(unsigned int s=0; s<nstate; ++s)
+        {
+            for(unsigned int d=0; d<dim; ++d)
+            {
+                tensor_ext[s][d][q] = entropy_var_phys_grad_ext[s][d][q] + br2_factor*re_ext[s][d][q];
+            }
+        }       
+    }
+
+    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> K_tensor_int;
+    apply_diffusion_matrix_entropy_based(
+    entropy_var_at_vol_int,
+    n_vol_quad_pts_int,
+    pde_physics,
+    tensor_int,
+    K_tensor_int);
+
+    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> K_tensor_ext;
+    apply_diffusion_matrix_entropy_based(
+    entropy_var_at_vol_ext,
+    n_vol_quad_pts_ext,
+    pde_physics,
+    tensor_ext,
+    K_tensor_ext);
+
+    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> sigma_at_face_int;
+    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> sigma_at_face_ext;
+    std::array<std::vector<adtype>,nstate> sigma_at_face_avg_dot_n_int;
+    std::array<std::vector<adtype>,nstate> sigma_at_face_avg_dot_n_ext;
+
+
+    interpolate_to_face(
+    face_orientation_int,
+    iface_int,
+    K_tensor_int,
+    flux_basis_int,
+    n_face_quad_pts,
+    sigma_at_face_int);
+    
+    interpolate_to_face(
+    face_orientation_ext,
+    iface_ext,
+    K_tensor_ext,
+    flux_basis_ext,
+    n_face_quad_pts,
+    sigma_at_face_ext);
+
+    // compute sigma_avg_dot_n
+    for(unsigned int s=0; s<nstate; ++s)
+    {
+        sigma_at_face_avg_dot_n_int[s].resize(n_face_quad_pts);
+        sigma_at_face_avg_dot_n_ext[s].resize(n_face_quad_pts);
+        for(unsigned int q=0; q<n_face_quad_pts; ++q)
+        {
+            for(unsigned int d=0; d<dim; ++d)
+            {
+                sigma_at_face_avg_dot_n_int[s][q] += 0.5*(sigma_at_face_int[s][d][q] + sigma_at_face_ext[s][d][q])*unit_phys_normal_int[q][d];
+                sigma_at_face_avg_dot_n_ext[s][q] += 0.5*(sigma_at_face_int[s][d][q] + sigma_at_face_ext[s][d][q])*(-unit_phys_normal_int[q][d]);
+            }
+        }
+    }
+
+    std::vector<adtype> int_face_integral_e;
+    std::vector<adtype> ext_face_integral_e;
+    std::vector<adtype> int_face_integral_k;
+    std::vector<adtype> ext_face_integral_k;
+    
+    evaluate_face_integral(
+    face_orientation_int,
+    iface_int,
+    sigma_at_face_avg_dot_n_int,
+    JxW_face,
+    soln_basis_int,
+    n_dofs_cell_int,
+    int_face_integral_e);
+    
+    evaluate_face_integral(
+    face_orientation_ext,
+    iface_ext,
+    sigma_at_face_avg_dot_n_ext,
+    JxW_face,
+    soln_basis_ext,
+    n_dofs_cell_ext,
+    ext_face_integral_e);
+
+    compute_gradbasis_diffusionmatrix_times_input_vol_integral(
+    entropy_var_at_vol_int,
+    n_vol_quad_pts_int,
+    n_dofs_cell_int,
+    soln_basis_int,
+    metric_oper_int,
+    vol_quad_weights_int,
+    pde_physics,
+    re_int,
+    int_face_integral_k);
+
+    compute_gradbasis_diffusionmatrix_times_input_vol_integral(
+    entropy_var_at_vol_ext,
+    n_vol_quad_pts_ext,
+    n_dofs_cell_ext,
+    soln_basis_ext,
+    metric_oper_ext,
+    vol_quad_weights_ext,
+    pde_physics,
+    re_ext,
+    ext_face_integral_k);
+
+    for(unsigned int idof =0; idof<n_dofs_cell_int; ++idof)
+    {
+        face_term_int[idof] = int_face_integral_k[idof] - int_face_integral_e[idof];
+    }
+
+    for(unsigned int idof =0; idof<n_dofs_cell_ext; ++idof)
+    {
+        face_term_ext[idof] = ext_face_integral_k[idof] - ext_face_integral_e[idof];
+    }
+}
+    
+template <int dim, int nspecies, int nstate, typename real, typename MeshType>
+template <typename adtype>
+void EntropyStable_viscousBR2<dim,nspecies,nstate,real,MeshType>::assemble_boundary_term_entropystable_br2(
+    std::vector<bool>                                                  face_orientation,
+    const unsigned int                                                 iface,
+    const unsigned int                                                 boundary_id,
+    const unsigned int                                                 poly_degree,
+    const std::array<std::vector<adtype>,nstate>                       &entropy_var_coeff,
+    const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_vol_quads,
+    const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_surf_quads,
+    const unsigned int                                                  n_vol_quad_pts,
+    const unsigned int                                                  n_face_quad_pts,
+    const unsigned int                                                  n_dofs_cell,
+    OPERATOR::basis_functions<dim,2*dim>                               &soln_basis,
+    OPERATOR::basis_functions<dim,2*dim>                               &flux_basis,
+    OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper,
+    const std::vector<dealii::Tensor<1,dim,adtype>>                    &unit_phys_normal,
+    const std::vector<adtype>                                          &JxW_face,
+    const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
+    std::vector<adtype>                                                &boundary_term) const
+{
+    const std::vector<double> &vol_quad_weights = this->volume_quadrature_collection[poly_degree].get_weights();
+    std::vector<adtype> JxW_vol(n_vol_quad_pts);
+    for(unsigned int iquad=0; iquad<n_vol_quad_pts; ++iquad)
+    {
+        JxW_vol[iquad] = metric_oper.det_Jac_vol[iquad]*vol_quad_weights[iquad];
+    }
+
+    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>       entropy_var_phys_grad_at_vol;
+    compute_physical_grad_entropy_var(
+    entropy_var_coeff,
+    soln_basis,
+    metric_oper,
+    n_vol_quad_pts,
+    entropy_var_phys_grad_at_vol);
+
+    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>       K_nabla_v_at_vol;
+    apply_diffusion_matrix_entropy_based(
+    entropy_var_at_vol_quads,
+    n_vol_quad_pts,
+    pde_physics,
+    entropy_var_phys_grad_at_vol,
+    K_nabla_v_at_vol);
+
+    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>       poly_K_nabla_v_at_face;
+    interpolate_to_face(
+    face_orientation,
+    iface,
+    K_nabla_v_at_vol,
+    flux_basis,
+    n_face_quad_pts,
+    poly_K_nabla_v_at_face);
+
+    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>       entropy_var_phys_grad_at_face; // Using the vol entropy grad's projection to polynomial here instead of actually computing phys grad at face quadratures. This is consistent and should yield correct solutions under mesh refinement.
+    interpolate_to_face(
+    face_orientation,
+    iface,
+    entropy_var_phys_grad_at_vol,
+    flux_basis,
+    n_face_quad_pts,
+    entropy_var_phys_grad_at_face);
+    // continue from line 3480
+}
 
 
 #if PHILIP_SPECIES==1

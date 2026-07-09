@@ -1127,6 +1127,8 @@ class EntropyStable_viscousBR2
     /// Assemble BR2 face term.
     template <typename adtype>
     void assemble_face_term_entropystable_br2(
+        std::vector<bool>                                                  face_orientation_int,
+        std::vector<bool>                                                  face_orientation_ext,
         const unsigned int                                                 iface_int,
         const unsigned int                                                 iface_ext,
         const std::array<std::vector<adtype>,nstate>                       &entropy_var_coeff_int,
@@ -1157,6 +1159,7 @@ class EntropyStable_viscousBR2
     /// Assemble BR2 boundary term.
     template <typename adtype>
     void assemble_boundary_term_entropystable_br2(
+        std::vector<bool>                                                  face_orientation,
         const unsigned int                                                 iface,
         const unsigned int                                                 boundary_id,
         const unsigned int                                                 poly_degree,
