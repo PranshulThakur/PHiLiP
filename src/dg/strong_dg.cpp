@@ -4229,7 +4229,110 @@ void EntropyStable_viscousBR2<dim,nspecies,nstate,real,MeshType>::assemble_bound
     flux_basis,
     n_face_quad_pts,
     entropy_var_phys_grad_at_face);
-    // continue from line 3480
+
+    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>      jump_entropy_var_face;
+    std::array<std::vector<adtype>,nstate> sigma_gamma_dot_n_face;
+    for(unsigned int s=0; s<nstate; ++s)
+    {
+        for(unsigned int d=0; d<dim; ++d)
+        {
+            jump_entropy_var_face[s][d].resize(n_face_quad_pts);
+        }
+        sigma_gamma_dot_n_face[s].resize(n_face_quad_pts); // 0 by default
+    }
+
+    for(unsigned int q =0; q<n_face_quad_pts; ++q)
+    {
+        std::array<adtype,nstate> v_int_at_q;
+        std::array<dealii::Tensor<1,dim,adtype>,nstate> poly_sigma_at_q;
+        std::array<dealii::Tensor<1,dim,adtype>,nstate> entropy_var_phys_grad_face_q;
+        for(unsigned int s=0; s<nstate; ++s)
+        {
+            for(unsigned int d=0; d<dim; ++d)
+            {
+                poly_sigma_at_q[s][d] = poly_K_nabla_v_at_face[s][d][q];
+                entropy_var_phys_grad_face_q[s][d] = entropy_var_phys_grad_at_face[s][d][q];
+            }
+            v_int_at_q[s] = entropy_var_at_surf_quads[s][q];
+        }
+        dealii::Point<dim,adtype> surf_flux_node;
+        for(int idim=0; idim<dim; idim++){
+            surf_flux_node[idim] = metric_oper.flux_nodes_surf[iface][idim][q];
+        }
+        
+        std::array<adtype,nstate> v_bc_at_q;
+        std::array<dealii::Tensor<1,dim,adtype>,nstate> sigma_bc_at_q;
+
+
+        pde_physics.boundary_face_values_entropy_var(surf_flux_node,
+                                                     v_int_at_q, 
+                                                     poly_sigma_at_q, 
+                                                     entropy_var_phys_grad_face_q, 
+                                                     v_bc_at_q, 
+                                                     sigma_bc_at_q, 
+                                                     unit_phys_normal[q],
+                                                     boundary_id);
+
+
+        for(unsigned int s=0; s<nstate; ++s)
+        {
+            for(unsigned int d=0; d<dim; ++d)
+            {
+                sigma_gamma_dot_n_face[s][q] += sigma_bc_at_q[s][d]*unit_phys_normal[q][d];
+            }
+        }
+
+
+        for(unsigned int s=0; s<nstate; ++s)
+        {
+            for(unsigned int d=0; d<dim; ++d)
+            {
+                jump_entropy_var_face[s][d][q] = (v_bc_at_q[s] - v_int_at_q[s])*unit_phys_normal[q][d];
+            }
+        }
+    }
+
+    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>      re_jump;
+    const bool is_interior_face = false;
+    compute_lift_polynomial(
+    face_orientation,
+    iface,
+    jump_entropy_var_face,
+    JxW_face,
+    JxW_vol,
+    flux_basis,
+    n_face_quad_pts,
+    n_vol_quad_pts,
+    is_interior_face,
+    re_jump);
+
+    std::vector<adtype> integral_k;
+    std::vector<adtype> integral_e;
+    evaluate_face_integral(
+    face_orientation,
+    iface,
+    sigma_gamma_dot_n_face,
+    JxW_face,
+    soln_basis,
+    n_dofs_cell,
+    integral_e);
+
+    compute_gradbasis_diffusionmatrix_times_input_vol_integral(
+    entropy_var_at_vol_quads,
+    n_vol_quad_pts,
+    n_dofs_cell,
+    soln_basis,
+    metric_oper,
+    vol_quad_weights,
+    pde_physics,
+    re_jump,
+    integral_k);
+
+    boundary_term.resize(n_dofs_cell);
+    for(unsigned int idof=0; idof<n_dofs_cell; ++idof)
+    {
+        boundary_term[idof] = integral_k[idof] - integral_e[idof];
+    }
 }
 
 
