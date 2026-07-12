@@ -851,11 +851,17 @@ protected:
     template <typename adtype>
     void assemble_volume_term_viscous_primal(
         const std::array<std::vector<adtype>,nstate>  &soln_coeff,
+        const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &aux_soln_coeff,
         const unsigned int                            poly_degree,
         OPERATOR::basis_functions<dim,2*dim>          &soln_basis,
         OPERATOR::basis_functions<dim,2*dim>          &flux_basis,
         OPERATOR::metric_operators<adtype,dim,2*dim>  &metric_oper,
-        dealii::Tensor<1,dim,std::vector<adtype>>     &local_auxiliary_RHS);
+        const std::array<std::vector<adtype>,nstate>  &entropy_var_coeff,
+        const std::array<std::vector<adtype>,nstate>  &entropy_var_at_q,
+        const unsigned int  n_quad_pts,
+        const unsigned int  n_dofs_cell,
+        const Physics::PhysicsBase<dim, nstate, adtype> &pde_physics,
+        std::vector<adtype>     &vol_term_viscous) const;
     
     ///Evaluate the boundary RHS for viscous term.
     template <typename adtype>

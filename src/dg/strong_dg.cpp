@@ -1038,7 +1038,6 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_volume_term_strong(
 
 
     std::array<std::vector<adtype>,nstate> soln_at_q;
-    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> aux_soln_at_q; //auxiliary sol at flux nodes
     std::vector<std::array<double,nstate>> soln_at_q_for_max_CFL(n_quad_pts);//Need soln written in a different for to use pre-existing max CFL function
     // Interpolate each state to the quadrature points using sum-factorization
     // with the basis functions in each reference direction.
@@ -1046,11 +1045,6 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_volume_term_strong(
         soln_at_q[istate].resize(n_quad_pts);
         soln_basis.matrix_vector_mult_1D(soln_coeff[istate], soln_at_q[istate],
                                          soln_basis.oneD_vol_operator);
-        for(int idim=0; idim<dim; idim++){
-            aux_soln_at_q[istate][idim].resize(n_quad_pts);
-            soln_basis.matrix_vector_mult_1D(aux_soln_coeff[istate][idim], aux_soln_at_q[istate][idim],
-                                             soln_basis.oneD_vol_operator);
-        }
         for(unsigned int iquad=0; iquad<n_quad_pts; iquad++){
             soln_at_q_for_max_CFL[iquad][istate] = getValue<adtype>(soln_at_q[istate][iquad]);
         }
@@ -1575,6 +1569,55 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_volume_term_strong(
             local_rhs_int_cell[istate*n_shape_fns + ishape] += rhs[ishape];
         }
 
+    }
+}
+    
+template <int dim, int nspecies, int nstate, typename real, typename MeshType>
+template <typename adtype>
+void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_volume_term_viscous_primal(
+    const std::array<std::vector<adtype>,nstate>  &soln_coeff,
+    const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &aux_soln_coeff,
+    const unsigned int                            poly_degree,
+    OPERATOR::basis_functions<dim,2*dim>          &soln_basis,
+    OPERATOR::basis_functions<dim,2*dim>          &flux_basis,
+    OPERATOR::metric_operators<adtype,dim,2*dim>  &metric_oper,
+    const std::array<std::vector<adtype>,nstate>  &entropy_var_coeff,
+    const std::array<std::vector<adtype>,nstate>  &entropy_var_at_q,
+    const unsigned int  n_quad_pts,
+    const unsigned int  n_dofs_cell,
+    const Physics::PhysicsBase<dim, nstate, adtype> &pde_physics,
+    std::vector<adtype>     &vol_term_viscous) const
+{
+    if(this->all_parameters->use_viscous_br2_entropystable)
+    {
+        vol_term_viscous.reinit(n_dofs_cell);   
+        EntropyStable_viscousBR2<dim,nspecies,nstate,real,MeshType>().assemble_volume_term_entropystable_br2(
+        poly_degree,
+        entropy_var_coeff,
+        entropy_var_at_q,
+        n_quad_pts,
+        n_dofs_cell,
+        soln_basis,
+        metric_oper,
+        pde_physics,
+        vol_term_viscous);
+        for(unsigned int i=0; i<n_dofs_cell; ++i)
+        {
+            vol_term_viscous[i] *=-1.0; // negate as we are moving the term to the right hand side.
+        }
+    }
+    else
+    {
+        std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> aux_soln_at_q; //auxiliary sol at flux nodes
+        // Interpolate each state to the quadrature points using sum-factorization
+        // with the basis functions in each reference direction.
+        for(int istate=0; istate<nstate; istate++){
+            for(int idim=0; idim<dim; idim++){
+                aux_soln_at_q[istate][idim].resize(n_quad_pts);
+                soln_basis.matrix_vector_mult_1D(aux_soln_coeff[istate][idim], aux_soln_at_q[istate][idim],
+                                                 soln_basis.oneD_vol_operator);
+            }
+        }
     }
 }
 
