@@ -882,6 +882,21 @@ protected:
         OPERATOR::basis_functions<dim,2*dim>          &flux_basis,
         OPERATOR::metric_operators<adtype,dim,2*dim>  &metric_oper,
         dealii::Tensor<1,dim,std::vector<adtype>>     &local_auxiliary_RHS);
+    
+    /// Compute filtered solution in the volume
+    template <typename adtype>
+    void compute_filtered_solution_volume(
+        std::array<std::vector<adtype>,nstate> &legendre_soln_at_q,
+        std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &legendre_aux_soln_at_q,
+        const unsigned int n_quad_pts,
+        const unsigned int poly_degree,
+        const Physics::PhysicsBase<dim, nstate, adtype> &pde_physics,
+        const std::array<std::vector<adtype>,nstate> &soln_at_q,
+        const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &aux_soln_at_q);
+    
+    /// Compute filtered solution at the face
+    template <typename adtype>
+    void compute_filtered_solution_volume_and_face()
 
 protected:
     /// Strong form primary equation's volume right-hand-side.
