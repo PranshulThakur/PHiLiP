@@ -1060,6 +1060,7 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_volume_term_strong(
     std::array<std::vector<adtype>,nstate> legendre_soln_at_q;
     std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> legendre_aux_soln_at_q; // legendre auxiliary sol at flux nodes
     if(this->do_compute_filtered_solution) {
+        // NOTE: This only pertains to advanced SGS models for LES
         compute_filtered_solution_volume(
         legendre_soln_at_q,
         legendre_aux_soln_at_q,
@@ -1777,210 +1778,17 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_boundary_term_strong(
     std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> legendre_aux_soln_at_surf_q; // legendre auxiliary sol at flux nodes
     if(this->do_compute_filtered_solution) {
         // NOTE: This only pertains to advanced SGS models for LES
-        //==================================================
-        // GET THE PRIMITIVE SOLUTION
-        //==================================================
-        std::array<std::vector<adtype>,nstate> primitive_soln_at_vol_q;
-        std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> primitive_aux_soln_at_vol_q;
-        std::array<std::vector<adtype>,nstate> primitive_soln_at_surf_q;
-        std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> primitive_aux_soln_at_surf_q;
-        // Resize the primitive soln arrays
-        for(int istate=0; istate<nstate; istate++){
-            primitive_soln_at_vol_q[istate].resize(n_quad_pts_vol);
-            primitive_soln_at_surf_q[istate].resize(n_face_quad_pts);
-            for(int idim=0; idim<dim; idim++){
-                primitive_aux_soln_at_vol_q[istate][idim].resize(n_quad_pts_vol);
-                primitive_aux_soln_at_surf_q[istate][idim].resize(n_face_quad_pts);
-            }
-        }
-        // Compute the primitive soln at all iquad and fill arrays
-        // -- volume
-        for (unsigned int iquad=0; iquad<n_quad_pts_vol; ++iquad) {
-            // extract conservative soln state
-            std::array<adtype,nstate> soln_state;
-            std::array<dealii::Tensor<1,dim,adtype>,nstate> aux_soln_state;
-            for(int istate=0; istate<nstate; istate++){
-                soln_state[istate] = soln_at_vol_q[istate][iquad];
-                for(int idim=0; idim<dim; idim++){
-                    aux_soln_state[istate][idim] = aux_soln_at_vol_q[istate][idim][iquad];
-                }
-            }
-            // compute primitive soln state from conservative
-            std::array<adtype,nstate> primitive_soln_state = pde_physics.convert_conservative_to_primitive(soln_state);
-            std::array<dealii::Tensor<1,dim,adtype>,nstate> primitive_aux_soln_state = pde_physics.convert_conservative_gradient_to_primitive_gradient(soln_state,aux_soln_state);
-            // store primitive soln at quadrature point
-            for(int istate=0; istate<nstate; istate++){
-                primitive_soln_at_vol_q[istate][iquad] = primitive_soln_state[istate];
-                for(int idim=0; idim<dim; idim++){
-                    primitive_aux_soln_at_vol_q[istate][idim][iquad] = primitive_aux_soln_state[istate][idim];
-                }
-            }
-        }
-        // -- surface
-        for(unsigned int iquad_face=0; iquad_face<n_face_quad_pts; iquad_face++){
-            // extract conservative soln state
-            std::array<adtype,nstate> soln_state;
-            std::array<dealii::Tensor<1,dim,adtype>,nstate> aux_soln_state;
-            for(int istate=0; istate<nstate; istate++){
-                soln_state[istate] = soln_at_surf_q[istate][iquad_face];
-                for(int idim=0; idim<dim; idim++){
-                    aux_soln_state[istate][idim] = aux_soln_at_surf_q[istate][idim][iquad_face];
-                }
-            }
-            // compute primitive soln state from conservative
-            std::array<adtype,nstate> primitive_soln_state = pde_physics.convert_conservative_to_primitive(soln_state);
-            std::array<dealii::Tensor<1,dim,adtype>,nstate> primitive_aux_soln_state = pde_physics.convert_conservative_gradient_to_primitive_gradient(soln_state,aux_soln_state);
-            // store primitive soln at quadrature point
-            for(int istate=0; istate<nstate; istate++){
-                primitive_soln_at_surf_q[istate][iquad_face] = primitive_soln_state[istate];
-                for(int idim=0; idim<dim; idim++){
-                    primitive_aux_soln_at_surf_q[istate][idim][iquad_face] = primitive_aux_soln_state[istate][idim];
-                }
-            }
-        }
+        compute_filtered_solution_volume_and_face(
+        soln_at_vol_q, 
+        aux_soln_at_vol_q,
+        pde_physics,
+        soln_at_surf_q,
+        aux_soln_at_surf_q,
+        n_quad_pts_vol,
+        n_face_quad_pts,
+        n_shape_fns,
+        poly_degree);
 
-        //==================================================
-        // PROJECT TO LEGENDRE BASIS AND MODALLY FILTER
-        //==================================================
-        // -- Primitive solution at legendre poly
-        std::array<std::vector<adtype>,nstate> primitive_legendre_soln_at_vol_q;
-        std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> primitive_legendre_aux_soln_at_vol_q;
-        std::array<std::vector<adtype>,nstate> primitive_legendre_soln_at_surf_q;
-        std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> primitive_legendre_aux_soln_at_surf_q;
-
-        // Details: this projects to Legendre basis, truncates, then interpolates back to quad nodes.
-        // -- Constructor for tensor product polynomials based on Polynomials::Legendre interpolation. 
-        dealii::FE_DGQLegendre<1,1> legendre_poly_1D(poly_degree);
-        // -- Projection operator for legendre basis
-        OPERATOR::vol_projection_operator<dim,2*dim> legendre_soln_basis_projection_oper(1, poly_degree, this->max_grid_degree);
-        legendre_soln_basis_projection_oper.build_1D_volume_operator(legendre_poly_1D, this->oneD_quadrature_collection[poly_degree]);
-        // -- Legendre basis functions 
-        OPERATOR::basis_functions<dim,2*dim> legendre_soln_basis(1, poly_degree, this->max_grid_degree);
-        legendre_soln_basis.build_1D_volume_operator(legendre_poly_1D, this->oneD_quadrature_collection[poly_degree]);
-        legendre_soln_basis.build_1D_surface_operator(legendre_poly_1D, this->oneD_face_quadrature);
-        const unsigned int p_min_filtered = this->poly_degree_max_large_scales + 1;
-        for(int istate=0; istate<nstate; istate++){
-            //==================================================
-            // Solution
-            //==================================================
-            // -- (1) Project to Legendre basis
-            std::vector<adtype> legendre_soln_coeff(n_shape_fns);
-            legendre_soln_basis_projection_oper.matrix_vector_mult_1D(primitive_soln_at_vol_q[istate], legendre_soln_coeff,
-                                                                      legendre_soln_basis_projection_oper.oneD_vol_operator);
-            // -- (2) Truncate modes for high-pass filter (i.e. DG-VMS like)
-            if(this->apply_modal_high_pass_filter_on_filtered_solution && (istate!=0 && istate!=(nstate-1))) {
-                for(unsigned int ishape=0; ishape<n_shape_fns; ishape++){
-                    if(ishape < p_min_filtered){
-                        legendre_soln_coeff[ishape] = 0.0;
-                    }
-                }    
-            }
-            // -- (3) Interpolate filtered solution back to quadrature points
-            primitive_legendre_soln_at_vol_q[istate].resize(n_quad_pts_vol);
-            legendre_soln_basis.matrix_vector_mult_1D(legendre_soln_coeff, primitive_legendre_soln_at_vol_q[istate],
-                                                      legendre_soln_basis.oneD_vol_operator);
-            primitive_legendre_soln_at_surf_q[istate].resize(n_face_quad_pts);
-            legendre_soln_basis.matrix_vector_mult_surface_1D(face_orientation, 
-                                                              iface,
-                                                              legendre_soln_coeff, primitive_legendre_soln_at_surf_q[istate],
-                                                              legendre_soln_basis.oneD_surf_operator,
-                                                              legendre_soln_basis.oneD_vol_operator);
-            //==================================================
-
-            //==================================================
-            // Auxiliary Solution (gradients)
-            //==================================================
-            dealii::Tensor<1,dim,std::vector<adtype>> legendre_aux_soln_coeff;
-            for(int idim=0; idim<dim; idim++){
-                // -- (1) Project to Legendre basis
-                legendre_aux_soln_coeff[idim].resize(n_shape_fns);
-                if(this->use_auxiliary_eq){
-                    legendre_soln_basis_projection_oper.matrix_vector_mult_1D(primitive_aux_soln_at_vol_q[istate][idim], legendre_aux_soln_coeff[idim],
-                                                                              legendre_soln_basis_projection_oper.oneD_vol_operator);
-                    // -- (2) Truncate modes for high-pass filter (i.e. DG-VMS like)
-                    if(this->apply_modal_high_pass_filter_on_filtered_solution && (istate!=0 && istate!=(nstate-1))) {
-                        for(unsigned int ishape=0; ishape<n_shape_fns; ishape++){
-                            if(ishape < p_min_filtered){
-                                legendre_aux_soln_coeff[idim][ishape] = 0.0;
-                            }
-                        }
-                    }
-                }
-                else {
-                    for(unsigned int ishape=0; ishape<n_shape_fns; ishape++){
-                        legendre_aux_soln_coeff[idim][ishape] = 0.0;
-                    }
-                }
-                // -- (3) Interpolate filtered solution back to quadrature points
-                primitive_legendre_aux_soln_at_vol_q[istate][idim].resize(n_quad_pts_vol);
-                legendre_soln_basis.matrix_vector_mult_1D(legendre_aux_soln_coeff[idim], primitive_legendre_aux_soln_at_vol_q[istate][idim],
-                                                          legendre_soln_basis.oneD_vol_operator);
-                primitive_legendre_aux_soln_at_surf_q[istate][idim].resize(n_face_quad_pts);
-                legendre_soln_basis.matrix_vector_mult_surface_1D(face_orientation, 
-                                                                  iface,
-                                                                  legendre_aux_soln_coeff[idim], primitive_legendre_aux_soln_at_surf_q[istate][idim],
-                                                                  legendre_soln_basis.oneD_surf_operator,
-                                                                  legendre_soln_basis.oneD_vol_operator);
-            }
-            //==================================================
-        }
-        //=======================================================
-        // CONVERT PRIMITIVE LEGENDRE SOLUTION TO CONSERVATIVE
-        //=======================================================
-        // Resize the conservative soln arrays
-        for(int istate=0; istate<nstate; istate++){
-            legendre_soln_at_vol_q[istate].resize(n_quad_pts_vol);
-            legendre_soln_at_surf_q[istate].resize(n_face_quad_pts);
-            for(int idim=0; idim<dim; idim++){
-                legendre_aux_soln_at_vol_q[istate][idim].resize(n_quad_pts_vol);
-                legendre_aux_soln_at_surf_q[istate][idim].resize(n_face_quad_pts);
-            }
-        }
-        // Compute the primitive soln at all iquad and fill arrays
-        // -- volume
-        for (unsigned int iquad=0; iquad<n_quad_pts_vol; ++iquad) {
-            // extract conservative soln state
-            std::array<adtype,nstate> primitive_legendre_soln_state;
-            std::array<dealii::Tensor<1,dim,adtype>,nstate> primitive_legendre_aux_soln_state;
-            for(int istate=0; istate<nstate; istate++){
-                primitive_legendre_soln_state[istate] = primitive_legendre_soln_at_vol_q[istate][iquad];
-                for(int idim=0; idim<dim; idim++){
-                    primitive_legendre_aux_soln_state[istate][idim] = primitive_legendre_aux_soln_at_vol_q[istate][idim][iquad];
-                }
-            }
-            // compute conservative soln state from primitive
-            std::array<adtype,nstate> legendre_soln_state = pde_physics.convert_primitive_to_conservative(primitive_legendre_soln_state);
-            std::array<dealii::Tensor<1,dim,adtype>,nstate> legendre_aux_soln_state = pde_physics.convert_primitive_gradient_to_conservative_gradient(primitive_legendre_soln_state,primitive_legendre_aux_soln_state);
-            // store conservative soln at quadrature point
-            for(int istate=0; istate<nstate; istate++){
-                legendre_soln_at_vol_q[istate][iquad] = legendre_soln_state[istate];
-                for(int idim=0; idim<dim; idim++){
-                    legendre_aux_soln_at_vol_q[istate][idim][iquad] = legendre_aux_soln_state[istate][idim];
-                }
-            }
-        }
-        // -- surface
-        for (unsigned int iquad_face=0; iquad_face<n_face_quad_pts; iquad_face++) {
-            // extract conservative soln state
-            std::array<adtype,nstate> primitive_legendre_soln_state;
-            std::array<dealii::Tensor<1,dim,adtype>,nstate> primitive_legendre_aux_soln_state;
-            for(int istate=0; istate<nstate; istate++){
-                primitive_legendre_soln_state[istate] = primitive_legendre_soln_at_surf_q[istate][iquad_face];
-                for(int idim=0; idim<dim; idim++){
-                    primitive_legendre_aux_soln_state[istate][idim] = primitive_legendre_aux_soln_at_surf_q[istate][idim][iquad_face];
-                }
-            }
-            // compute conservative soln state from primitive
-            std::array<adtype,nstate> legendre_soln_state = pde_physics.convert_primitive_to_conservative(primitive_legendre_soln_state);
-            std::array<dealii::Tensor<1,dim,adtype>,nstate> legendre_aux_soln_state = pde_physics.convert_primitive_gradient_to_conservative_gradient(primitive_legendre_soln_state,primitive_legendre_aux_soln_state);
-            // store conservative soln at quadrature point
-            for(int istate=0; istate<nstate; istate++){
-                legendre_soln_at_surf_q[istate][iquad_face] = legendre_soln_state[istate];
-                for(int idim=0; idim<dim; idim++){
-                    legendre_aux_soln_at_surf_q[istate][idim][iquad_face] = legendre_aux_soln_state[istate][idim];
-                }
-            }
-        }
     }
 
     // Get volume reference fluxes and interpolate them to the facet.
@@ -2421,6 +2229,226 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_boundary_term_strong(
 
         for(unsigned int ishape=0; ishape<n_shape_fns; ishape++){
             local_rhs_cell[istate*n_shape_fns + ishape] += rhs[ishape];
+        }
+    }
+}
+    
+template <int dim, int nspecies, int nstate, typename real, typename MeshType>
+template <typename adtype>
+void DGStrong<dim,nspecies,nstate,real,MeshType>::compute_filtered_solution_volume_and_face(
+    const std::array<std::vector<adtype>,nstate> &soln_at_vol_q,
+    const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &aux_soln_at_vol_q,
+    pde_physics,
+    const std::array<std::vector<adtype>,nstate> &soln_at_surf_q,
+    const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &aux_soln_at_surf_q,
+    n_quad_pts_vol,
+    n_face_quad_pts,
+    n_shape_fns,
+    poly_degree)
+{
+    // NOTE: This only pertains to advanced SGS models for LES
+    //==================================================
+    // GET THE PRIMITIVE SOLUTION
+    //==================================================
+    std::array<std::vector<adtype>,nstate> primitive_soln_at_vol_q;
+    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> primitive_aux_soln_at_vol_q;
+    std::array<std::vector<adtype>,nstate> primitive_soln_at_surf_q;
+    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> primitive_aux_soln_at_surf_q;
+    // Resize the primitive soln arrays
+    for(int istate=0; istate<nstate; istate++){
+        primitive_soln_at_vol_q[istate].resize(n_quad_pts_vol);
+        primitive_soln_at_surf_q[istate].resize(n_face_quad_pts);
+        for(int idim=0; idim<dim; idim++){
+            primitive_aux_soln_at_vol_q[istate][idim].resize(n_quad_pts_vol);
+            primitive_aux_soln_at_surf_q[istate][idim].resize(n_face_quad_pts);
+        }
+    }
+    // Compute the primitive soln at all iquad and fill arrays
+    // -- volume
+    for (unsigned int iquad=0; iquad<n_quad_pts_vol; ++iquad) {
+        // extract conservative soln state
+        std::array<adtype,nstate> soln_state;
+        std::array<dealii::Tensor<1,dim,adtype>,nstate> aux_soln_state;
+        for(int istate=0; istate<nstate; istate++){
+            soln_state[istate] = soln_at_vol_q[istate][iquad];
+            for(int idim=0; idim<dim; idim++){
+                aux_soln_state[istate][idim] = aux_soln_at_vol_q[istate][idim][iquad];
+            }
+        }
+        // compute primitive soln state from conservative
+        std::array<adtype,nstate> primitive_soln_state = pde_physics.convert_conservative_to_primitive(soln_state);
+        std::array<dealii::Tensor<1,dim,adtype>,nstate> primitive_aux_soln_state = pde_physics.convert_conservative_gradient_to_primitive_gradient(soln_state,aux_soln_state);
+        // store primitive soln at quadrature point
+        for(int istate=0; istate<nstate; istate++){
+            primitive_soln_at_vol_q[istate][iquad] = primitive_soln_state[istate];
+            for(int idim=0; idim<dim; idim++){
+                primitive_aux_soln_at_vol_q[istate][idim][iquad] = primitive_aux_soln_state[istate][idim];
+            }
+        }
+    }
+    // -- surface
+    for(unsigned int iquad_face=0; iquad_face<n_face_quad_pts; iquad_face++){
+        // extract conservative soln state
+        std::array<adtype,nstate> soln_state;
+        std::array<dealii::Tensor<1,dim,adtype>,nstate> aux_soln_state;
+        for(int istate=0; istate<nstate; istate++){
+            soln_state[istate] = soln_at_surf_q[istate][iquad_face];
+            for(int idim=0; idim<dim; idim++){
+                aux_soln_state[istate][idim] = aux_soln_at_surf_q[istate][idim][iquad_face];
+            }
+        }
+        // compute primitive soln state from conservative
+        std::array<adtype,nstate> primitive_soln_state = pde_physics.convert_conservative_to_primitive(soln_state);
+        std::array<dealii::Tensor<1,dim,adtype>,nstate> primitive_aux_soln_state = pde_physics.convert_conservative_gradient_to_primitive_gradient(soln_state,aux_soln_state);
+        // store primitive soln at quadrature point
+        for(int istate=0; istate<nstate; istate++){
+            primitive_soln_at_surf_q[istate][iquad_face] = primitive_soln_state[istate];
+            for(int idim=0; idim<dim; idim++){
+                primitive_aux_soln_at_surf_q[istate][idim][iquad_face] = primitive_aux_soln_state[istate][idim];
+            }
+        }
+    }
+
+    //==================================================
+    // PROJECT TO LEGENDRE BASIS AND MODALLY FILTER
+    //==================================================
+    // -- Primitive solution at legendre poly
+    std::array<std::vector<adtype>,nstate> primitive_legendre_soln_at_vol_q;
+    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> primitive_legendre_aux_soln_at_vol_q;
+    std::array<std::vector<adtype>,nstate> primitive_legendre_soln_at_surf_q;
+    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> primitive_legendre_aux_soln_at_surf_q;
+
+    // Details: this projects to Legendre basis, truncates, then interpolates back to quad nodes.
+    // -- Constructor for tensor product polynomials based on Polynomials::Legendre interpolation. 
+    dealii::FE_DGQLegendre<1,1> legendre_poly_1D(poly_degree);
+    // -- Projection operator for legendre basis
+    OPERATOR::vol_projection_operator<dim,2*dim> legendre_soln_basis_projection_oper(1, poly_degree, this->max_grid_degree);
+    legendre_soln_basis_projection_oper.build_1D_volume_operator(legendre_poly_1D, this->oneD_quadrature_collection[poly_degree]);
+    // -- Legendre basis functions 
+    OPERATOR::basis_functions<dim,2*dim> legendre_soln_basis(1, poly_degree, this->max_grid_degree);
+    legendre_soln_basis.build_1D_volume_operator(legendre_poly_1D, this->oneD_quadrature_collection[poly_degree]);
+    legendre_soln_basis.build_1D_surface_operator(legendre_poly_1D, this->oneD_face_quadrature);
+    const unsigned int p_min_filtered = this->poly_degree_max_large_scales + 1;
+    for(int istate=0; istate<nstate; istate++){
+        //==================================================
+        // Solution
+        //==================================================
+        // -- (1) Project to Legendre basis
+        std::vector<adtype> legendre_soln_coeff(n_shape_fns);
+        legendre_soln_basis_projection_oper.matrix_vector_mult_1D(primitive_soln_at_vol_q[istate], legendre_soln_coeff,
+                                                                  legendre_soln_basis_projection_oper.oneD_vol_operator);
+        // -- (2) Truncate modes for high-pass filter (i.e. DG-VMS like)
+        if(this->apply_modal_high_pass_filter_on_filtered_solution && (istate!=0 && istate!=(nstate-1))) {
+            for(unsigned int ishape=0; ishape<n_shape_fns; ishape++){
+                if(ishape < p_min_filtered){
+                    legendre_soln_coeff[ishape] = 0.0;
+                }
+            }    
+        }
+        // -- (3) Interpolate filtered solution back to quadrature points
+        primitive_legendre_soln_at_vol_q[istate].resize(n_quad_pts_vol);
+        legendre_soln_basis.matrix_vector_mult_1D(legendre_soln_coeff, primitive_legendre_soln_at_vol_q[istate],
+                                                  legendre_soln_basis.oneD_vol_operator);
+        primitive_legendre_soln_at_surf_q[istate].resize(n_face_quad_pts);
+        legendre_soln_basis.matrix_vector_mult_surface_1D(face_orientation, 
+                                                          iface,
+                                                          legendre_soln_coeff, primitive_legendre_soln_at_surf_q[istate],
+                                                          legendre_soln_basis.oneD_surf_operator,
+                                                          legendre_soln_basis.oneD_vol_operator);
+        //==================================================
+
+        //==================================================
+        // Auxiliary Solution (gradients)
+        //==================================================
+        dealii::Tensor<1,dim,std::vector<adtype>> legendre_aux_soln_coeff;
+        for(int idim=0; idim<dim; idim++){
+            // -- (1) Project to Legendre basis
+            legendre_aux_soln_coeff[idim].resize(n_shape_fns);
+            if(this->use_auxiliary_eq){
+                legendre_soln_basis_projection_oper.matrix_vector_mult_1D(primitive_aux_soln_at_vol_q[istate][idim], legendre_aux_soln_coeff[idim],
+                                                                          legendre_soln_basis_projection_oper.oneD_vol_operator);
+                // -- (2) Truncate modes for high-pass filter (i.e. DG-VMS like)
+                if(this->apply_modal_high_pass_filter_on_filtered_solution && (istate!=0 && istate!=(nstate-1))) {
+                    for(unsigned int ishape=0; ishape<n_shape_fns; ishape++){
+                        if(ishape < p_min_filtered){
+                            legendre_aux_soln_coeff[idim][ishape] = 0.0;
+                        }
+                    }
+                }
+            }
+            else {
+                for(unsigned int ishape=0; ishape<n_shape_fns; ishape++){
+                    legendre_aux_soln_coeff[idim][ishape] = 0.0;
+                }
+            }
+            // -- (3) Interpolate filtered solution back to quadrature points
+            primitive_legendre_aux_soln_at_vol_q[istate][idim].resize(n_quad_pts_vol);
+            legendre_soln_basis.matrix_vector_mult_1D(legendre_aux_soln_coeff[idim], primitive_legendre_aux_soln_at_vol_q[istate][idim],
+                                                      legendre_soln_basis.oneD_vol_operator);
+            primitive_legendre_aux_soln_at_surf_q[istate][idim].resize(n_face_quad_pts);
+            legendre_soln_basis.matrix_vector_mult_surface_1D(face_orientation, 
+                                                              iface,
+                                                              legendre_aux_soln_coeff[idim], primitive_legendre_aux_soln_at_surf_q[istate][idim],
+                                                              legendre_soln_basis.oneD_surf_operator,
+                                                              legendre_soln_basis.oneD_vol_operator);
+        }
+        //==================================================
+    }
+    //=======================================================
+    // CONVERT PRIMITIVE LEGENDRE SOLUTION TO CONSERVATIVE
+    //=======================================================
+    // Resize the conservative soln arrays
+    for(int istate=0; istate<nstate; istate++){
+        legendre_soln_at_vol_q[istate].resize(n_quad_pts_vol);
+        legendre_soln_at_surf_q[istate].resize(n_face_quad_pts);
+        for(int idim=0; idim<dim; idim++){
+            legendre_aux_soln_at_vol_q[istate][idim].resize(n_quad_pts_vol);
+            legendre_aux_soln_at_surf_q[istate][idim].resize(n_face_quad_pts);
+        }
+    }
+    // Compute the primitive soln at all iquad and fill arrays
+    // -- volume
+    for (unsigned int iquad=0; iquad<n_quad_pts_vol; ++iquad) {
+        // extract conservative soln state
+        std::array<adtype,nstate> primitive_legendre_soln_state;
+        std::array<dealii::Tensor<1,dim,adtype>,nstate> primitive_legendre_aux_soln_state;
+        for(int istate=0; istate<nstate; istate++){
+            primitive_legendre_soln_state[istate] = primitive_legendre_soln_at_vol_q[istate][iquad];
+            for(int idim=0; idim<dim; idim++){
+                primitive_legendre_aux_soln_state[istate][idim] = primitive_legendre_aux_soln_at_vol_q[istate][idim][iquad];
+            }
+        }
+        // compute conservative soln state from primitive
+        std::array<adtype,nstate> legendre_soln_state = pde_physics.convert_primitive_to_conservative(primitive_legendre_soln_state);
+        std::array<dealii::Tensor<1,dim,adtype>,nstate> legendre_aux_soln_state = pde_physics.convert_primitive_gradient_to_conservative_gradient(primitive_legendre_soln_state,primitive_legendre_aux_soln_state);
+        // store conservative soln at quadrature point
+        for(int istate=0; istate<nstate; istate++){
+            legendre_soln_at_vol_q[istate][iquad] = legendre_soln_state[istate];
+            for(int idim=0; idim<dim; idim++){
+                legendre_aux_soln_at_vol_q[istate][idim][iquad] = legendre_aux_soln_state[istate][idim];
+            }
+        }
+    }
+    // -- surface
+    for (unsigned int iquad_face=0; iquad_face<n_face_quad_pts; iquad_face++) {
+        // extract conservative soln state
+        std::array<adtype,nstate> primitive_legendre_soln_state;
+        std::array<dealii::Tensor<1,dim,adtype>,nstate> primitive_legendre_aux_soln_state;
+        for(int istate=0; istate<nstate; istate++){
+            primitive_legendre_soln_state[istate] = primitive_legendre_soln_at_surf_q[istate][iquad_face];
+            for(int idim=0; idim<dim; idim++){
+                primitive_legendre_aux_soln_state[istate][idim] = primitive_legendre_aux_soln_at_surf_q[istate][idim][iquad_face];
+            }
+        }
+        // compute conservative soln state from primitive
+        std::array<adtype,nstate> legendre_soln_state = pde_physics.convert_primitive_to_conservative(primitive_legendre_soln_state);
+        std::array<dealii::Tensor<1,dim,adtype>,nstate> legendre_aux_soln_state = pde_physics.convert_primitive_gradient_to_conservative_gradient(primitive_legendre_soln_state,primitive_legendre_aux_soln_state);
+        // store conservative soln at quadrature point
+        for(int istate=0; istate<nstate; istate++){
+            legendre_soln_at_surf_q[istate][iquad_face] = legendre_soln_state[istate];
+            for(int idim=0; idim<dim; idim++){
+                legendre_aux_soln_at_surf_q[istate][idim][iquad_face] = legendre_aux_soln_state[istate][idim];
+            }
         }
     }
 }
