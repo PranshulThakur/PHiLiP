@@ -894,9 +894,22 @@ protected:
         const std::array<std::vector<adtype>,nstate> &soln_at_q,
         const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &aux_soln_at_q);
     
-    /// Compute filtered solution at the face
+    /// Compute filtered solution at the face and volume
     template <typename adtype>
-    void compute_filtered_solution_volume_and_face()
+    void compute_filtered_solution_volume_and_face(
+        std::array<std::vector<adtype>,nstate> &legendre_soln_at_vol_q,
+        std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &legendre_aux_soln_at_vol_q,
+        std::array<std::vector<adtype>,nstate> &legendre_soln_at_surf_q,
+        std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &legendre_aux_soln_at_surf_q,
+        const std::array<std::vector<adtype>,nstate> &soln_at_vol_q,
+        const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &aux_soln_at_vol_q,
+        Physics::PhysicsBase<dim, nspecies, nstate, adtype>                &pde_physics,
+        const std::array<std::vector<adtype>,nstate> &soln_at_surf_q,
+        const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &aux_soln_at_surf_q,
+        const unsigned int n_quad_pts_vol,
+        const unsigned int n_face_quad_pts,
+        const unsigned int n_shape_fns,
+        const unsigned int poly_degree);
 
 protected:
     /// Strong form primary equation's volume right-hand-side.
