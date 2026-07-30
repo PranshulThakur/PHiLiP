@@ -1139,7 +1139,6 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_volume_term_strong(
     //For conservative DG, we compute the reference flux as per Eq. (9), to then recover the second volume integral in Eq. (17).
     //For curvilinear split-form in Eq. (22), we apply a two-pt flux of the metric-cofactor matrix on the matrix operator constructed by the entropy stable/conservtive 2pt flux.
     std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> conv_ref_flux_at_q;
-    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> diffusive_ref_flux_at_q;
     std::array<std::vector<adtype>,nstate> source_at_q;
     std::array<std::vector<adtype>,nstate> physical_source_at_q;
 
@@ -1257,11 +1256,6 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_volume_term_strong(
             conv_phys_flux = pde_physics.convective_flux (soln_state);
         }
 
-        //Diffusion
-        std::array<dealii::Tensor<1,dim,adtype>,nstate> diffusive_phys_flux;
-        //Compute the physical dissipative flux
-        diffusive_phys_flux = pde_physics.dissipative_flux(soln_state, aux_soln_state, filtered_soln_state, filtered_aux_soln_state, current_cell_index);
-
         // Manufactured source
         std::array<adtype,nstate> manufactured_source;
         if(this->all_parameters->manufactured_convergence_study_param.manufactured_solution_param.use_manufactured_source_term) {
@@ -1287,7 +1281,6 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_volume_term_strong(
         //Write the values in a way that we can use sum-factorization on.
         for(int istate=0; istate<nstate; istate++){
             dealii::Tensor<1,dim,adtype> conv_ref_flux;
-            dealii::Tensor<1,dim,adtype> diffusive_ref_flux;
             //Trnasform to reference fluxes
             if (this->all_parameters->use_split_form || this->all_parameters->use_curvilinear_split_form){
                 //Do Nothing. 
@@ -1303,11 +1296,6 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_volume_term_strong(
                     metric_cofactor,
                     conv_ref_flux);
             }
-            //transform the dissipative flux to reference space
-            metric_oper.transform_physical_to_reference(
-                diffusive_phys_flux[istate],
-                metric_cofactor,
-                diffusive_ref_flux);
 
             //Write the data in a way that we can use sum-factorization on.
             //Since sum-factorization improves the speed for matrix-vector multiplications,
@@ -1316,7 +1304,6 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_volume_term_strong(
                 //allocate
                 if(iquad == 0){
                     conv_ref_flux_at_q[istate][idim].resize(n_quad_pts);
-                    diffusive_ref_flux_at_q[istate][idim].resize(n_quad_pts);
                 }
                 //write data
                 if (this->all_parameters->use_split_form || this->all_parameters->use_curvilinear_split_form){
@@ -1325,9 +1312,8 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_volume_term_strong(
                 else{
                     conv_ref_flux_at_q[istate][idim][iquad] = conv_ref_flux[idim];
                 }
-
-                diffusive_ref_flux_at_q[istate][idim][iquad] = diffusive_ref_flux[idim];
             }
+
             if(this->all_parameters->manufactured_convergence_study_param.manufactured_solution_param.use_manufactured_source_term) {
                 if(iquad == 0){
                     source_at_q[istate].resize(n_quad_pts);
@@ -1363,7 +1349,6 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_volume_term_strong(
 
         //Compute reference divergence of the reference fluxes.
         std::vector<adtype> conv_flux_divergence(n_quad_pts); 
-        std::vector<adtype> diffusive_flux_divergence(n_quad_pts); 
 
         if (this->all_parameters->use_split_form || this->all_parameters->use_curvilinear_split_form){
             //2pt flux Hadamard Product, and then multiply by vector of ones scaled by 1.
@@ -1392,11 +1377,6 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_volume_term_strong(
                                                         flux_basis.oneD_vol_operator,
                                                         flux_basis.oneD_grad_operator);
         }
-        //Reference divergence of the reference diffusive flux.
-        flux_basis.divergence_matrix_vector_mult_1D(diffusive_ref_flux_at_q[istate], diffusive_flux_divergence,
-                                                    flux_basis.oneD_vol_operator,
-                                                    flux_basis.oneD_grad_operator);
-
 
         // Strong form
         // The right-hand side sends all the term to the side of the source term
@@ -1416,11 +1396,6 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_volume_term_strong(
         else {
             soln_basis.inner_product_1D(conv_flux_divergence, vol_quad_weights, rhs, soln_basis.oneD_vol_operator, false, -1.0);
         }
-
-        // Diffusive
-        // Note that for diffusion, the negative is defined in the physics. Since we used the auxiliary
-        // variable, put a negative here.
-        soln_basis.inner_product_1D(diffusive_flux_divergence, vol_quad_weights, rhs, soln_basis.oneD_vol_operator, true, -1.0);
 
         // Manufactured source
         if(this->all_parameters->manufactured_convergence_study_param.manufactured_solution_param.use_manufactured_source_term) {
@@ -1616,9 +1591,9 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_volume_term_viscous_p
     const Physics::PhysicsBase<dim, nstate, adtype> &pde_physics,
     std::vector<adtype>     &vol_term_viscous) const
 {
+    vol_term_viscous.reinit(n_dofs_cell);   
     if(this->all_parameters->use_viscous_br2_entropystable)
     {
-        vol_term_viscous.reinit(n_dofs_cell);   
         EntropyStable_viscousBR2<dim,nspecies,nstate,real,MeshType>().assemble_volume_term_entropystable_br2(
         poly_degree,
         entropy_var_coeff,
@@ -1636,6 +1611,73 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_volume_term_viscous_p
     }
     else
     {
+        std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> diffusive_ref_flux_at_q;
+        for (unsigned int iquad=0; iquad<n_quad_pts; ++iquad)
+        {
+            for(int istate=0; istate<nstate; istate++){
+                soln_state[istate] = soln_at_q[istate][iquad];
+                if(this->do_compute_filtered_solution) filtered_soln_state[istate] = legendre_soln_at_q[istate][iquad];
+                for(int idim=0; idim<dim; idim++){
+                    aux_soln_state[istate][idim] = aux_soln_at_q[istate][idim][iquad];
+                    if(this->do_compute_filtered_solution) filtered_aux_soln_state[istate][idim] = legendre_aux_soln_at_q[istate][idim][iquad];
+                }
+            }
+
+            dealii::Tensor<2,dim,adtype> metric_cofactor;
+            for(int idim=0; idim<dim; idim++){
+                for(int jdim=0; jdim<dim; jdim++){
+                    metric_cofactor[idim][jdim] = metric_oper.metric_cofactor_vol[idim][jdim][iquad];
+                }
+            }
+
+            if (this->all_parameters->use_split_form || this->all_parameters->use_curvilinear_split_form){
+                //get the soln for iquad from projected entropy variables
+                std::array<adtype,nstate> entropy_var;
+                for(int istate=0; istate<nstate; istate++){
+                    entropy_var[istate] = entropy_var_at_q[istate][iquad];
+                }
+                soln_state = pde_physics.compute_conservative_variables_from_entropy_variables (entropy_var);
+            }
+        
+            //Diffusion
+            std::array<dealii::Tensor<1,dim,adtype>,nstate> diffusive_phys_flux;
+            //Compute the physical dissipative flux
+            diffusive_phys_flux = pde_physics.dissipative_flux(soln_state, aux_soln_state, filtered_soln_state, filtered_aux_soln_state, current_cell_index);
+            for(int istate=0; istate<nstate; istate++){
+                dealii::Tensor<1,dim,adtype> diffusive_ref_flux;
+                //transform the dissipative flux to reference space
+                metric_oper.transform_physical_to_reference(
+                diffusive_phys_flux[istate],
+                metric_cofactor,
+                diffusive_ref_flux);
+                
+                for(int idim=0; idim<dim; idim++){
+                    //allocate
+                    if(iquad == 0){
+                        diffusive_ref_flux_at_q[istate][idim].resize(n_quad_pts);
+                    }
+                    diffusive_ref_flux_at_q[istate][idim][iquad] = diffusive_ref_flux[idim];
+                }
+            } //istate loop ends
+        } // quad loop ends
+             
+        for(int istate=0; istate<nstate; istate++){
+            std::vector<adtype> diffusive_flux_divergence(n_quad_pts);             
+        
+             //Reference divergence of the reference diffusive flux.
+            flux_basis.divergence_matrix_vector_mult_1D(diffusive_ref_flux_at_q[istate], diffusive_flux_divergence,
+                                                        flux_basis.oneD_vol_operator,
+                                                        flux_basis.oneD_grad_operator);
+            // Diffusive
+            // Note that for diffusion, the negative is defined in the physics. Since we used the auxiliary
+            // variable, put a negative here.
+            std::vector<adtype> rhs(n_shape_fns);
+            soln_basis.inner_product_1D(diffusive_flux_divergence, vol_quad_weights, rhs, soln_basis.oneD_vol_operator, false, -1.0);
+            for(unsigned int ishape = 0; ishape<n_shape_fns; ++ishape)
+            {
+                vol_term_viscous[istate*n_shape_fns+ishape] = rhs[ishape];
+            }
+        }
     }
 }
 
