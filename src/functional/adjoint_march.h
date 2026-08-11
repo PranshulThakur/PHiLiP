@@ -39,7 +39,7 @@ class AdjointMarch
     std::array< std::array<VectorType,n_subspace_vectors+1>, n_rk_stages> lambda_rk;
     std::array< std::array<VectorType,n_subspace_vectors+1>, n_rk_stages> lambda_tilde_rk;
     
-    static const int n_soln_steps_stored = 20000;
+    static const int n_soln_steps_stored = 10000;
     std::array<VectorType,n_soln_steps_stored+1> soln_stored;
     double T_solnstored_start = 0.0;
     double T_solnstored_end = 0.0;

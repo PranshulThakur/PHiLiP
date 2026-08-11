@@ -133,7 +133,7 @@ void NACA0012<dim, nstate>::compute_unsteady_data_and_write_to_table(
     // Compute aerodynamic values
     const double lift = 0.0; //this->compute_lift(dg);
     const double drag = this->compute_drag(dg);
-    if(current_time>400.0)
+    if(current_time>500.0)
     {
         functional_sum += drag;
         countval_functional++;

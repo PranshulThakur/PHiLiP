@@ -75,14 +75,14 @@ end
 subsection flow_solver
   set flow_case_type = naca0012
   set poly_degree = 2
-  set final_time = 8000.0
+  set final_time = 4000.0
   set end_exactly_at_final_time = false
   set constant_time_step = 0.05
   set steady_state = false
   set output_restart_files = true
   set restart_files_directory_name = restart_files
-  set output_restart_files_every_x_steps = 20000
-  set run_flow_solver = false
+  set output_restart_files_every_x_steps = 10000
+  set run_flow_solver = true
   set use_adjoint_restart_files = false
   set functional_average = 0
   set adjoint_restart_time = 1.0 

@@ -289,20 +289,41 @@ void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
 compute_Y_terminal(std::array< VectorType, n_subspace_vectors> &Y_terminal) 
 {
     std::array< VectorType, n_subspace_vectors+1> Y_augmented;
+    for(unsigned int s=0; s<n_subspace_vectors+1; ++s)
+    {
+        Y_augmented[s].reinit(dg->solution);
+    }
+
     get_solution_at_time(T+T_extra);
     dg->assemble_residual();
     Y_augmented[0] = dg->right_hand_side;
     dg->global_inverse_mass_matrix.vmult(Y_augmented[0],dg->right_hand_side);
-    for(unsigned int i=1; i<n_subspace_vectors+1; ++i)
-    {
-        Y_augmented[i].reinit(dg->solution);
-        Y_augmented[i]*= 0;
+    
+    // 1. Seed with a hardware random device
+    std::random_device rd; 
+    
+    // 2. Initialize the standard C++20 Mersenne Twister engine
+    std::mt19937 gen(rd()); 
+    
+    // 3. Define the continuous uniform distribution [0.01, 1.0)
+    std::uniform_real_distribution<double> dist(0.01, 1.0); 
+    const unsigned int dofs_per_cell = dg->fe_collection[dg->max_degree].dofs_per_cell;
+    std::vector<dealii::types::global_dof_index> dofs_indices (dofs_per_cell);
 
-        if(Y_augmented[i].locally_owned_elements().is_element(i-1))
+    for (auto cell = dg->dof_handler.begin_active(); cell!=dg->dof_handler.end(); ++cell) 
+    {
+        if (!cell->is_locally_owned()) continue;
+
+        cell->get_dof_indices (dofs_indices);
+        for(unsigned int idof = 0; idof<dofs_per_cell; ++idof)
         {
-            Y_augmented[i][i-1] = 1.0;
+            for(unsigned int s=1; s<n_subspace_vectors+1; ++s)
+            {
+                Y_augmented[s][dofs_indices[idof]] = dist(gen); //random number
+            }
         }
     }
+
     for(unsigned int i=0; i<n_subspace_vectors+1; ++i)
     {
         Y_augmented[i].update_ghost_values();
@@ -356,17 +377,6 @@ template <int dim, int nstate, int n_subspace_vectors, typename MeshType>
 void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
 compute_v_terminal(VectorType &v_terminal)
 { 
-    /*
-    const unsigned int m_T = T/dt;
-    std::vector<double> j_vals(m_T+1);
-    for(unsigned int i=0; i<m_T+1; ++i)
-    {
-        const double current_time = i*dt;
-        get_solution_at_time(current_time);
-        j_vals[i] = functional->evaluate_functional();
-    }
-    const double j_bar = 1.0/T * simpson_integration(j_vals,m_T,dt);
-    */
     get_solution_at_time(T);
     const double j_val_T = functional->evaluate_functional(); 
     dg->assemble_residual();
@@ -503,7 +513,7 @@ compute_R_b_d_h_Jc_vecs()
         }
         b_vec[i-1] = b;
 
-        if( ( ( (int)((i-1)*delT) ) % 5 ) == 0 )
+        if( ( ( (int)((i-1)*delT) ) % 200 ) == 0 )
         {
             output_adjoint_restarts(Q,v,(i-1)*delT);
         }
@@ -534,34 +544,37 @@ output_adjoint_restarts(const std::array<VectorType,n_subspace_vectors> & Q,
                         const VectorType &v, 
                         const double current_time) const
 {
-    std::ofstream cout_R("restart_files/R_vec_T" + std::to_string(current_time)  + ".txt"); dealii::ConditionalOStream pcout_R(cout_R, dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0);
-    std::ofstream cout_b("restart_files/b_vec_T" + std::to_string(current_time)  + ".txt"); dealii::ConditionalOStream pcout_b(cout_b, dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0);
-    std::ofstream cout_d("restart_files/d_vec_T" + std::to_string(current_time)  + ".txt"); dealii::ConditionalOStream pcout_d(cout_d, dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0);
-    std::ofstream cout_h("restart_files/h_vec_T" + std::to_string(current_time)  + ".txt"); dealii::ConditionalOStream pcout_h(cout_h, dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0);
-    std::ofstream cout_J_c("restart_files/integral_J_c_T" + std::to_string(current_time)  + ".txt"); dealii::ConditionalOStream pcout_J_c(cout_J_c, dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0);
-
-    int index_end = std::round(current_time/delT);
-    for(int i=K; i>index_end; --i)
+    if(dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD)==0)
     {
-        // Write R, b, integral_jc, integral_h and integrals_d to file.
-        for(unsigned int k1=0; k1<n_subspace_vectors; ++k1)
+        std::ofstream cout_R("restart_files/R_vec_T" + std::to_string(current_time)  + ".txt"); 
+        std::ofstream cout_b("restart_files/b_vec_T" + std::to_string(current_time)  + ".txt"); 
+        std::ofstream cout_d("restart_files/d_vec_T" + std::to_string(current_time)  + ".txt"); 
+        std::ofstream cout_h("restart_files/h_vec_T" + std::to_string(current_time)  + ".txt"); 
+        std::ofstream cout_J_c("restart_files/integral_J_c_T" + std::to_string(current_time)  + ".txt"); 
+
+        int index_end = std::round(current_time/delT);
+        for(int i=K; i>index_end; --i)
         {
-            for(unsigned int k2 = 0; k2<n_subspace_vectors; ++k2)
+            // Write R, b, integral_jc, integral_h and integrals_d to file.
+            for(unsigned int k1=0; k1<n_subspace_vectors; ++k1)
             {
-                pcout_R<<std::setprecision(16)<<R_vec[i-1][k1][k2]<<std::endl;
+                for(unsigned int k2 = 0; k2<n_subspace_vectors; ++k2)
+                {
+                    cout_R<<std::setprecision(16)<<R_vec[i-1][k1][k2]<<std::endl;
+                }
+                cout_b<<std::setprecision(16)<<b_vec[i-1][k1]<<std::endl;
+                cout_d<<std::setprecision(16)<<d_vec[i-1][k1]<<std::endl;
             }
-            pcout_b<<std::setprecision(16)<<b_vec[i-1][k1]<<std::endl;
-            pcout_d<<std::setprecision(16)<<d_vec[i-1][k1]<<std::endl;
+            cout_J_c<<std::setprecision(16)<<integral_jc_vec[i-1]<<std::endl;
+            cout_h<<std::setprecision(16)<<h_vec[i-1]<<std::endl;        
         }
-        pcout_J_c<<std::setprecision(16)<<integral_jc_vec[i-1]<<std::endl;
-        pcout_h<<std::setprecision(16)<<h_vec[i-1]<<std::endl;        
+        
+        cout_R.close(); 
+        cout_b.close(); 
+        cout_d.close(); 
+        cout_h.close(); 
+        cout_J_c.close();
     }
-    
-    cout_R.close(); 
-    cout_b.close(); 
-    cout_d.close(); 
-    cout_h.close(); 
-    cout_J_c.close(); 
     
     #if PHILIP_DIM > 1
     for(unsigned int k=0; k<n_subspace_vectors;++k)
