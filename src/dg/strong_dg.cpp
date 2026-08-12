@@ -1106,10 +1106,12 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_volume_term_strong(
     //get entropy projected variables
     std::array<std::vector<adtype>,nstate> entropy_var_at_q;
     std::array<std::vector<adtype>,nstate> projected_entropy_var_at_q;
+    std::array<std::vector<adtype>,nstate> entropy_var_coeffs;
     if (this->all_parameters->use_split_form || this->all_parameters->use_curvilinear_split_form){
         for(int istate=0; istate<nstate; istate++){
             entropy_var_at_q[istate].resize(n_quad_pts);
             projected_entropy_var_at_q[istate].resize(n_quad_pts);
+            entropy_var_coeffs[istate].resize(n_shape_fns);
         }
         for(unsigned int iquad=0; iquad<n_quad_pts; iquad++){
             std::array<adtype,nstate> soln_state;
@@ -1123,11 +1125,10 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_volume_term_strong(
             }
         }
         for(int istate=0; istate<nstate; istate++){
-            std::vector<adtype> entropy_var_coeff(n_shape_fns);;
             soln_basis_projection_oper.matrix_vector_mult_1D(entropy_var_at_q[istate],
-                                                             entropy_var_coeff,
+                                                             entropy_var_coeffs[istate],
                                                              soln_basis_projection_oper.oneD_vol_operator);
-            soln_basis.matrix_vector_mult_1D(entropy_var_coeff,
+            soln_basis.matrix_vector_mult_1D(entropy_var_coeffs[istate],
                                              projected_entropy_var_at_q[istate],
                                              soln_basis.oneD_vol_operator);
         }
@@ -1163,16 +1164,8 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_volume_term_strong(
     for (unsigned int iquad=0; iquad<n_quad_pts; ++iquad) {
         //extract soln and auxiliary soln at quad pt to be used in physics
         std::array<adtype,nstate> soln_state;
-        std::array<dealii::Tensor<1,dim,adtype>,nstate> aux_soln_state;
-        std::array<adtype,nstate> filtered_soln_state;
-        std::array<dealii::Tensor<1,dim,adtype>,nstate> filtered_aux_soln_state;
         for(int istate=0; istate<nstate; istate++){
             soln_state[istate] = soln_at_q[istate][iquad];
-            if(this->do_compute_filtered_solution) filtered_soln_state[istate] = legendre_soln_at_q[istate][iquad];
-            for(int idim=0; idim<dim; idim++){
-                aux_soln_state[istate][idim] = aux_soln_at_q[istate][idim][iquad];
-                if(this->do_compute_filtered_solution) filtered_aux_soln_state[istate][idim] = legendre_aux_soln_at_q[istate][idim][iquad];
-            }
         }
 
         // Copy Metric Cofactor in a way can use for transforming Tensor Blocks to reference space
@@ -1422,6 +1415,29 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_volume_term_strong(
         }
 
     }
+    
+    std::vector<adtype> viscous_rhs_vol;
+    assemble_volume_term_viscous_primal(
+    current_cell_index,
+    soln_at_q,
+    aux_soln_at_q,
+    legendre_soln_at_q,
+    legendre_aux_soln_at_q,
+    poly_degree,
+    soln_basis,
+    flux_basis,
+    metric_oper,
+    entropy_var_coeffs,
+    projected_entropy_var_at_q,
+    n_quad_pts,
+    n_dofs_cell,
+    pde_physics,
+    viscous_rhs_vol);
+
+    for(unsigned int idof = 0; idof<n_dofs_cell; ++idof)
+    {
+        local_rhs_int_cell[idof] += viscous_rhs_vol[idof];
+    }
 }
     
 template <int dim, int nspecies, int nstate, typename real, typename MeshType>
@@ -1578,8 +1594,11 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::compute_filtered_solution_volu
 template <int dim, int nspecies, int nstate, typename real, typename MeshType>
 template <typename adtype>
 void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_volume_term_viscous_primal(
-    const std::array<std::vector<adtype>,nstate>  &soln_coeff,
-    const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &aux_soln_coeff,
+    const dealii::types::global_dof_index                              current_cell_index,
+    const std::array<std::vector<adtype>,nstate> &soln_at_q,
+    const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &aux_soln_at_q,
+    const std::array<std::vector<adtype>,nstate> &legendre_soln_at_q,
+    const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &legendre_aux_soln_at_q,
     const unsigned int                            poly_degree,
     OPERATOR::basis_functions<dim,2*dim>          &soln_basis,
     OPERATOR::basis_functions<dim,2*dim>          &flux_basis,
@@ -1611,9 +1630,14 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_volume_term_viscous_p
     }
     else
     {
+        const std::vector<double> &vol_quad_weights = this->volume_quadrature_collection[poly_degree].get_weights();
         std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> diffusive_ref_flux_at_q;
         for (unsigned int iquad=0; iquad<n_quad_pts; ++iquad)
         {
+            std::array<adtype,nstate> soln_state;
+            std::array<dealii::Tensor<1,dim,adtype>,nstate> aux_soln_state;
+            std::array<adtype,nstate> filtered_soln_state;
+            std::array<dealii::Tensor<1,dim,adtype>,nstate> filtered_aux_soln_state;
             for(int istate=0; istate<nstate; istate++){
                 soln_state[istate] = soln_at_q[istate][iquad];
                 if(this->do_compute_filtered_solution) filtered_soln_state[istate] = legendre_soln_at_q[istate][iquad];
@@ -1953,22 +1977,23 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_boundary_term_strong(
     //project it onto the solution basis functions and interpolate it
     std::array<std::vector<adtype>,nstate> projected_entropy_var_vol;
     std::array<std::vector<adtype>,nstate> projected_entropy_var_surf;
+    std::array<std::vector<adtype>,nstate> entropy_var_coeffs;
     for(int istate=0; istate<nstate; istate++){
         // allocate
         projected_entropy_var_vol[istate].resize(n_quad_pts_vol);
         projected_entropy_var_surf[istate].resize(n_face_quad_pts);
+        entropy_var_coeffs[istate].resize(n_shape_fns);
 
         //interior
-        std::vector<adtype> entropy_var_coeff(n_shape_fns);
         soln_basis_projection_oper.matrix_vector_mult_1D(entropy_var_vol[istate],
-                                                         entropy_var_coeff,
+                                                         entropy_var_coeffs[istate],
                                                          soln_basis_projection_oper.oneD_vol_operator);
-        soln_basis.matrix_vector_mult_1D(entropy_var_coeff,
+        soln_basis.matrix_vector_mult_1D(entropy_var_coeffs[istate],
                                          projected_entropy_var_vol[istate],
                                          soln_basis.oneD_vol_operator);
         soln_basis.matrix_vector_mult_surface_1D(face_orientation, 
                                                  iface,
-                                                 entropy_var_coeff, 
+                                                 entropy_var_coeffs[istate], 
                                                  projected_entropy_var_surf[istate],
                                                  soln_basis.oneD_surf_operator,
                                                  soln_basis.oneD_vol_operator);
@@ -2099,8 +2124,10 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_boundary_term_strong(
     }//end of if split form or curvilinear split form
 
 
-    //the outward reference normal dircetion.
+    //the outward reference normal direction.
     std::array<std::vector<adtype>,nstate> conv_flux_dot_normal;
+    std::vector<dealii::Tensor<1,dim,adtype>> unit_phys_normals(n_face_quad_pts);
+    std::vector<adtype> JxW_face(n_face_quad_pts);
     // Get surface numerical fluxes
     for (unsigned int iquad=0; iquad<n_face_quad_pts; ++iquad) {
         // Copy Metric Cofactor on the facet in a way can use for transforming Tensor Blocks to reference space
@@ -2124,7 +2151,9 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_boundary_term_strong(
             face_Jac_norm_scaled += unit_phys_normal_int[idim] * unit_phys_normal_int[idim];
         }
         face_Jac_norm_scaled = sqrt(face_Jac_norm_scaled);
+        JxW_face[iquad] = face_Jac_norm_scaled*face_quad_weights[iquad];
         unit_phys_normal_int /= face_Jac_norm_scaled;//normalize it. 
+        unit_phys_normals[iquad] = unit_phys_normal_int;
 
         //get the projected entropy variables, soln, and 
         //auxiliary solution on the surface point.
@@ -2132,14 +2161,12 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_boundary_term_strong(
         std::array<dealii::Tensor<1,dim,adtype>,nstate> aux_soln_state;
         std::array<adtype,nstate> soln_interp_to_face;
         std::array<adtype,nstate> soln_state;
-        std::array<adtype,nstate> opposite_surf_soln_state;
         std::array<adtype,nstate> filtered_soln_state;
         std::array<dealii::Tensor<1,dim,adtype>,nstate> filtered_aux_soln_state;
         for(int istate=0; istate<nstate; istate++){
             soln_interp_to_face[istate] = soln_at_surf_q[istate][iquad];
             soln_state[istate] = soln_interp_to_face[istate]; // initialize as solution interpolated to face
             entropy_var_face[istate] = projected_entropy_var_surf[istate][iquad];
-            if(this->using_wall_model && (boundary_id == 1001)) opposite_surf_soln_state[istate] = soln_at_opposite_surf_q[istate][iquad];
             if(this->do_compute_filtered_solution) filtered_soln_state[istate] = legendre_soln_at_surf_q[istate][iquad];
             for(int idim=0; idim<dim; idim++){
                 aux_soln_state[istate][idim] = aux_soln_at_surf_q[istate][idim][iquad];
@@ -2218,17 +2245,75 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_boundary_term_strong(
             local_rhs_cell[istate*n_shape_fns + ishape] += rhs[ishape];
         }
     }
+    
+    std::vector<adtype> boundary_term_viscous;
+    assemble_boundary_term_viscous_primal(
+        current_cell_index,
+        face_orientation,
+        iface,
+        boundary_id,
+        poly_degree,
+        entropy_var_coeffs,
+        projected_entropy_var_vol,
+        projected_entropy_var_surf,
+        soln_at_vol_q,
+        aux_soln_at_vol_q,
+        soln_at_surf_q,
+        aux_soln_at_surf_q,
+        soln_at_opposite_surf_q.
+        legendre_soln_at_vol_q,
+        legendre_aux_soln_at_vol_q,
+        legendre_soln_at_surf_q,
+        legendre_aux_soln_at_surf_q,
+        n_vol_quad_pts,  
+        n_face_quad_pts,  
+        n_dofs, 
+        soln_basis,
+        flux_basis,
+        metric_oper,
+        unit_phys_normals,
+        JxW_face,
+        pde_physics,
+        diss_num_flux,
+        boundary_term_viscous);
+
+    for(unsigned int idof=0; idof<n_dofs; ++idof)
+    {
+        local_rhs_cell[idof]+= boundary_term_viscous[idof];
+    }
 }
 
 template <int dim, int nspecies, int nstate, typename real, typename MeshType>
 template <typename adtype>
 void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_boundary_term_viscous_primal(
-        const std::array<std::vector<adtype>,nstate>  &soln_coeff,
-        const unsigned int                            poly_degree,
-        OPERATOR::basis_functions<dim,2*dim>          &soln_basis,
-        OPERATOR::basis_functions<dim,2*dim>          &flux_basis,
-        OPERATOR::metric_operators<adtype,dim,2*dim>  &metric_oper,
-        dealii::Tensor<1,dim,std::vector<adtype>>     &local_auxiliary_RHS)
+    const dealii::types::global_dof_index                              current_cell_index,
+    std::vector<bool>                                                  face_orientation,
+    const unsigned int                                                 iface,
+    const unsigned int                                                 boundary_id,
+    const unsigned int                                                 poly_degree,
+    const std::array<std::vector<adtype>,nstate>                       &entropy_var_coeff,
+    const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_vol_quads,
+    const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_surf_quads,
+    const std::array<std::vector<adtype>,nstate>                       &soln_at_vol_q,
+    const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &aux_soln_at_vol_q,
+    const std::array<std::vector<adtype>,nstate>                       &soln_at_surf_q,
+    const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &aux_soln_at_surf_q,
+    const std::array<std::vector<adtype>,nstate>                       &soln_at_opposite_surf_q.
+    const std::array<std::vector<adtype>,nstate>                       &legendre_soln_at_vol_q,
+    const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &legendre_aux_soln_at_vol_q,
+    const std::array<std::vector<adtype>,nstate>                       &legendre_soln_at_surf_q,
+    const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &legendre_aux_soln_at_surf_q,
+    const unsigned int                                                 n_vol_quad_pts,  
+    const unsigned int                                                 n_face_quad_pts,  
+    const unsigned int                                                 n_dofs_cell, 
+    OPERATOR::basis_functions<dim,2*dim>                               &soln_basis,
+    OPERATOR::basis_functions<dim,2*dim>                               &flux_basis,
+    OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper,
+    const std::vector<dealii::Tensor<1,dim,adtype>>                    &unit_phys_normals,
+    const std::vector<adtype>                                          &JxW_face,
+    const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
+    const NumericalFlux::NumericalFluxDissipative<dim, nspecies, nstate, adtype> &diss_num_flux,
+    std::vector<adtype>                                                &boundary_term_viscous) const
 {
     boundary_term_viscous.reinit(n_dofs_cell);   
     
@@ -2259,6 +2344,8 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_boundary_term_viscous
     }
     else
     {
+        const unsigned int n_shape_fns = n_dofs_cell / nstate; 
+        const std::vector<double> &face_quad_weights = this->face_quadrature_collection[poly_degree].get_weights();
         std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> diffusive_ref_flux_at_vol_q;
         for (unsigned int iquad=0; iquad<n_quad_pts_vol; ++iquad) {
             // Copy Metric Cofactor in a way can use for transforming Tensor Blocks to reference space
@@ -2338,7 +2425,7 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_boundary_term_viscous
             for(int istate=0; istate<nstate; istate++){
                 soln_interp_to_face[istate] = soln_at_surf_q[istate][iquad];
                 soln_state[istate] = soln_interp_to_face[istate]; // initialize as solution interpolated to face
-                entropy_var_face[istate] = projected_entropy_var_surf[istate][iquad];
+                entropy_var_face[istate] = entropy_var_at_surf_quads[istate][iquad];
                 if(this->using_wall_model && (boundary_id == 1001)) opposite_surf_soln_state[istate] = soln_at_opposite_surf_q[istate][iquad];
                 if(this->do_compute_filtered_solution) filtered_soln_state[istate] = legendre_soln_at_surf_q[istate][iquad];
                 for(int idim=0; idim<dim; idim++){
@@ -2361,7 +2448,7 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_boundary_term_viscous
             }
             
             // Dissipative numerical flux
-            pde_physics.boundary_face_values_viscous_flux (boundary_id, surf_flux_node, unit_phys_normal_int, soln_state, aux_soln_state, filtered_soln_state, filtered_aux_soln_state, soln_boundary, grad_soln_boundary);
+            pde_physics.boundary_face_values_viscous_flux (boundary_id, surf_flux_node, unit_phys_normals[iquad], soln_state, aux_soln_state, filtered_soln_state, filtered_aux_soln_state, soln_boundary, grad_soln_boundary);
             std::array<adtype,nstate> diss_auxi_num_flux_dot_n_at_q;
             if(this->using_wall_model && (boundary_id == 1001)) {
                 diss_auxi_num_flux_dot_n_at_q = pde_physics.dissipative_flux_dot_normal(
@@ -2369,7 +2456,7 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_boundary_term_viscous
                     filtered_soln_state, filtered_aux_soln_state,
                     true, // on_boundary == true
                     current_cell_index, 
-                    unit_phys_normal_int,
+                    unit_phys_normals[iquad],
                     boundary_id);
             } else {
                 diss_auxi_num_flux_dot_n_at_q = diss_num_flux.evaluate_auxiliary_flux(
@@ -2379,7 +2466,7 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_boundary_term_viscous
                     aux_soln_state, grad_soln_boundary,
                     filtered_soln_state, soln_boundary,
                     filtered_aux_soln_state, grad_soln_boundary,
-                    unit_phys_normal_int, penalty, true, boundary_id);
+                    unit_phys_normals[iquad], penalty, true, boundary_id);
             }
             for(int istate=0; istate<nstate; istate++){
                 // allocate
@@ -2387,6 +2474,7 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_boundary_term_viscous
                     diss_flux_dot_normal_diff[istate].resize(n_face_quad_pts);
                 }
                 // write data
+                const adtype face_Jac_norm_scaled = JxW_face[iquad]/face_quad_weights[iquad];
                 diss_flux_dot_normal_diff[istate][iquad] = face_Jac_norm_scaled * diss_auxi_num_flux_dot_n_at_q[istate]
                                                          - diffusive_int_vol_ref_flux_interp_to_face_dot_ref_normal[istate][iquad];
             }
@@ -2669,6 +2757,7 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_face_term_strong(
 {
 
     const unsigned int n_face_quad_pts = this->face_quadrature_collection[poly_degree_int].size();//assume interior cell does the work
+    const std::vector<double> &surf_quad_weights = this->face_quadrature_collection[poly_degree_int].get_weights();
 
     const unsigned int n_quad_pts_vol_int  = this->volume_quadrature_collection[poly_degree_int].size();
     const unsigned int n_quad_pts_vol_ext  = this->volume_quadrature_collection[poly_degree_ext].size();
@@ -2995,6 +3084,9 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_face_term_strong(
     std::array<std::vector<adtype>,nstate> projected_entropy_var_surf_ext;
     std::array<std::vector<adtype>,nstate> projected_entropy_var_surf_int_corrected; //To be corrected for face orientation. Needed for numerical flux when using split form
     std::array<std::vector<adtype>,nstate> projected_entropy_var_surf_ext_corrected; //To be corrected for face orientation. Needed for numerical flux when using split form
+    std::array<std::vector<adtype>,nstate> entropy_var_coeffs_int;
+    std::array<std::vector<adtype>,nstate> entropy_var_coeffs_ext;
+
     for(int istate=0; istate<nstate; istate++){
         // allocate
         projected_entropy_var_vol_int[istate].resize(n_quad_pts_vol_int);
@@ -3003,48 +3095,48 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_face_term_strong(
         projected_entropy_var_surf_ext[istate].resize(n_face_quad_pts);
         projected_entropy_var_surf_int_corrected[istate].resize(n_face_quad_pts);
         projected_entropy_var_surf_ext_corrected[istate].resize(n_face_quad_pts);
+        entropy_var_coeffs_int[istate].resize(n_shape_fns_int);
+        entropy_var_coeffs_ext[istate].resize(n_shape_fns_ext);
 
         //interior
-        std::vector<adtype> entropy_var_coeff_int(n_shape_fns_int);
         soln_basis_projection_oper_int.matrix_vector_mult_1D(entropy_var_vol_int[istate],
-                                                             entropy_var_coeff_int,
+                                                             entropy_var_coeffs_int[istate],
                                                              soln_basis_projection_oper_int.oneD_vol_operator);
-        soln_basis_int.matrix_vector_mult_1D(entropy_var_coeff_int,
+        soln_basis_int.matrix_vector_mult_1D(entropy_var_coeffs_int[istate],
                                              projected_entropy_var_vol_int[istate],
                                              soln_basis_int.oneD_vol_operator);
         soln_basis_int.matrix_vector_mult_surface_1D({true,false,false}, 
                                                      iface,
-                                                     entropy_var_coeff_int, 
+                                                     entropy_var_coeffs_int[istate], 
                                                      projected_entropy_var_surf_int[istate],
                                                      soln_basis_int.oneD_surf_operator,
                                                      soln_basis_int.oneD_vol_operator);
 
         soln_basis_int.matrix_vector_mult_surface_1D(face_orientation_int, 
                                                     iface,
-                                                    entropy_var_coeff_int, 
+                                                    entropy_var_coeffs_int[istate], 
                                                     projected_entropy_var_surf_int_corrected[istate],
                                                     soln_basis_int.oneD_surf_operator,
                                                     soln_basis_int.oneD_vol_operator);
 
         //exterior
-        std::vector<adtype> entropy_var_coeff_ext(n_shape_fns_ext);
         soln_basis_projection_oper_ext.matrix_vector_mult_1D(entropy_var_vol_ext[istate],
-                                                             entropy_var_coeff_ext,
+                                                             entropy_var_coeffs_ext[istate],
                                                              soln_basis_projection_oper_ext.oneD_vol_operator);
 
-        soln_basis_ext.matrix_vector_mult_1D(entropy_var_coeff_ext,
+        soln_basis_ext.matrix_vector_mult_1D(entropy_var_coeffs_ext[istate],
                                              projected_entropy_var_vol_ext[istate],
                                              soln_basis_ext.oneD_vol_operator);
         soln_basis_ext.matrix_vector_mult_surface_1D({true,false,false}, 
                                                      neighbor_iface,
-                                                     entropy_var_coeff_ext, 
+                                                     entropy_var_coeffs_ext[istate], 
                                                      projected_entropy_var_surf_ext[istate],
                                                      soln_basis_ext.oneD_surf_operator,
                                                      soln_basis_ext.oneD_vol_operator);
 
         soln_basis_int.matrix_vector_mult_surface_1D(face_orientation_ext, 
                                                     neighbor_iface,
-                                                    entropy_var_coeff_ext, 
+                                                    entropy_var_coeffs_ext[istate], 
                                                     projected_entropy_var_surf_ext_corrected[istate],
                                                     soln_basis_int.oneD_surf_operator,
                                                     soln_basis_int.oneD_vol_operator);
@@ -3263,6 +3355,8 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_face_term_strong(
     // Evaluate reference numerical fluxes.
     
     std::array<std::vector<adtype>,nstate> conv_num_flux_dot_n;
+    std::vector<dealii::Tensor<1,dim,adtype>> unit_phys_normals_int(n_face_quad_pts);
+    std::vector<adtype> JxW_face(n_face_quad_pts);
     for (unsigned int iquad=0; iquad<n_face_quad_pts; ++iquad) {
         // Copy Metric Cofactor on the facet in a way can use for transforming Tensor Blocks to reference space
         // The way it is stored in metric_operators is to use sum-factorization in each direction,
@@ -3306,7 +3400,9 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_face_term_strong(
             face_Jac_norm_scaled += unit_phys_normal_int[idim] * unit_phys_normal_int[idim];
         }
         face_Jac_norm_scaled = sqrt(face_Jac_norm_scaled);
-        unit_phys_normal_int /= face_Jac_norm_scaled;//normalize it. 
+        JxW_face[iquad] = face_Jac_norm_scaled*surf_quad_weights[iquad];
+        unit_phys_normal_int /= face_Jac_norm_scaled;//normalize it.
+        unit_phys_normals_int[iquad] = unit_phys_normal_int;
         // Note that the facet determinant of metric jacobian is the above norm multiplied by the determinant of the metric Jacobian evaluated on the facet.
         // Since the determinant of the metric Jacobian evaluated on the face cancels off, we can just scale the numerical flux by the norm.
         std::array<adtype,nstate> conv_num_flux_dot_n_at_q;
@@ -3330,7 +3426,6 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_face_term_strong(
     }
 
     // Compute RHS
-    const std::vector<double> &surf_quad_weights = this->face_quadrature_collection[poly_degree_int].get_weights();
     for(int istate=0; istate<nstate; istate++){
         // interior RHS
         std::vector<adtype> rhs_int(n_shape_fns_int);
@@ -3415,20 +3510,121 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_face_term_strong(
             local_rhs_ext_cell[istate*n_shape_fns_ext + ishape] += rhs_ext[ishape];
         }
     }
+
+    std::vector<adtype> viscous_face_term_int;
+    std::vector<adtype> viscous_face_term_ext;
+    assemble_face_term_viscous_primal(
+        current_cell_index,
+        neighbor_cell_index,
+        face_orientation_int,
+        face_orientation_ext,
+        iface,
+        neighbor_iface,
+        entropy_var_coeffs_int,
+        entropy_var_coeffs_ext,
+        projected_entropy_var_vol_int,
+        projected_entropy_var_vol_ext,
+        projected_entropy_var_surf_int_corrected,
+        projected_entropy_var_surf_ext_corrected,
+        soln_at_vol_q_int.
+        soln_at_vol_q_ext,
+        aux_soln_at_vol_q_int,
+        aux_soln_at_vol_q_ext,
+        soln_at_surf_q_int,
+        soln_at_surf_q_ext,
+        aux_soln_at_surf_q_int,
+        aux_soln_at_surf_q_ext;
+        legendre_soln_at_vol_q_int,
+        legendre_aux_soln_at_vol_q_int,
+        legendre_soln_at_vol_q_ext,
+        legendre_aux_soln_at_vol_q_ext, 
+        legendre_soln_at_surf_q_int,
+        legendre_aux_soln_at_surf_q_int,
+        legendre_soln_at_surf_q_ext,
+        legendre_aux_soln_at_surf_q_ext,
+        unit_phys_normals_int,
+        JxW_face,
+        poly_degree_int,
+        poly_degree_ext,
+        n_quad_pts_vol_int,
+        n_quad_pts_vol_ext,
+        n_dofs_int,
+        n_dofs_ext,
+        n_face_quad_pts,
+        soln_basis_int,
+        soln_basis_ext,
+        flux_basis_int,
+        flux_basis_ext,
+        metric_oper_int,
+        metric_oper_ext,
+        pde_physics,
+        diss_num_flux,
+        viscous_face_term_int,
+        viscous_face_term_ext);
+
+    for(unsigned int idof=0; idof<n_dofs_int; ++idof)
+    {
+        local_rhs_int_cell[idof] += viscous_face_term_int[idof];
+    }
+    for(unsigned int idof=0; idof<n_dofs_ext; ++idof)
+    {
+        local_rhs_ext_cell[idof] += viscous_face_term_ext[idof];
+    }
 }
 
 template <int dim, int nspecies, int nstate, typename real, typename MeshType>
 template <typename adtype>
 void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_face_term_viscous_primal(
-    const std::array<std::vector<adtype>,nstate>  &soln_coeff,
-    const unsigned int                            poly_degree,
-    OPERATOR::basis_functions<dim,2*dim>          &soln_basis,
-    OPERATOR::basis_functions<dim,2*dim>          &flux_basis,
-    OPERATOR::metric_operators<adtype,dim,2*dim>  &metric_oper,
-    dealii::Tensor<1,dim,std::vector<adtype>>     &local_auxiliary_RHS)
+    const dealii::types::global_dof_index                              current_cell_index,
+    const dealii::types::global_dof_index                              neighbor_cell_index,
+    std::vector<bool>                                                  face_orientation_int,
+    std::vector<bool>                                                  face_orientation_ext,
+    const unsigned int                                                 iface_int,
+    const unsigned int                                                 iface_ext,
+    const std::array<std::vector<adtype>,nstate>                       &entropy_var_coeff_int,
+    const std::array<std::vector<adtype>,nstate>                       &entropy_var_coeff_ext,
+    const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_vol_int,
+    const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_vol_ext,
+    const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_surf_int,
+    const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_surf_ext,
+    const std::array<std::vector<adtype>,nstate>                       &soln_at_vol_q_int.
+    const std::array<std::vector<adtype>,nstate>                       &soln_at_vol_q_ext,
+    const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &aux_soln_at_vol_q_int,
+    const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &aux_soln_at_vol_q_ext,
+    const std::array<std::vector<adtype>,nstate>                       &soln_at_surf_q_int,
+    const std::array<std::vector<adtype>,nstate>                       &soln_at_surf_q_ext,
+    const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &aux_soln_at_surf_q_int,
+    const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &aux_soln_at_surf_q_ext;
+    const std::array<std::vector<adtype>,nstate>                       &legendre_soln_at_vol_q_int,
+    const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &legendre_aux_soln_at_vol_q_int,
+    const std::array<std::vector<adtype>,nstate>                       &legendre_soln_at_vol_q_ext,
+    const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &legendre_aux_soln_at_vol_q_ext, 
+    const std::array<std::vector<adtype>,nstate>                       &legendre_soln_at_surf_q_int,
+    const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &legendre_aux_soln_at_surf_q_int,
+    const std::array<std::vector<adtype>,nstate>                       &legendre_soln_at_surf_q_ext,
+    const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &legendre_aux_soln_at_surf_q_ext,
+    const std::vector<dealii::Tensor<1,dim,adtype>>                    &unit_phys_normal_int,
+    const std::vector<adtype>                                          &JxW_face,
+    const unsigned int                                                  poly_degree_int,
+    const unsigned int                                                  poly_degree_ext,
+    const unsigned int                                                  n_quad_pts_vol_int,
+    const unsigned int                                                  n_quad_pts_vol_ext,
+    const unsigned int                                                  n_dofs_cell_int,
+    const unsigned int                                                  n_dofs_cell_ext,
+    const unsigned int                                                  n_face_quad_pts,
+    OPERATOR::basis_functions<dim,2*dim>                               &soln_basis_int,
+    OPERATOR::basis_functions<dim,2*dim>                               &soln_basis_ext,
+    OPERATOR::basis_functions<dim,2*dim>                               &flux_basis_int,
+    OPERATOR::basis_functions<dim,2*dim>                               &flux_basis_ext,
+    OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper_int,
+    OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper_ext,
+    const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
+    const NumericalFlux::NumericalFluxDissipative<dim, nspecies, nstate, adtype> &diss_num_flux,
+    std::vector<adtype>                                                &viscous_face_term_int,
+    std::vector<adtype>                                                &viscous_face_term_ext) const
 {
-    face_term_int.resize(n_dofs_cell_int);
-    face_term_ext.resize(n_dofs_cell_ext);
+    viscous_face_term_int.resize(n_dofs_cell_int);
+    viscous_face_term_ext.resize(n_dofs_cell_ext);
     if(this->all_parameters->use_viscous_br2_entropystable)
     {
         EntropyStable_viscousBR2<dim,nspecies,nstate,real,MeshType>().assemble_face_term_entropystable_br2(
@@ -3446,8 +3642,8 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_face_term_viscous_pri
          JxW_face,
          poly_degree_int,
          poly_degree_ext,
-         n_vol_quad_pts_int,
-         n_vol_quad_pts_ext,
+         n_quad_pts_vol_int,
+         n_quad_pts_vol_ext,
          n_dofs_cell_int,
          n_dofs_cell_ext,
          n_face_quad_pts,
@@ -3458,16 +3654,16 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_face_term_viscous_pri
          metric_oper_int,
          metric_oper_ext,
          pde_physics,
-         face_term_int,
-         face_term_ext);
+         viscous_face_term_int,
+         viscous_face_term_ext);
 
          for(unsigned int i=0; i<n_dofs_cell_int; ++i)
          {
-            face_term_int[i]*=-1.0;
+            viscous_face_term_int[i]*=-1.0;
          }
          for(unsigned int i=0; i<n_dofs_cell_ext; ++i)
          {
-            face_term_ext[i]*=-1.0;
+            viscous_face_term_ext[i]*=-1.0;
          }
     }
     else
@@ -3567,8 +3763,8 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_face_term_viscous_pri
         const dealii::Tensor<1,dim,double> unit_ref_normal_int = dealii::GeometryInfo<dim>::unit_normal_vector[iface];
         const dealii::Tensor<1,dim,double> unit_ref_normal_ext = dealii::GeometryInfo<dim>::unit_normal_vector[neighbor_iface];
         // Extract the reference direction that is outward facing on the facet.
-        const int dim_not_zero_int = iface / 2;//reference direction of face integer division
-        const int dim_not_zero_ext = neighbor_iface / 2;//reference direction of face integer division
+        const int dim_not_zero_int = iface_int / 2;//reference direction of face integer division
+        const int dim_not_zero_ext = iface_ext / 2;//reference direction of face integer division
         
         std::array<std::vector<adtype>,nstate> diffusive_int_vol_ref_flux_interp_to_face_dot_ref_normal;
         std::array<std::vector<adtype>,nstate> diffusive_ext_vol_ref_flux_interp_to_face_dot_ref_normal;
@@ -3582,14 +3778,14 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_face_term_viscous_pri
             
             // interpolate reference volume dissipative flux to the facet, and apply unit reference normal as scaled by 1.0 or -1.0
             flux_basis_int.matrix_vector_mult_surface_1D(face_orientation_int, 
-                                                         iface,
+                                                         iface_int,
                                                          diffusive_ref_flux_at_vol_q_int[istate][dim_not_zero_int],
                                                          diffusive_int_vol_ref_flux_interp_to_face_dot_ref_normal[istate],
                                                          flux_basis_int.oneD_surf_operator,
                                                          flux_basis_int.oneD_vol_operator,
                                                          false, unit_ref_normal_int[dim_not_zero_int]);
             flux_basis_ext.matrix_vector_mult_surface_1D(face_orientation_ext, 
-                                                         neighbor_iface,
+                                                         iface_ext,
                                                          diffusive_ref_flux_at_vol_q_ext[istate][dim_not_zero_ext],
                                                          diffusive_ext_vol_ref_flux_interp_to_face_dot_ref_normal[istate],
                                                          flux_basis_ext.oneD_surf_operator,
@@ -3615,8 +3811,8 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_face_term_viscous_pri
                 soln_interp_to_face_ext[istate] = soln_at_surf_q_ext[istate][iquad];
                 if(this->do_compute_filtered_solution) filtered_soln_interp_to_face_int[istate] = legendre_soln_at_surf_q_int[istate][iquad];
                 if(this->do_compute_filtered_solution) filtered_soln_interp_to_face_ext[istate] = legendre_soln_at_surf_q_ext[istate][iquad];
-                entropy_var_face_int[istate] = projected_entropy_var_surf_int_corrected[istate][iquad];
-                entropy_var_face_ext[istate] = projected_entropy_var_surf_ext_corrected[istate][iquad];
+                entropy_var_face_int[istate] = entropy_var_at_surf_int[istate][iquad];
+                entropy_var_face_ext[istate] = entropy_var_at_surf_ext[istate][iquad];
                 for(int idim=0; idim<dim; idim++){
                     aux_soln_state_int[istate][idim] = aux_soln_at_surf_q_int[istate][idim][iquad];
                     aux_soln_state_ext[istate][idim] = aux_soln_at_surf_q_ext[istate][idim][iquad];
@@ -3647,7 +3843,7 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_face_term_viscous_pri
                 aux_soln_state_int, aux_soln_state_ext,
                 filtered_soln_interp_to_face_int, filtered_soln_interp_to_face_ext,
                 filtered_aux_soln_state_int, filtered_aux_soln_state_ext,
-                unit_phys_normal_int, penalty, false);
+                unit_phys_normal_int[iquad], penalty, false);
 
             // Write the values in a way that we can use sum-factorization on.
             for(int istate=0; istate<nstate; istate++){
@@ -3655,7 +3851,8 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_face_term_viscous_pri
                 if(iquad == 0){
                     diss_auxi_num_flux_dot_n[istate].resize(n_face_quad_pts);
                 }
-
+                
+                const adtype face_Jac_norm_scaled = JxW_face[iquad]/surf_quad_weights[iquad];
                 // write data
                 diss_auxi_num_flux_dot_n[istate][iquad] = face_Jac_norm_scaled * diss_auxi_num_flux_dot_n_at_q[istate];
             }
@@ -3667,7 +3864,7 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_face_term_viscous_pri
 
             // dissipative flux
             soln_basis_int.inner_product_surface_1D(face_orientation_int, 
-                                                    iface,
+                                                    iface_int,
                                                     diffusive_int_vol_ref_flux_interp_to_face_dot_ref_normal[istate], 
                                                     surf_quad_weights, rhs_int, 
                                                     soln_basis_int.oneD_surf_operator, 
@@ -3675,7 +3872,7 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_face_term_viscous_pri
                                                     false, 1.0);//subtract the negative so add it
             // dissipative numerical flux
             soln_basis_int.inner_product_surface_1D(face_orientation_int, 
-                                                    iface,
+                                                    iface_int,
                                                     diss_auxi_num_flux_dot_n[istate], 
                                                     surf_quad_weights, rhs_int, 
                                                     soln_basis_int.oneD_surf_operator, 
@@ -3692,7 +3889,7 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_face_term_viscous_pri
 
             // dissipative flux
             soln_basis_ext.inner_product_surface_1D(face_orientation_ext, 
-                                                    neighbor_iface,
+                                                    iface_ext,
                                                     diffusive_ext_vol_ref_flux_interp_to_face_dot_ref_normal[istate], 
                                                     surf_quad_weights, rhs_ext, 
                                                     soln_basis_ext.oneD_surf_operator, 
@@ -3700,7 +3897,7 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_face_term_viscous_pri
                                                     false, 1.0);
             // dissipative numerical flux
             soln_basis_ext.inner_product_surface_1D(face_orientation_ext, 
-                                                    neighbor_iface,
+                                                    iface_ext,
                                                     diss_auxi_num_flux_dot_n[istate], 
                                                     surf_quad_weights, rhs_ext, 
                                                     soln_basis_ext.oneD_surf_operator, 
@@ -3713,7 +3910,7 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_face_term_viscous_pri
             }
         }
 
-    }// else 
+    } 
     
 }
 
