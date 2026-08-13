@@ -1065,6 +1065,7 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_volume_term_strong(
         legendre_soln_at_q,
         legendre_aux_soln_at_q,
         n_quad_pts,
+        n_shape_fns,
         poly_degree,
         pde_physics,
         soln_at_q,
@@ -1164,8 +1165,12 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_volume_term_strong(
     for (unsigned int iquad=0; iquad<n_quad_pts; ++iquad) {
         //extract soln and auxiliary soln at quad pt to be used in physics
         std::array<adtype,nstate> soln_state;
+        std::array<dealii::Tensor<1,dim,adtype>,nstate> aux_soln_state;
         for(int istate=0; istate<nstate; istate++){
             soln_state[istate] = soln_at_q[istate][iquad];
+            for(int idim=0; idim<dim; idim++){
+                aux_soln_state[istate][idim] = aux_soln_at_q[istate][idim][iquad];
+            }
         }
 
         // Copy Metric Cofactor in a way can use for transforming Tensor Blocks to reference space
@@ -1431,6 +1436,7 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_volume_term_strong(
     projected_entropy_var_at_q,
     n_quad_pts,
     n_dofs_cell,
+    n_shape_fns,
     pde_physics,
     viscous_rhs_vol);
 
@@ -1446,8 +1452,9 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::compute_filtered_solution_volu
     std::array<std::vector<adtype>,nstate> &legendre_soln_at_q,
     std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &legendre_aux_soln_at_q,
     const unsigned int n_quad_pts,
+    const unsigned int n_shape_fns,
     const unsigned int poly_degree,
-    const Physics::PhysicsBase<dim, nstate, adtype> &pde_physics,
+    const Physics::PhysicsBase<dim, nspecies, nstate, adtype> &pde_physics,
     const std::array<std::vector<adtype>,nstate> &soln_at_q,
     const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &aux_soln_at_q)
 {
@@ -1607,13 +1614,14 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_volume_term_viscous_p
     const std::array<std::vector<adtype>,nstate>  &entropy_var_at_q,
     const unsigned int  n_quad_pts,
     const unsigned int  n_dofs_cell,
-    const Physics::PhysicsBase<dim, nstate, adtype> &pde_physics,
+    const unsigned int  n_shape_fns,
+    Physics::PhysicsBase<dim, nspecies, nstate, adtype> &pde_physics,
     std::vector<adtype>     &vol_term_viscous) const
 {
-    vol_term_viscous.reinit(n_dofs_cell);   
+    vol_term_viscous.resize(n_dofs_cell);   
     if(this->all_parameters->use_viscous_br2_entropystable)
     {
-        EntropyStable_viscousBR2<dim,nspecies,nstate,real,MeshType>().assemble_volume_term_entropystable_br2(
+        EntropyStable_viscousBR2<dim,nspecies,nstate,real,MeshType>::assemble_volume_term_entropystable_br2(
         poly_degree,
         entropy_var_coeff,
         entropy_var_at_q,
@@ -1622,6 +1630,7 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_volume_term_viscous_p
         soln_basis,
         metric_oper,
         pde_physics,
+        this->volume_quadrature_collection[poly_degree].get_weights(),
         vol_term_viscous);
         for(unsigned int i=0; i<n_dofs_cell; ++i)
         {
@@ -1845,6 +1854,8 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_boundary_term_strong(
     if(this->do_compute_filtered_solution) {
         // NOTE: This only pertains to advanced SGS models for LES
         compute_filtered_solution_volume_and_face(
+        face_orientation,
+        iface,
         legendre_soln_at_vol_q,
         legendre_aux_soln_at_vol_q,
         legendre_soln_at_surf_q,
@@ -2253,6 +2264,7 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_boundary_term_strong(
         iface,
         boundary_id,
         poly_degree,
+        penalty,
         entropy_var_coeffs,
         projected_entropy_var_vol,
         projected_entropy_var_surf,
@@ -2260,12 +2272,12 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_boundary_term_strong(
         aux_soln_at_vol_q,
         soln_at_surf_q,
         aux_soln_at_surf_q,
-        soln_at_opposite_surf_q.
+        soln_at_opposite_surf_q,
         legendre_soln_at_vol_q,
         legendre_aux_soln_at_vol_q,
         legendre_soln_at_surf_q,
         legendre_aux_soln_at_surf_q,
-        n_vol_quad_pts,  
+        n_quad_pts_vol,  
         n_face_quad_pts,  
         n_dofs, 
         soln_basis,
@@ -2291,6 +2303,7 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_boundary_term_viscous
     const unsigned int                                                 iface,
     const unsigned int                                                 boundary_id,
     const unsigned int                                                 poly_degree,
+    const real                                                         penalty,
     const std::array<std::vector<adtype>,nstate>                       &entropy_var_coeff,
     const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_vol_quads,
     const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_surf_quads,
@@ -2298,12 +2311,12 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_boundary_term_viscous
     const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &aux_soln_at_vol_q,
     const std::array<std::vector<adtype>,nstate>                       &soln_at_surf_q,
     const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &aux_soln_at_surf_q,
-    const std::array<std::vector<adtype>,nstate>                       &soln_at_opposite_surf_q.
+    const std::array<std::vector<adtype>,nstate>                       &soln_at_opposite_surf_q,
     const std::array<std::vector<adtype>,nstate>                       &legendre_soln_at_vol_q,
     const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &legendre_aux_soln_at_vol_q,
     const std::array<std::vector<adtype>,nstate>                       &legendre_soln_at_surf_q,
     const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &legendre_aux_soln_at_surf_q,
-    const unsigned int                                                 n_vol_quad_pts,  
+    const unsigned int                                                 n_quad_pts_vol,  
     const unsigned int                                                 n_face_quad_pts,  
     const unsigned int                                                 n_dofs_cell, 
     OPERATOR::basis_functions<dim,2*dim>                               &soln_basis,
@@ -2311,11 +2324,11 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_boundary_term_viscous
     OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper,
     const std::vector<dealii::Tensor<1,dim,adtype>>                    &unit_phys_normals,
     const std::vector<adtype>                                          &JxW_face,
-    const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
+    Physics::PhysicsBase<dim, nspecies, nstate, adtype>          &pde_physics,
     const NumericalFlux::NumericalFluxDissipative<dim, nspecies, nstate, adtype> &diss_num_flux,
     std::vector<adtype>                                                &boundary_term_viscous) const
 {
-    boundary_term_viscous.reinit(n_dofs_cell);   
+    boundary_term_viscous.resize(n_dofs_cell);   
     
     if(this->all_parameters->use_viscous_br2_entropystable)
     {
@@ -2327,15 +2340,16 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_boundary_term_viscous
         entropy_var_coeff,
         entropy_var_at_vol_quads,
         entropy_var_at_surf_quads,
-        n_vol_quad_pts,
+        n_quad_pts_vol,
         n_face_quad_pts,
         n_dofs_cell,
         soln_basis,
         flux_basis,
         metric_oper,
-        unit_phys_normal,
+        unit_phys_normals,
         JxW_face,
         pde_physics,
+        this->volume_quadrature_collection[poly_degree].get_weights(),
         boundary_term_viscous);
         for(unsigned int i=0; i<n_dofs_cell; ++i)
         {
@@ -2503,6 +2517,8 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_boundary_term_viscous
 template <int dim, int nspecies, int nstate, typename real, typename MeshType>
 template <typename adtype>
 void DGStrong<dim,nspecies,nstate,real,MeshType>::compute_filtered_solution_volume_and_face(
+    std::vector<bool>                                                  face_orientation,
+    const unsigned int                                                 iface,
     std::array<std::vector<adtype>,nstate> &legendre_soln_at_vol_q,
     std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &legendre_aux_soln_at_vol_q,
     std::array<std::vector<adtype>,nstate> &legendre_soln_at_surf_q,
@@ -2846,6 +2862,8 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_face_term_strong(
     if(this->do_compute_filtered_solution) {
         // NOTE: This only pertains to advanced SGS models for LES
         compute_filtered_solution_volume_and_face(
+            face_orientation_int,
+            iface,
             legendre_soln_at_vol_q_int,
             legendre_aux_soln_at_vol_q_int,
             legendre_soln_at_surf_q_int,
@@ -2860,6 +2878,8 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_face_term_strong(
             n_shape_fns_int,
             poly_degree_int);
         compute_filtered_solution_volume_and_face(
+            face_orientation_ext,
+            neighbor_iface,
             legendre_soln_at_vol_q_ext,
             legendre_aux_soln_at_vol_q_ext,
             legendre_soln_at_surf_q_ext,
@@ -3520,20 +3540,21 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_face_term_strong(
         face_orientation_ext,
         iface,
         neighbor_iface,
+        penalty,
         entropy_var_coeffs_int,
         entropy_var_coeffs_ext,
         projected_entropy_var_vol_int,
         projected_entropy_var_vol_ext,
         projected_entropy_var_surf_int_corrected,
         projected_entropy_var_surf_ext_corrected,
-        soln_at_vol_q_int.
+        soln_at_vol_q_int,
         soln_at_vol_q_ext,
         aux_soln_at_vol_q_int,
         aux_soln_at_vol_q_ext,
         soln_at_surf_q_int,
         soln_at_surf_q_ext,
         aux_soln_at_surf_q_int,
-        aux_soln_at_surf_q_ext;
+        aux_soln_at_surf_q_ext,
         legendre_soln_at_vol_q_int,
         legendre_aux_soln_at_vol_q_int,
         legendre_soln_at_vol_q_ext,
@@ -3551,6 +3572,8 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_face_term_strong(
         n_dofs_int,
         n_dofs_ext,
         n_face_quad_pts,
+        n_shape_fns_int,
+        n_shape_fns_ext,
         soln_basis_int,
         soln_basis_ext,
         flux_basis_int,
@@ -3581,20 +3604,21 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_face_term_viscous_pri
     std::vector<bool>                                                  face_orientation_ext,
     const unsigned int                                                 iface_int,
     const unsigned int                                                 iface_ext,
+    const real                                                         penalty,
     const std::array<std::vector<adtype>,nstate>                       &entropy_var_coeff_int,
     const std::array<std::vector<adtype>,nstate>                       &entropy_var_coeff_ext,
     const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_vol_int,
     const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_vol_ext,
     const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_surf_int,
     const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_surf_ext,
-    const std::array<std::vector<adtype>,nstate>                       &soln_at_vol_q_int.
+    const std::array<std::vector<adtype>,nstate>                       &soln_at_vol_q_int,
     const std::array<std::vector<adtype>,nstate>                       &soln_at_vol_q_ext,
     const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &aux_soln_at_vol_q_int,
     const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &aux_soln_at_vol_q_ext,
     const std::array<std::vector<adtype>,nstate>                       &soln_at_surf_q_int,
     const std::array<std::vector<adtype>,nstate>                       &soln_at_surf_q_ext,
     const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &aux_soln_at_surf_q_int,
-    const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &aux_soln_at_surf_q_ext;
+    const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &aux_soln_at_surf_q_ext,
     const std::array<std::vector<adtype>,nstate>                       &legendre_soln_at_vol_q_int,
     const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &legendre_aux_soln_at_vol_q_int,
     const std::array<std::vector<adtype>,nstate>                       &legendre_soln_at_vol_q_ext,
@@ -3612,13 +3636,15 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_face_term_viscous_pri
     const unsigned int                                                  n_dofs_cell_int,
     const unsigned int                                                  n_dofs_cell_ext,
     const unsigned int                                                  n_face_quad_pts,
+    const unsigned int                                                  n_shape_fns_int,
+    const unsigned int                                                  n_shape_fns_ext,
     OPERATOR::basis_functions<dim,2*dim>                               &soln_basis_int,
     OPERATOR::basis_functions<dim,2*dim>                               &soln_basis_ext,
     OPERATOR::basis_functions<dim,2*dim>                               &flux_basis_int,
     OPERATOR::basis_functions<dim,2*dim>                               &flux_basis_ext,
     OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper_int,
     OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper_ext,
-    const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
+    Physics::PhysicsBase<dim, nspecies, nstate, adtype>          &pde_physics,
     const NumericalFlux::NumericalFluxDissipative<dim, nspecies, nstate, adtype> &diss_num_flux,
     std::vector<adtype>                                                &viscous_face_term_int,
     std::vector<adtype>                                                &viscous_face_term_ext) const
@@ -3627,7 +3653,7 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_face_term_viscous_pri
     viscous_face_term_ext.resize(n_dofs_cell_ext);
     if(this->all_parameters->use_viscous_br2_entropystable)
     {
-        EntropyStable_viscousBR2<dim,nspecies,nstate,real,MeshType>().assemble_face_term_entropystable_br2(
+        EntropyStable_viscousBR2<dim,nspecies,nstate,real,MeshType>::assemble_face_term_entropystable_br2(
          face_orientation_int,
          face_orientation_ext,
          iface_int,
@@ -3654,6 +3680,8 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_face_term_viscous_pri
          metric_oper_int,
          metric_oper_ext,
          pde_physics,
+         this->volume_quadrature_collection[poly_degree_int].get_weights(),
+         this->volume_quadrature_collection[poly_degree_ext].get_weights(),
          viscous_face_term_int,
          viscous_face_term_ext);
 
@@ -3668,6 +3696,7 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_face_term_viscous_pri
     }
     else
     {
+        const std::vector<double> &surf_quad_weights = this->face_quadrature_collection[poly_degree_int].get_weights();
         std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> diffusive_ref_flux_at_vol_q_int;
         for (unsigned int iquad=0; iquad<n_quad_pts_vol_int; ++iquad) {
             // Copy Metric Cofactor in a way can use for transforming Tensor Blocks to reference space
@@ -3760,8 +3789,8 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_face_term_viscous_pri
             }
         } // iquad vol ext ends
         
-        const dealii::Tensor<1,dim,double> unit_ref_normal_int = dealii::GeometryInfo<dim>::unit_normal_vector[iface];
-        const dealii::Tensor<1,dim,double> unit_ref_normal_ext = dealii::GeometryInfo<dim>::unit_normal_vector[neighbor_iface];
+        const dealii::Tensor<1,dim,double> unit_ref_normal_int = dealii::GeometryInfo<dim>::unit_normal_vector[iface_int];
+        const dealii::Tensor<1,dim,double> unit_ref_normal_ext = dealii::GeometryInfo<dim>::unit_normal_vector[iface_ext];
         // Extract the reference direction that is outward facing on the facet.
         const int dim_not_zero_int = iface_int / 2;//reference direction of face integer division
         const int dim_not_zero_ext = iface_ext / 2;//reference direction of face integer division
@@ -3879,9 +3908,8 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_face_term_viscous_pri
                                                     soln_basis_int.oneD_vol_operator,
                                                     true, -1.0);//adding=true, scaled by factor=-1.0 bc subtract it
 
-
             for(unsigned int ishape=0; ishape<n_shape_fns_int; ishape++){
-                face_term_int[istate*n_shape_fns_int + ishape] = rhs_int[ishape];
+                viscous_face_term_int[istate*n_shape_fns_int + ishape] = rhs_int[ishape];
             }
 
             // exterior RHS
@@ -3904,9 +3932,8 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_face_term_viscous_pri
                                                     soln_basis_ext.oneD_vol_operator,
                                                     true, 1.0);//adding=true, scaled by factor=1.0 because negative numerical flux and subtract it
 
-
             for(unsigned int ishape=0; ishape<n_shape_fns_ext; ishape++){
-                face_term_ext[istate*n_shape_fns_ext + ishape] = rhs_ext[ishape];
+                viscous_face_term_ext[istate*n_shape_fns_ext + ishape] = rhs_ext[ishape];
             }
         }
 
@@ -3955,7 +3982,7 @@ void EntropyStable_viscousBR2<dim,nspecies,nstate,real,MeshType>::interpolate_to
     const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &T_at_vol,
     OPERATOR::basis_functions<dim,2*dim> &flux_basis,
     const unsigned int n_face_quad_pts,
-    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &T_at_face) const
+    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &T_at_face)
 {
     for(unsigned int s=0; s<nstate; ++s)
     {
@@ -3988,7 +4015,7 @@ void EntropyStable_viscousBR2<dim,nspecies,nstate,real,MeshType>::evaluate_face_
     const std::vector<adtype> &JxW_face,
     OPERATOR::basis_functions<dim,2*dim> &soln_basis,
     const unsigned int n_dofs_cell,
-    std::vector<adtype> &integral_val) const
+    std::vector<adtype> &integral_val)
 {
     integral_val.resize(n_dofs_cell); 
     const unsigned int n_shape_fns = n_dofs_cell/nstate;
@@ -4017,9 +4044,10 @@ void EntropyStable_viscousBR2<dim,nspecies,nstate,real,MeshType>::compute_lift_p
     const std::vector<adtype> &JxW_face,
     const std::vector<adtype> &JxW_vol,
     OPERATOR::basis_functions<dim,2*dim> &flux_basis,
+    const unsigned int /*n_face_quad_pts*/,
     const unsigned int n_vol_quad_pts,
     const bool is_interior_face,
-    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &re_out_vol) const
+    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> &re_out_vol)
 {
     const unsigned int n_shape_fns_flux = n_vol_quad_pts; // collocated 
     for(unsigned int s=0; s<nstate; ++s)
@@ -4062,7 +4090,7 @@ void EntropyStable_viscousBR2<dim,nspecies,nstate,real,MeshType>::compute_physic
     OPERATOR::basis_functions<dim,2*dim>                               &soln_basis,
     OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper,
     const unsigned int                                                 n_quad_pts,
-    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>       &entropy_var_phys_grad) const
+    std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>       &entropy_var_phys_grad)
 {
     // Entropy grad wrt reference coordinates
     std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> entropy_var_ref_grad;
@@ -4093,9 +4121,9 @@ template <typename adtype>
 void EntropyStable_viscousBR2<dim,nspecies,nstate,real,MeshType>::apply_diffusion_matrix_entropy_based(
         const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_quads,
         const unsigned int                                                 n_quad_pts,
-        const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
+        const Physics::PhysicsBase<dim, nspecies, nstate, adtype>          &pde_physics,
         const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>   &T_in,
-        std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>         &T_out) const
+        std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>         &T_out)
 {
     //Resize
     for(unsigned int s=0; s<nstate; ++s)
@@ -4138,9 +4166,9 @@ void EntropyStable_viscousBR2<dim,nspecies,nstate,real,MeshType>::compute_gradba
     OPERATOR::basis_functions<dim,2*dim>                               &soln_basis,
     OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper,
     const std::vector<double>                                          &weight_vect,
-    const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
+    const Physics::PhysicsBase<dim, nspecies, nstate, adtype>          &pde_physics,
     const std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate>   &T_input,
-    std::vector<adtype>                                                &integral_val) const
+    std::vector<adtype>                                                &integral_val)
 {
     const unsigned int n_shape_fns = n_dofs_cell / nstate; 
     
@@ -4217,17 +4245,17 @@ void EntropyStable_viscousBR2<dim,nspecies,nstate,real,MeshType>::compute_gradba
 template <int dim, int nspecies, int nstate, typename real, typename MeshType>
 template <typename adtype>
 void EntropyStable_viscousBR2<dim,nspecies,nstate,real,MeshType>::assemble_volume_term_entropystable_br2(
-    const unsigned int                                                 poly_degree,
+    const unsigned int                                                 /*poly_degree*/,
     const std::array<std::vector<adtype>,nstate>                       &entropy_var_coeff,
     const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_q,
     const unsigned int                                                  n_quad_pts,
     const unsigned int                                                  n_dofs_cell,
     OPERATOR::basis_functions<dim,2*dim>                               &soln_basis,
     OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper,
-    const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
-    std::vector<adtype>                                                &vol_term) const
+    const Physics::PhysicsBase<dim, nspecies, nstate, adtype>          &pde_physics,
+    const std::vector<double>                                          &weight_vect,
+    std::vector<adtype>                                                &vol_term)
 {
-    const std::vector<double> &weight_vect = this->volume_quadrature_collection[poly_degree].get_weights();
     // Entropy grad wrt physical coordinates
     std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> entropy_var_phys_grad;
     compute_physical_grad_entropy_var(
@@ -4264,8 +4292,8 @@ void EntropyStable_viscousBR2<dim,nspecies,nstate,real,MeshType>::assemble_face_
     const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_surf_ext,
     const std::vector<dealii::Tensor<1,dim,adtype>>                    &unit_phys_normal_int,
     const std::vector<adtype>                                          &JxW_face,
-    const unsigned int                                                  poly_degree_int,
-    const unsigned int                                                  poly_degree_ext,
+    const unsigned int                                                  /*poly_degree_int*/,
+    const unsigned int                                                  /*poly_degree_ext*/,
     const unsigned int                                                  n_vol_quad_pts_int,
     const unsigned int                                                  n_vol_quad_pts_ext,
     const unsigned int                                                  n_dofs_cell_int,
@@ -4277,12 +4305,12 @@ void EntropyStable_viscousBR2<dim,nspecies,nstate,real,MeshType>::assemble_face_
     OPERATOR::basis_functions<dim,2*dim>                               &flux_basis_ext,
     OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper_int,
     OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper_ext,
-    const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
+    const Physics::PhysicsBase<dim, nspecies, nstate, adtype>          &pde_physics,
+    const std::vector<double>                                          &vol_quad_weights_int,
+    const std::vector<double>                                          &vol_quad_weights_ext,
     std::vector<adtype>                                                &face_term_int,
-    std::vector<adtype>                                                &face_term_ext) const
+    std::vector<adtype>                                                &face_term_ext)
 {
-    const std::vector<double> &vol_quad_weights_int = this->volume_quadrature_collection[poly_degree_int].get_weights();
-    const std::vector<double> &vol_quad_weights_ext = this->volume_quadrature_collection[poly_degree_ext].get_weights();
     std::vector<adtype> JxW_vol_int(n_vol_quad_pts_int);
     std::vector<adtype> JxW_vol_ext(n_vol_quad_pts_ext);
     for(unsigned int iquad=0; iquad<n_vol_quad_pts_int; ++iquad)
@@ -4508,7 +4536,7 @@ void EntropyStable_viscousBR2<dim,nspecies,nstate,real,MeshType>::assemble_bound
     std::vector<bool>                                                  face_orientation,
     const unsigned int                                                 iface,
     const unsigned int                                                 boundary_id,
-    const unsigned int                                                 poly_degree,
+    const unsigned int                                                 /*poly_degree*/,
     const std::array<std::vector<adtype>,nstate>                       &entropy_var_coeff,
     const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_vol_quads,
     const std::array<std::vector<adtype>,nstate>                       &entropy_var_at_surf_quads,
@@ -4520,10 +4548,10 @@ void EntropyStable_viscousBR2<dim,nspecies,nstate,real,MeshType>::assemble_bound
     OPERATOR::metric_operators<adtype,dim,2*dim>                       &metric_oper,
     const std::vector<dealii::Tensor<1,dim,adtype>>                    &unit_phys_normal,
     const std::vector<adtype>                                          &JxW_face,
-    const Physics::PhysicsBase<dim, nstate, adtype>                    &pde_physics,
-    std::vector<adtype>                                                &boundary_term) const
+    const Physics::PhysicsBase<dim,nspecies,nstate,adtype>             &pde_physics,
+    const std::vector<double>                                          &vol_quad_weights,
+    std::vector<adtype>                                                &boundary_term)
 {
-    const std::vector<double> &vol_quad_weights = this->volume_quadrature_collection[poly_degree].get_weights();
     std::vector<adtype> JxW_vol(n_vol_quad_pts);
     for(unsigned int iquad=0; iquad<n_vol_quad_pts; ++iquad)
     {

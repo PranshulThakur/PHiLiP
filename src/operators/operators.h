@@ -199,7 +199,7 @@ public:
     
     /// Inner product function that takes in an ADtype for the weights
     template <typename real>
-    void inner_product(
+    void inner_product_JxW(
             const std::vector<real> &input_vect,
             const std::vector<real> &weight_vect,
             std::vector<real> &output_vect,
@@ -315,7 +315,7 @@ public:
     
     /// Apply the inner product operation using the 1D operator in each direction. Takes in Adtype for the weights.
     template <typename real>
-    void inner_product_1D(
+    void inner_product_1D_JxW(
             const std::vector<real> &input_vect,
             const std::vector<real> &weight_vect,
             std::vector<real> &output_vect,
@@ -356,7 +356,7 @@ public:
     
     /// Apply sum-factorization inner product on a surface. Takes in Adtype for the weights.
     template <typename real>
-    void inner_product_surface_1D(
+    void inner_product_surface_1D_JxW(
             const std::vector<bool> face_orientation,
             const unsigned int face_number,
             const std::vector<real> &input_vect,

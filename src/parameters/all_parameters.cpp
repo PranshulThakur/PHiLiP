@@ -161,6 +161,10 @@ void AllParameters::declare_parameters (dealii::ParameterHandler &prm)
                       dealii::Patterns::Bool(),
                       "Check validty of metric Jacobian when high-order grid is constructed by default. Do not check if false. Not checking is useful if the metric terms are built on the fly with operators, it reduces the memory cost for high polynomial grids. The metric Jacobian is never checked for strong form, regardless of the user input.");
 
+    prm.declare_entry("use_viscous_br2_entropystable", "false",
+                      dealii::Patterns::Bool(),
+                      "Use entropy stable BR2 discretization of the viscous terms.");
+    
     prm.declare_entry("energy_file", "energy_file",
                       dealii::Patterns::FileName(dealii::Patterns::FileName::FileType::input),
                       "Input file for energy test.");
@@ -594,8 +598,14 @@ const std::string test_string = prm.get("test_type");
     use_invariant_curl_form = prm.get_bool("use_invariant_curl_form");
     use_inverse_mass_on_the_fly = prm.get_bool("use_inverse_mass_on_the_fly");
     check_valid_metric_Jacobian = prm.get_bool("check_valid_metric_Jacobian");
+    use_viscous_br2_entropystable = prm.get_bool("use_viscous_br2_entropystable");
     if(!use_weak_form){
         check_valid_metric_Jacobian = false;
+    }
+    if(use_weak_form && use_viscous_br2_entropystable)
+    {
+        std::cout<<"Viscous entropy stable BR2 is not implemented for Weak DG. Aborting..."<<std::endl;
+        std::abort();
     }
 
     energy_file = prm.get("energy_file");
