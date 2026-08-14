@@ -1571,6 +1571,11 @@ void Euler<dim,nspecies,nstate,real>
         // Boundary specific to the the astrophysical jet case
         boundary_astrophysical_inflow (soln_bc);
     }
+    else if (boundary_type == 1010)
+    {
+        // Moving wall BC
+        // Do nothing here. It is implemented in NavierStokes::boundary_face_values_entropy_var().
+    }
     else {
         this->pcout << "Invalid boundary_type: " << boundary_type << std::endl;
         std::abort();

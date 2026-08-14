@@ -191,6 +191,7 @@ public:
         euler_naca_optimization,
         shock_1d,
         euler_naca0012,
+        lid_driven_cavity,
         reduced_order,
         unsteady_reduced_order,
         convection_diffusion_periodicity,

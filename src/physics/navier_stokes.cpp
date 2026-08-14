@@ -1362,7 +1362,7 @@ void NavierStokes<dim,nspecies,nstate,real>
     const dealii::Tensor<1,dim,real> &unit_phys_normal,
     const unsigned int boundary_id) const
 {
-    // Note: Computes v_bc as the actual entropy var at the boundary, without assuming averaging.
+    // Note: Computes v_bc as the actual entropy var at the boundary.
     if(boundary_id==1001)//Adiabatic wall boundary zero velocity
     {
         for(unsigned int s=0; s<nstate-1; ++s)
