@@ -184,6 +184,7 @@ int main (int argc, char * argv[])
     all_parameters.use_split_form = true;
     all_parameters.use_curvilinear_split_form = true;
     all_parameters.conv_num_flux_type = Parameters::AllParameters::ConvectiveNumericalFlux::two_point_flux;
+    all_parameters.use_projected_entropy_variables_for_nsfr_boundary_term = true;
     std::vector<PDEType> pde_type {
     //    PDEType::diffusion
          PDEType::advection
