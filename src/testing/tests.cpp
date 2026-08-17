@@ -306,7 +306,7 @@ std::unique_ptr< TestsBase > TestsFactory<dim,nspecies,nstate,MeshType>
     } else if(test_type == Test_enum::euler_naca0012) {
         if constexpr (dim==2 && nstate==dim+2 && nspecies==1) return std::make_unique<EulerNACA0012<dim,nspecies,nstate>>(parameters_input,parameter_handler_input);
     } else if(test_type == Test_enum::lid_driven_cavity) {
-        if constexpr (dim==2 && nstate==dim+2 && nspecies==1) return std::make_unique<LidDrivenCavity<dim,nspecies,nstate>>(parameters_input,parameter_handler_input);
+        if constexpr (dim>=2 && nstate==dim+2 && nspecies==1) return std::make_unique<LidDrivenCavity<dim,nspecies,nstate>>(parameters_input,parameter_handler_input);
     } else if(test_type == Test_enum::dual_weighted_residual_mesh_adaptation) {
         if constexpr (dim==2 && nstate==1 && nspecies==1)  return std::make_unique<DualWeightedResidualMeshAdaptation<dim, nspecies, nstate>>(parameters_input,parameter_handler_input);
     } else if(test_type == Test_enum::anisotropic_mesh_adaptation) {
