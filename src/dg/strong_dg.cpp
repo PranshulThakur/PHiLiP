@@ -511,7 +511,7 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_auxiliary_residual(co
         
         if(compute_dRdW || compute_dRdX || compute_d2R)
         {
-            pcout << "DG Strong's viscous terms cannot yet be automatically differentiated. Aborting..."<<std::endl;
+            pcout << "DG Strong's viscous terms cannot yet be automatically differentiated with Auxiliary Equation. Use strong form with entropy stable viscous DG instead. Aborting..."<<std::endl;
             std::abort();
         }
         //set auxiliary rhs to 0
@@ -649,7 +649,7 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_auxiliary_residual(co
         }
     }//end of if statement for diffusive
     else if (this->use_auxiliary_eq && (this->all_parameters->ode_solver_param.ode_solver_type == ODE_enum::implicit_solver)) {
-        pcout << "ERROR: " << "auxiliary currently only works for explicit time advancement. Aborting..." << std::endl;
+        pcout << "ERROR: " << "Implicit does not currently work for strong form with Auxiliary Equation. Use strong form with entropy stable viscous DG instead. Aborting..."<<std::endl;
         std::abort();
     } else {
         // Do nothing
