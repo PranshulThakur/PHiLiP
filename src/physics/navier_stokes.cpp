@@ -920,6 +920,7 @@ std::array<dealii::Tensor<1,dim,real>,nstate> NavierStokes<dim,nspecies,nstate,r
 
     if constexpr(dim==3)
     {
+        // Equations from Hughes, Thomas JR, Leopaldo P. Franca, and Michel Mallet. "A new finite element formulation for computational fluid dynamics: I. Symmetric forms of the compressible Euler and Navier-Stokes equations and the second law of thermodynamics." Computer methods in applied mechanics and engineering 54.2 (1986): 223-234.
         //const real v1 = entropy_var[0];
         const real v2 = entropy_var[1];
         const real v3 = entropy_var[2];
@@ -1015,6 +1016,7 @@ std::array<dealii::Tensor<1,dim,real>,nstate> NavierStokes<dim,nspecies,nstate,r
     }
     else if constexpr(dim==2)
     {
+        // Expressions from Chan, Jesse, Yimin Lin, and Tim Warburton. "Entropy stable modal discontinuous Galerkin schemes and wall boundary conditions for the compressible Navier-Stokes equations." Journal of Computational Physics 448 (2022).
         //const real v1 = entropy_var[0];
         const real v2 = entropy_var[1];
         const real v3 = entropy_var[2];
@@ -1106,6 +1108,7 @@ std::array<dealii::Tensor<1,dim,real>,nstate> NavierStokes<dim,nspecies,nstate,r
     std::array<std::array<real,nstate>,nstate> dVdU;
     if constexpr(dim==3)
     {
+        // Equations from Hughes, Thomas JR, Leopaldo P. Franca, and Michel Mallet. "A new finite element formulation for computational fluid dynamics: I. Symmetric forms of the compressible Euler and Navier-Stokes equations and the second law of thermodynamics." Computer methods in applied mechanics and engineering 54.2 (1986): 223-234.
         const real v1 = entropy_var[0];
         const real v2 = entropy_var[1];
         const real v3 = entropy_var[2];
@@ -1363,6 +1366,7 @@ void NavierStokes<dim,nspecies,nstate,real>
     const unsigned int boundary_id) const
 {
     // Note: Computes v_bc as the actual entropy var at the boundary.
+    // Entropy stable BCs adapted from Chan, Jesse, Yimin Lin, and Tim Warburton. "Entropy stable modal discontinuous Galerkin schemes and wall boundary conditions for the compressible Navier-Stokes equations." Journal of Computational Physics 448 (2022): 110723.
     if(boundary_id==1001)//Adiabatic wall boundary zero velocity
     {
         for(unsigned int s=0; s<nstate-1; ++s)
