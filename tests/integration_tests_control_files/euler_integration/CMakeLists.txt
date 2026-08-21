@@ -461,11 +461,11 @@ set_tests_labels(MPI_2D_EULER_INTEGRATION_CYLINDER_ADJOINT_LONG EULER_INTEGRATIO
 
 configure_file(2d_lid_driven_cavity.prm 2d_lid_driven_cavity.prm COPYONLY)
 add_test(
-  NAME 2D_LID_DRIVEN_CAVITY
+  NAME 2D_LID_DRIVEN_CAVITY_ENTROPY_STABILITY
   COMMAND mpirun -np ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_2D -i ${CMAKE_CURRENT_BINARY_DIR}/2d_lid_driven_cavity.prm
   WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
 )
-set_tests_labels(2D_LID_DRIVEN_CAVITY                           EULER_INTEGRATION
+set_tests_labels(2D_LID_DRIVEN_CAVITY_ENTROPY_STABILITY         EULER_INTEGRATION
                                                                 2D
                                                                 PARALLEL
                                                                 NAVIER_STOKES
@@ -475,11 +475,11 @@ set_tests_labels(2D_LID_DRIVEN_CAVITY                           EULER_INTEGRATIO
 
 configure_file(3d_lid_driven_cavity.prm 3d_lid_driven_cavity.prm COPYONLY)
 add_test(
-  NAME 3D_LID_DRIVEN_CAVITY
+  NAME 3D_LID_DRIVEN_CAVITY_ENTROPY_STABILITY
   COMMAND mpirun -np ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_3D -i ${CMAKE_CURRENT_BINARY_DIR}/3d_lid_driven_cavity.prm
   WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
 )
-set_tests_labels(3D_LID_DRIVEN_CAVITY                           EULER_INTEGRATION
+set_tests_labels(3D_LID_DRIVEN_CAVITY_ENTROPY_STABILITY         EULER_INTEGRATION
                                                                 3D
                                                                 PARALLEL
                                                                 NAVIER_STOKES
