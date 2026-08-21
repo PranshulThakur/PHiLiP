@@ -42,7 +42,7 @@ public:
     double compute_change_in_entropy(const std::shared_ptr < DGBase<dim, nspecies, double> > &dg, unsigned int poly_degree) const;
 };
 
-/// Function used to evaluate initial conservative solution
+/// Function used to evaluate initial conservative solution. Using the same initial condition and the test case as in Chan, Jesse, Yimin Lin, and Tim Warburton. "Entropy stable modal discontinuous Galerkin schemes and wall boundary conditions for the compressible Navier-Stokes equations." Journal of Computational Physics 448 (2022).
 template <int dim, int nspecies, int nstate>
 class InitialConditionLidDrivenCavity: public InitialConditionFunction<dim,nspecies,nstate,double>
 {
