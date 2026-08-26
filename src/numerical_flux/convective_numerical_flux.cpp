@@ -194,12 +194,14 @@ std::array<real, nstate> LaxFriedrichsRiemannSolverDissipation<dim,nstate,real>
     const real conv_max_eig_ext = pde_physics->max_convective_normal_eigenvalue(soln_ext,normal_int);
     // Replaced the std::max with an if-statement for the AD to work properly.
     //const real conv_max_eig = std::max(conv_max_eig_int, conv_max_eig_ext);
-    real conv_max_eig;
+    const real conv_max_eig = 0.5*(conv_max_eig_int+conv_max_eig_ext);
+    /*
     if (conv_max_eig_int > conv_max_eig_ext) {
         conv_max_eig = conv_max_eig_int;
     } else {
         conv_max_eig = conv_max_eig_ext;
     }
+    */
     //conv_max_eig = std::max(conv_max_eig_int, conv_max_eig_ext);
     // Scalar dissipation
     std::array<real, nstate> numerical_flux_dot_n;
