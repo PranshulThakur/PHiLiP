@@ -44,7 +44,7 @@ DGStrong<dim,nspecies,nstate,real,MeshType>::DGStrong(
     , poly_degree_max_large_scales(this->all_parameters->physics_model_param.poly_degree_max_large_scales)
     , using_wall_model(this->all_parameters->using_wall_model)
     , wall_model_input_from_second_element(this->all_parameters->wall_model_input_from_second_element)
-    , use_projected_entropy_variables_for_nsfr_boundary_term(this->all_parameters->use_projected_entropy_variables_for_nsfr_boundary_term)
+    , uncollocated_flux_nodes(! this->all_parameters->use_collocated_nodes)
 { }
 
 template <int dim, int nspecies, int nstate, typename real, typename MeshType>
@@ -1108,7 +1108,7 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_volume_term_strong(
     std::array<std::vector<adtype>,nstate> entropy_var_at_q;
     std::array<std::vector<adtype>,nstate> projected_entropy_var_at_q;
     std::array<std::vector<adtype>,nstate> entropy_var_coeffs;
-    if (this->all_parameters->use_split_form || this->all_parameters->use_curvilinear_split_form){
+    if (((this->all_parameters->use_split_form || this->all_parameters->use_curvilinear_split_form) && this->uncollocated_flux_nodes) || this->all_parameters->use_viscous_br2_entropystable){
         for(int istate=0; istate<nstate; istate++){
             entropy_var_at_q[istate].resize(n_quad_pts);
             projected_entropy_var_at_q[istate].resize(n_quad_pts);
@@ -1190,10 +1190,12 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_volume_term_strong(
         if (this->all_parameters->use_split_form || this->all_parameters->use_curvilinear_split_form){
             //get the soln for iquad from projected entropy variables
             std::array<adtype,nstate> entropy_var;
-            for(int istate=0; istate<nstate; istate++){
-                entropy_var[istate] = projected_entropy_var_at_q[istate][iquad];
+            if (this->uncollocated_flux_nodes) {
+                for(int istate=0; istate<nstate; istate++){
+                    entropy_var[istate] = projected_entropy_var_at_q[istate][iquad];
+                }
+                soln_state = pde_physics.compute_conservative_variables_from_entropy_variables (entropy_var);
             }
-            soln_state = pde_physics.compute_conservative_variables_from_entropy_variables (entropy_var);
             
             //loop over all the non-zero entries for "sum-factorized" Hadamard product that corresponds to the iquad.
             for(unsigned int row_index = iquad * n_quad_pts_1D, column_index = 0; 
@@ -1221,10 +1223,16 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_volume_term_strong(
                     }
                     std::array<adtype,nstate> soln_state_flux_basis;
                     std::array<adtype,nstate> entropy_var_flux_basis;
-                    for(int istate=0; istate<nstate; istate++){
-                        entropy_var_flux_basis[istate] = projected_entropy_var_at_q[istate][flux_quad];
+                    if (this->uncollocated_flux_nodes) {
+                        for(int istate=0; istate<nstate; istate++){
+                            entropy_var_flux_basis[istate] = projected_entropy_var_at_q[istate][flux_quad];
+                        }
+                        soln_state_flux_basis = pde_physics.compute_conservative_variables_from_entropy_variables (entropy_var_flux_basis);
+                    } else {
+                        for(int istate=0; istate<nstate; istate++){
+                            soln_state_flux_basis[istate] = soln_at_q[istate][flux_quad];
+                        }
                     }
-                    soln_state_flux_basis = pde_physics.compute_conservative_variables_from_entropy_variables (entropy_var_flux_basis);
 
                     //Compute the physical flux
                     std::array<dealii::Tensor<1,dim,adtype>,nstate> conv_phys_flux_2pt;
@@ -1663,7 +1671,7 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_volume_term_viscous_p
                 }
             }
 
-            if (this->all_parameters->use_split_form || this->all_parameters->use_curvilinear_split_form){
+            if ((this->all_parameters->use_split_form || this->all_parameters->use_curvilinear_split_form) && this->uncollocated_flux_nodes){
                 //get the soln for iquad from projected entropy variables
                 std::array<adtype,nstate> entropy_var;
                 for(int istate=0; istate<nstate; istate++){
@@ -1970,44 +1978,46 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_boundary_term_strong(
 
     // First, transform the volume conservative solution at volume cubature nodes to entropy variables.
     std::array<std::vector<adtype>,nstate> entropy_var_vol;
-    for(unsigned int iquad=0; iquad<n_quad_pts_vol; iquad++){
-        std::array<adtype,nstate> soln_state;
-        for(int istate=0; istate<nstate; istate++){
-            soln_state[istate] = soln_at_vol_q[istate][iquad];
-        }
-        std::array<adtype,nstate> entropy_var;
-        entropy_var = pde_physics.compute_entropy_variables(soln_state);
-        for(int istate=0; istate<nstate; istate++){
-            if(iquad==0){
-                entropy_var_vol[istate].resize(n_quad_pts_vol);
-            }
-            entropy_var_vol[istate][iquad] = entropy_var[istate];
-        }
-    }
-
-    //project it onto the solution basis functions and interpolate it
     std::array<std::vector<adtype>,nstate> projected_entropy_var_vol;
     std::array<std::vector<adtype>,nstate> projected_entropy_var_surf;
     std::array<std::vector<adtype>,nstate> entropy_var_coeffs;
-    for(int istate=0; istate<nstate; istate++){
-        // allocate
-        projected_entropy_var_vol[istate].resize(n_quad_pts_vol);
-        projected_entropy_var_surf[istate].resize(n_face_quad_pts);
-        entropy_var_coeffs[istate].resize(n_shape_fns);
+    if(this->uncollocated_flux_nodes || this->all_parameters->use_viscous_br2_entropystable)
+    {
+        for(unsigned int iquad=0; iquad<n_quad_pts_vol; iquad++){
+            std::array<adtype,nstate> soln_state;
+            for(int istate=0; istate<nstate; istate++){
+                soln_state[istate] = soln_at_vol_q[istate][iquad];
+            }
+            std::array<adtype,nstate> entropy_var;
+            entropy_var = pde_physics.compute_entropy_variables(soln_state);
+            for(int istate=0; istate<nstate; istate++){
+                if(iquad==0){
+                    entropy_var_vol[istate].resize(n_quad_pts_vol);
+                }
+                entropy_var_vol[istate][iquad] = entropy_var[istate];
+            }
+        }
 
-        //interior
-        soln_basis_projection_oper.matrix_vector_mult_1D(entropy_var_vol[istate],
-                                                         entropy_var_coeffs[istate],
-                                                         soln_basis_projection_oper.oneD_vol_operator);
-        soln_basis.matrix_vector_mult_1D(entropy_var_coeffs[istate],
-                                         projected_entropy_var_vol[istate],
-                                         soln_basis.oneD_vol_operator);
-        soln_basis.matrix_vector_mult_surface_1D(face_orientation, 
-                                                 iface,
-                                                 entropy_var_coeffs[istate], 
-                                                 projected_entropy_var_surf[istate],
-                                                 soln_basis.oneD_surf_operator,
-                                                 soln_basis.oneD_vol_operator);
+        for(int istate=0; istate<nstate; istate++){
+            // allocate
+            projected_entropy_var_vol[istate].resize(n_quad_pts_vol);
+            projected_entropy_var_surf[istate].resize(n_face_quad_pts);
+            entropy_var_coeffs[istate].resize(n_shape_fns);
+
+            //interior
+            soln_basis_projection_oper.matrix_vector_mult_1D(entropy_var_vol[istate],
+                                                             entropy_var_coeffs[istate],
+                                                             soln_basis_projection_oper.oneD_vol_operator);
+            soln_basis.matrix_vector_mult_1D(entropy_var_coeffs[istate],
+                                             projected_entropy_var_vol[istate],
+                                             soln_basis.oneD_vol_operator);
+            soln_basis.matrix_vector_mult_surface_1D(face_orientation, 
+                                                     iface,
+                                                     entropy_var_coeffs[istate], 
+                                                     projected_entropy_var_surf[istate],
+                                                     soln_basis.oneD_surf_operator,
+                                                     soln_basis.oneD_vol_operator);
+        }
     }
 
     //get the surface-volume sparsity pattern for a "sum-factorized" Hadamard product only computing terms needed for the operation.
@@ -2036,14 +2046,19 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_boundary_term_strong(
                 }
             }
              
-            //Compute the conservative values on the facet from the interpolated entorpy variables.
-            std::array<adtype,nstate> entropy_var_face;
-            for(int istate=0; istate<nstate; istate++){
-                entropy_var_face[istate] = projected_entropy_var_surf[istate][iquad_face];
-            }
+            //Compute the conservative values on the facet from the interpolated entropy variables.
             std::array<adtype,nstate> soln_state_face;
-            soln_state_face= pde_physics.compute_conservative_variables_from_entropy_variables (entropy_var_face);
-
+            std::array<adtype,nstate> entropy_var_face;
+            if(this->uncollocated_flux_nodes) {
+                for(int istate=0; istate<nstate; istate++){
+                    entropy_var_face[istate] = projected_entropy_var_surf[istate][iquad_face];
+                }
+                soln_state_face= pde_physics.compute_conservative_variables_from_entropy_variables (entropy_var_face);
+            } else {
+                for(int istate=0; istate<nstate; istate++){
+                    soln_state_face[istate] = soln_at_surf_q[istate][iquad_face];
+                }
+            }
             //only do the n_quad_1D vol points that give non-zero entries from Hadamard product.
             for(unsigned int row_index = iquad_face * n_quad_pts_1D, column_index = 0; 
                 column_index < n_quad_pts_1D;
@@ -2064,12 +2079,18 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_boundary_term_strong(
                         metric_cofactor_vol[idim][jdim] = metric_oper.metric_cofactor_vol[idim][jdim][iquad_vol];
                     }
                 }
-                std::array<adtype,nstate> entropy_var;
-                for(int istate=0; istate<nstate; istate++){
-                    entropy_var[istate] = projected_entropy_var_vol[istate][iquad_vol];
-                }
                 std::array<adtype,nstate> soln_state;
-                soln_state = pde_physics.compute_conservative_variables_from_entropy_variables (entropy_var);
+                if(this->uncollocated_flux_nodes) {
+                    std::array<adtype,nstate> entropy_var;
+                    for(int istate=0; istate<nstate; istate++){
+                        entropy_var[istate] = projected_entropy_var_vol[istate][iquad_vol];
+                    }
+                    soln_state = pde_physics.compute_conservative_variables_from_entropy_variables (entropy_var);
+                } else {
+                    for(int istate=0; istate<nstate; istate++){
+                        soln_state[istate] = soln_at_vol_q[istate][iquad_vol];
+                    }
+                }
                 //Note that the flux basis is collocated on the volume cubature set so we don't need to evaluate the entropy variables
                 //on the volume set then transform back to the conservative variables since the flux basis volume
                 //projection is identity.
@@ -2177,7 +2198,8 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_boundary_term_strong(
         for(int istate=0; istate<nstate; istate++){
             soln_interp_to_face[istate] = soln_at_surf_q[istate][iquad];
             soln_state[istate] = soln_interp_to_face[istate]; // initialize as solution interpolated to face
-            entropy_var_face[istate] = projected_entropy_var_surf[istate][iquad];
+            if (this->uncollocated_flux_nodes)
+                entropy_var_face[istate] = projected_entropy_var_surf[istate][iquad];
             if(this->do_compute_filtered_solution) filtered_soln_state[istate] = legendre_soln_at_surf_q[istate][iquad];
             for(int idim=0; idim<dim; idim++){
                 aux_soln_state[istate][idim] = aux_soln_at_surf_q[istate][idim][iquad];
@@ -2186,7 +2208,7 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_boundary_term_strong(
         }
 
         //extract solution on surface from projected entropy variables if NSFR; conservative DG uses solution interpolated to face (i.e. the initialization)
-        if((this->all_parameters->use_split_form || this->all_parameters->use_curvilinear_split_form) && this->use_projected_entropy_variables_for_nsfr_boundary_term) {
+        if((this->all_parameters->use_split_form || this->all_parameters->use_curvilinear_split_form) && this->uncollocated_flux_nodes) {
             soln_state = pde_physics.compute_conservative_variables_from_entropy_variables (entropy_var_face);    
         }
 
@@ -2199,6 +2221,8 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_boundary_term_strong(
         
         //The BC uses projected entropy variables for NSFR, and solution
         //interpolated to face for conservative DG.
+        // From Shruthi: the above comment is only true if flux_nodes_type == GL
+        // otherwise, it uses solution interpolated to face
         pde_physics.boundary_face_values (boundary_id, surf_flux_node, unit_phys_normal_int, soln_state, aux_soln_state, filtered_soln_state, filtered_aux_soln_state, soln_boundary, grad_soln_boundary);
         
         // Convective numerical flux.
@@ -2439,7 +2463,8 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_boundary_term_viscous
             for(int istate=0; istate<nstate; istate++){
                 soln_interp_to_face[istate] = soln_at_surf_q[istate][iquad];
                 soln_state[istate] = soln_interp_to_face[istate]; // initialize as solution interpolated to face
-                entropy_var_face[istate] = entropy_var_at_surf_quads[istate][iquad];
+                if(this->uncollocated_flux_nodes)
+                    entropy_var_face[istate] = entropy_var_at_surf_quads[istate][iquad];
                 if(this->using_wall_model && (boundary_id == 1001)) opposite_surf_soln_state[istate] = soln_at_opposite_surf_q[istate][iquad];
                 if(this->do_compute_filtered_solution) filtered_soln_state[istate] = legendre_soln_at_surf_q[istate][iquad];
                 for(int idim=0; idim<dim; idim++){
@@ -2449,7 +2474,7 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_boundary_term_viscous
             }
 
             //extract solution on surface from projected entropy variables if NSFR; conservative DG uses solution interpolated to face (i.e. the initialization)
-            if((this->all_parameters->use_split_form || this->all_parameters->use_curvilinear_split_form) && this->use_projected_entropy_variables_for_nsfr_boundary_term) {
+            if((this->all_parameters->use_split_form || this->all_parameters->use_curvilinear_split_form) && this->uncollocated_flux_nodes) {
                 soln_state = pde_physics.compute_conservative_variables_from_entropy_variables (entropy_var_face);    
             }
 
@@ -3067,37 +3092,6 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_face_term_strong(
 
     // First, transform the volume conservative solution at volume cubature nodes to entropy variables.
     std::array<std::vector<adtype>,nstate> entropy_var_vol_int;
-    for(unsigned int iquad=0; iquad<n_quad_pts_vol_int; iquad++){
-        std::array<adtype,nstate> soln_state;
-        for(int istate=0; istate<nstate; istate++){
-            soln_state[istate] = soln_at_vol_q_int[istate][iquad];
-        }
-        std::array<adtype,nstate> entropy_var;
-        entropy_var = pde_physics.compute_entropy_variables(soln_state);
-        for(int istate=0; istate<nstate; istate++){
-            if(iquad==0){
-                entropy_var_vol_int[istate].resize(n_quad_pts_vol_int);
-            }
-            entropy_var_vol_int[istate][iquad] = entropy_var[istate];
-        }
-    }
-    std::array<std::vector<adtype>,nstate> entropy_var_vol_ext;
-    for(unsigned int iquad=0; iquad<n_quad_pts_vol_ext; iquad++){
-        std::array<adtype,nstate> soln_state;
-        for(int istate=0; istate<nstate; istate++){
-            soln_state[istate] = soln_at_vol_q_ext[istate][iquad];
-        }
-        std::array<adtype,nstate> entropy_var;
-        entropy_var = pde_physics.compute_entropy_variables(soln_state);
-        for(int istate=0; istate<nstate; istate++){
-            if(iquad==0){
-                entropy_var_vol_ext[istate].resize(n_quad_pts_vol_ext);
-            }
-            entropy_var_vol_ext[istate][iquad] = entropy_var[istate];
-        }
-    }
-
-    //project it onto the solution basis functions and interpolate it
     std::array<std::vector<adtype>,nstate> projected_entropy_var_vol_int;
     std::array<std::vector<adtype>,nstate> projected_entropy_var_vol_ext;
     std::array<std::vector<adtype>,nstate> projected_entropy_var_surf_int;
@@ -3106,60 +3100,93 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_face_term_strong(
     std::array<std::vector<adtype>,nstate> projected_entropy_var_surf_ext_corrected; //To be corrected for face orientation. Needed for numerical flux when using split form
     std::array<std::vector<adtype>,nstate> entropy_var_coeffs_int;
     std::array<std::vector<adtype>,nstate> entropy_var_coeffs_ext;
+    
+    if (this->uncollocated_flux_nodes || this->all_parameters->use_viscous_br2_entropystable) {
+        for(unsigned int iquad=0; iquad<n_quad_pts_vol_int; iquad++){
+            std::array<adtype,nstate> soln_state;
+            for(int istate=0; istate<nstate; istate++){
+                soln_state[istate] = soln_at_vol_q_int[istate][iquad];
+            }
+            std::array<adtype,nstate> entropy_var;
+            entropy_var = pde_physics.compute_entropy_variables(soln_state);
+            for(int istate=0; istate<nstate; istate++){
+                if(iquad==0){
+                    entropy_var_vol_int[istate].resize(n_quad_pts_vol_int);
+                }
+                entropy_var_vol_int[istate][iquad] = entropy_var[istate];
+            }
+        }
+        std::array<std::vector<adtype>,nstate> entropy_var_vol_ext;
+        for(unsigned int iquad=0; iquad<n_quad_pts_vol_ext; iquad++){
+            std::array<adtype,nstate> soln_state;
+            for(int istate=0; istate<nstate; istate++){
+                soln_state[istate] = soln_at_vol_q_ext[istate][iquad];
+            }
+            std::array<adtype,nstate> entropy_var;
+            entropy_var = pde_physics.compute_entropy_variables(soln_state);
+            for(int istate=0; istate<nstate; istate++){
+                if(iquad==0){
+                    entropy_var_vol_ext[istate].resize(n_quad_pts_vol_ext);
+                }
+                entropy_var_vol_ext[istate][iquad] = entropy_var[istate];
+            }
+        }
 
-    for(int istate=0; istate<nstate; istate++){
-        // allocate
-        projected_entropy_var_vol_int[istate].resize(n_quad_pts_vol_int);
-        projected_entropy_var_vol_ext[istate].resize(n_quad_pts_vol_ext);
-        projected_entropy_var_surf_int[istate].resize(n_face_quad_pts);
-        projected_entropy_var_surf_ext[istate].resize(n_face_quad_pts);
-        projected_entropy_var_surf_int_corrected[istate].resize(n_face_quad_pts);
-        projected_entropy_var_surf_ext_corrected[istate].resize(n_face_quad_pts);
-        entropy_var_coeffs_int[istate].resize(n_shape_fns_int);
-        entropy_var_coeffs_ext[istate].resize(n_shape_fns_ext);
+        //project it onto the solution basis functions and interpolate it
+        for(int istate=0; istate<nstate; istate++){
+            // allocate
+            projected_entropy_var_vol_int[istate].resize(n_quad_pts_vol_int);
+            projected_entropy_var_vol_ext[istate].resize(n_quad_pts_vol_ext);
+            projected_entropy_var_surf_int[istate].resize(n_face_quad_pts);
+            projected_entropy_var_surf_ext[istate].resize(n_face_quad_pts);
+            projected_entropy_var_surf_int_corrected[istate].resize(n_face_quad_pts);
+            projected_entropy_var_surf_ext_corrected[istate].resize(n_face_quad_pts);
+            entropy_var_coeffs_int[istate].resize(n_shape_fns_int);
+            entropy_var_coeffs_ext[istate].resize(n_shape_fns_ext);
 
-        //interior
-        soln_basis_projection_oper_int.matrix_vector_mult_1D(entropy_var_vol_int[istate],
-                                                             entropy_var_coeffs_int[istate],
-                                                             soln_basis_projection_oper_int.oneD_vol_operator);
-        soln_basis_int.matrix_vector_mult_1D(entropy_var_coeffs_int[istate],
-                                             projected_entropy_var_vol_int[istate],
-                                             soln_basis_int.oneD_vol_operator);
-        soln_basis_int.matrix_vector_mult_surface_1D({true,false,false}, 
-                                                     iface,
-                                                     entropy_var_coeffs_int[istate], 
-                                                     projected_entropy_var_surf_int[istate],
-                                                     soln_basis_int.oneD_surf_operator,
-                                                     soln_basis_int.oneD_vol_operator);
+            //interior
+            soln_basis_projection_oper_int.matrix_vector_mult_1D(entropy_var_vol_int[istate],
+                                                                 entropy_var_coeffs_int[istate],
+                                                                 soln_basis_projection_oper_int.oneD_vol_operator);
+            soln_basis_int.matrix_vector_mult_1D(entropy_var_coeffs_int[istate],
+                                                 projected_entropy_var_vol_int[istate],
+                                                 soln_basis_int.oneD_vol_operator);
+            soln_basis_int.matrix_vector_mult_surface_1D({true,false,false}, 
+                                                         iface,
+                                                         entropy_var_coeffs_int[istate], 
+                                                         projected_entropy_var_surf_int[istate],
+                                                         soln_basis_int.oneD_surf_operator,
+                                                         soln_basis_int.oneD_vol_operator);
 
-        soln_basis_int.matrix_vector_mult_surface_1D(face_orientation_int, 
-                                                    iface,
-                                                    entropy_var_coeffs_int[istate], 
-                                                    projected_entropy_var_surf_int_corrected[istate],
-                                                    soln_basis_int.oneD_surf_operator,
-                                                    soln_basis_int.oneD_vol_operator);
+            soln_basis_int.matrix_vector_mult_surface_1D(face_orientation_int, 
+                                                        iface,
+                                                        entropy_var_coeffs_int[istate], 
+                                                        projected_entropy_var_surf_int_corrected[istate],
+                                                        soln_basis_int.oneD_surf_operator,
+                                                        soln_basis_int.oneD_vol_operator);
 
-        //exterior
-        soln_basis_projection_oper_ext.matrix_vector_mult_1D(entropy_var_vol_ext[istate],
-                                                             entropy_var_coeffs_ext[istate],
-                                                             soln_basis_projection_oper_ext.oneD_vol_operator);
+            //exterior
+            soln_basis_projection_oper_ext.matrix_vector_mult_1D(entropy_var_vol_ext[istate],
+                                                                 entropy_var_coeffs_ext[istate],
+                                                                 soln_basis_projection_oper_ext.oneD_vol_operator);
 
-        soln_basis_ext.matrix_vector_mult_1D(entropy_var_coeffs_ext[istate],
-                                             projected_entropy_var_vol_ext[istate],
-                                             soln_basis_ext.oneD_vol_operator);
-        soln_basis_ext.matrix_vector_mult_surface_1D({true,false,false}, 
-                                                     neighbor_iface,
-                                                     entropy_var_coeffs_ext[istate], 
-                                                     projected_entropy_var_surf_ext[istate],
-                                                     soln_basis_ext.oneD_surf_operator,
-                                                     soln_basis_ext.oneD_vol_operator);
+            soln_basis_ext.matrix_vector_mult_1D(entropy_var_coeffs_ext[istate],
+                                                 projected_entropy_var_vol_ext[istate],
+                                                 soln_basis_ext.oneD_vol_operator);
+            soln_basis_ext.matrix_vector_mult_surface_1D({true,false,false}, 
+                                                         neighbor_iface,
+                                                         entropy_var_coeffs_ext[istate], 
+                                                         projected_entropy_var_surf_ext[istate],
+                                                         soln_basis_ext.oneD_surf_operator,
+                                                         soln_basis_ext.oneD_vol_operator);
 
-        soln_basis_int.matrix_vector_mult_surface_1D(face_orientation_ext, 
-                                                    neighbor_iface,
-                                                    entropy_var_coeffs_ext[istate], 
-                                                    projected_entropy_var_surf_ext_corrected[istate],
-                                                    soln_basis_int.oneD_surf_operator,
-                                                    soln_basis_int.oneD_vol_operator);
+            soln_basis_int.matrix_vector_mult_surface_1D(face_orientation_ext, 
+                                                        neighbor_iface,
+                                                        entropy_var_coeffs_ext[istate], 
+                                                        projected_entropy_var_surf_ext_corrected[istate],
+                                                        soln_basis_int.oneD_surf_operator,
+                                                        soln_basis_int.oneD_vol_operator);
+        }
     }
 
     //get the surface-volume sparsity pattern for a "sum-factorized" Hadamard product only computing terms needed for the operation.
@@ -3197,17 +3224,25 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_face_term_strong(
                 }
             }
              
-            //Compute the conservative values on the facet from the interpolated entorpy variables.
-            std::array<adtype,nstate> entropy_var_face_int;
-            std::array<adtype,nstate> entropy_var_face_ext;
-            for(int istate=0; istate<nstate; istate++){
-                entropy_var_face_int[istate] = projected_entropy_var_surf_int[istate][iquad_face];
-                entropy_var_face_ext[istate] = projected_entropy_var_surf_ext[istate][iquad_face];
-            }
+            //Compute the conservative values on the facet from the interpolated entropy variables.
             std::array<adtype,nstate> soln_state_face_int;
-            soln_state_face_int = pde_physics.compute_conservative_variables_from_entropy_variables (entropy_var_face_int);
             std::array<adtype,nstate> soln_state_face_ext;
-            soln_state_face_ext = pde_physics.compute_conservative_variables_from_entropy_variables (entropy_var_face_ext);
+            if (this->uncollocated_flux_nodes) {
+                std::array<adtype,nstate> entropy_var_face_int;
+                std::array<adtype,nstate> entropy_var_face_ext;
+                for(int istate=0; istate<nstate; istate++){
+                    entropy_var_face_int[istate] = projected_entropy_var_surf_int[istate][iquad_face];
+                    entropy_var_face_ext[istate] = projected_entropy_var_surf_ext[istate][iquad_face];
+                }
+                soln_state_face_int = pde_physics.compute_conservative_variables_from_entropy_variables (entropy_var_face_int);
+                soln_state_face_ext = pde_physics.compute_conservative_variables_from_entropy_variables (entropy_var_face_ext);
+            }
+            else {
+                for(int istate=0; istate<nstate; istate++){
+                    soln_state_face_int[istate] = soln_at_surf_q_int[istate][iquad_face];
+                    soln_state_face_ext[istate] = soln_at_surf_q_ext[istate][iquad_face];
+                }
+            }
 
             //only do the n_quad_1D vol points that give non-zero entries from Hadamard product.
             for(unsigned int row_index = iquad_face * n_quad_pts_1D_int, column_index = 0; 
@@ -3229,12 +3264,18 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_face_term_strong(
                         metric_cofactor_vol_int[idim][jdim] = metric_oper_int.metric_cofactor_vol[idim][jdim][iquad_vol];
                     }
                 }
-                std::array<adtype,nstate> entropy_var;
-                for(int istate=0; istate<nstate; istate++){
-                    entropy_var[istate] = projected_entropy_var_vol_int[istate][iquad_vol];
-                }
                 std::array<adtype,nstate> soln_state;
-                soln_state = pde_physics.compute_conservative_variables_from_entropy_variables (entropy_var);
+                if (this->uncollocated_flux_nodes) {
+                    std::array<adtype,nstate> entropy_var;
+                    for(int istate=0; istate<nstate; istate++){
+                        entropy_var[istate] = projected_entropy_var_vol_int[istate][iquad_vol];
+                    }
+                    soln_state = pde_physics.compute_conservative_variables_from_entropy_variables (entropy_var);
+                } else {
+                    for(int istate=0; istate<nstate; istate++){
+                        soln_state[istate] = soln_at_vol_q_int[istate][iquad_vol];
+                    }
+                }
                 //Note that the flux basis is collocated on the volume cubature set so we don't need to evaluate the entropy variables
                 //on the volume set then transform back to the conservative variables since the flux basis volume
                 //projection is identity.
@@ -3279,12 +3320,18 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_face_term_strong(
                         metric_cofactor_vol_ext[idim][jdim] = metric_oper_ext.metric_cofactor_vol[idim][jdim][iquad_vol];
                     }
                 }
-                std::array<adtype,nstate> entropy_var;
-                for(int istate=0; istate<nstate; istate++){
-                    entropy_var[istate] = projected_entropy_var_vol_ext[istate][iquad_vol];
-                }
                 std::array<adtype,nstate> soln_state;
-                soln_state = pde_physics.compute_conservative_variables_from_entropy_variables (entropy_var);
+                if (this->uncollocated_flux_nodes) {
+                    std::array<adtype,nstate> entropy_var;
+                    for(int istate=0; istate<nstate; istate++){
+                        entropy_var[istate] = projected_entropy_var_vol_ext[istate][iquad_vol];
+                    }
+                    soln_state = pde_physics.compute_conservative_variables_from_entropy_variables (entropy_var);
+                } else {
+                    for(int istate=0; istate<nstate; istate++){
+                        soln_state[istate] = soln_at_vol_q_ext[istate][iquad_vol];
+                    }
+                }
                 //Compute the physical flux
                 std::array<dealii::Tensor<1,dim,adtype>,nstate> conv_phys_flux_2pt;
                 conv_phys_flux_2pt = pde_physics.convective_numerical_split_flux(soln_state, soln_state_face_ext);
@@ -3392,18 +3439,20 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_face_term_strong(
 
         std::array<adtype,nstate> entropy_var_face_int;
         std::array<adtype,nstate> entropy_var_face_ext;
-        for(int istate=0; istate<nstate; istate++){
-            entropy_var_face_int[istate] = projected_entropy_var_surf_int_corrected[istate][iquad];
-            entropy_var_face_ext[istate] = projected_entropy_var_surf_ext_corrected[istate][iquad];
+        if(this->uncollocated_flux_nodes)
+        {
+            for(int istate=0; istate<nstate; istate++){
+                entropy_var_face_int[istate] = projected_entropy_var_surf_int_corrected[istate][iquad];
+                entropy_var_face_ext[istate] = projected_entropy_var_surf_ext_corrected[istate][iquad];
+            }
         }
 
         std::array<adtype,nstate> soln_state_int;
-        soln_state_int = pde_physics.compute_conservative_variables_from_entropy_variables (entropy_var_face_int);
         std::array<adtype,nstate> soln_state_ext;
-        soln_state_ext = pde_physics.compute_conservative_variables_from_entropy_variables (entropy_var_face_ext);
-
-
-        if(!this->all_parameters->use_split_form && !this->all_parameters->use_curvilinear_split_form){
+        if((this->all_parameters->use_split_form || this->all_parameters->use_curvilinear_split_form) && this->uncollocated_flux_nodes) {
+            soln_state_int = pde_physics.compute_conservative_variables_from_entropy_variables (entropy_var_face_int);
+            soln_state_ext = pde_physics.compute_conservative_variables_from_entropy_variables (entropy_var_face_ext);
+        } else {
             for(int istate=0; istate<nstate; istate++){
                 soln_state_int[istate] = soln_at_surf_q_int[istate][iquad];
                 soln_state_ext[istate] = soln_at_surf_q_ext[istate][iquad];
@@ -3840,8 +3889,8 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_face_term_viscous_pri
                 soln_interp_to_face_ext[istate] = soln_at_surf_q_ext[istate][iquad];
                 if(this->do_compute_filtered_solution) filtered_soln_interp_to_face_int[istate] = legendre_soln_at_surf_q_int[istate][iquad];
                 if(this->do_compute_filtered_solution) filtered_soln_interp_to_face_ext[istate] = legendre_soln_at_surf_q_ext[istate][iquad];
-                entropy_var_face_int[istate] = entropy_var_at_surf_int[istate][iquad];
-                entropy_var_face_ext[istate] = entropy_var_at_surf_ext[istate][iquad];
+                if(this->uncollocated_flux_nodes) entropy_var_face_int[istate] = entropy_var_at_surf_int[istate][iquad];
+                if(this->uncollocated_flux_nodes) entropy_var_face_ext[istate] = entropy_var_at_surf_ext[istate][iquad];
                 for(int idim=0; idim<dim; idim++){
                     aux_soln_state_int[istate][idim] = aux_soln_at_surf_q_int[istate][idim][iquad];
                     aux_soln_state_ext[istate][idim] = aux_soln_at_surf_q_ext[istate][idim][iquad];
@@ -3851,12 +3900,14 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_face_term_viscous_pri
             }
 
             std::array<adtype,nstate> soln_state_int;
-            soln_state_int = pde_physics.compute_conservative_variables_from_entropy_variables (entropy_var_face_int);
             std::array<adtype,nstate> soln_state_ext;
-            soln_state_ext = pde_physics.compute_conservative_variables_from_entropy_variables (entropy_var_face_ext);
-
-
-            if(!this->all_parameters->use_split_form && !this->all_parameters->use_curvilinear_split_form){
+            if(this->uncollocated_flux_nodes)
+            {
+                soln_state_int = pde_physics.compute_conservative_variables_from_entropy_variables (entropy_var_face_int);
+                soln_state_ext = pde_physics.compute_conservative_variables_from_entropy_variables (entropy_var_face_ext);
+            }
+            else
+            {
                 for(int istate=0; istate<nstate; istate++){
                     soln_state_int[istate] = soln_at_surf_q_int[istate][iquad];
                     soln_state_ext[istate] = soln_at_surf_q_ext[istate][iquad];
