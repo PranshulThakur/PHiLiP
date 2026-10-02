@@ -50,11 +50,19 @@ class AdjointMarch
     std::vector<int> unstable_indices;
     std::vector<int> stable_indices;
     std::vector<int> neutral_indices;
+
     std::vector<std::array<std::array<double,n_subspace_vectors>,n_subspace_vectors>> R_vec;
     std::vector<std::array<double,n_subspace_vectors>> b_vec;
-    std::vector<std::array<double,n_subspace_vectors>> d_vec;
-    std::vector<double> h_vec;
-    std::vector<double> integral_jc_vec;
+    std::vector<std::array<std::array<double,n_subspace_vectors>,n_subspace_vectors>> C_vec;
+    std::vector<std::array<double,n_subspace_vectors>> d_wv_vec;
+    std::vector<std::array<double,n_subspace_vectors>> d_wf_vec;
+    std::vector<double> d_vf_vec;
+    std::vector<std::array<double,n_subspace_vectors>> d_wfs_vec;
+    std::vector<double> d_vfs_vec;
+    std::vector<double> d_Js_vec;
+
+
+    
     std::array<double, n_subspace_vectors> lyapunov_exp;
     std::vector<double> lift_coeff_vec;
     std::vector<double> drag_coeff_vec;

@@ -379,12 +379,11 @@ void AdjointMarch<dim,nstate,n_subspace_vectors,MeshType>::
 compute_v_terminal(VectorType &v_terminal)
 { 
     get_solution_at_time(T);
-    const double j_val_T = functional->evaluate_functional(); 
     dg->assemble_residual();
     VectorType f_val = dg->right_hand_side;
     dg->global_inverse_mass_matrix.vmult(f_val,dg->right_hand_side);
     v_terminal = f_val;
-    v_terminal *= ((j_bar - j_val_T)/(f_val*f_val));
+    v_terminal *= 0;
     v_terminal.update_ghost_values();
     // Residual and the functional have been evaluated at time T.
 }
@@ -416,10 +415,15 @@ compute_R_b_d_h_Jc_vecs()
     v.reinit(dg->solution);
     int index_start = K;
     R_vec.resize(K);
-    d_vec.resize(K);
     b_vec.resize(K);
-    h_vec.resize(K);
-    integral_jc_vec.resize(K);
+    C_vec.resize(K);
+    d_wv_vec.resize(K);
+    d_wf_vec.resize(K);
+    d_vf_vec.resize(K);
+    d_wfs_vec.resize(K);
+    d_vfs_vec.resize(K);
+    d_Js_vec.resize(K);
+
     if(! use_adjoint_restart_files)
     {
         //std::cout<<"Here 2"<<std::endl;
@@ -444,14 +448,27 @@ compute_R_b_d_h_Jc_vecs()
     }
     std::array<VectorType,n_subspace_vectors> Q;
     std::array<std::array<double,n_subspace_vectors>,n_subspace_vectors> R;
-    
-    std::array<std::vector<double>,n_subspace_vectors> integrand_d;
-    for(unsigned int k=0; k<n_subspace_vectors; ++k) 
+
+
+    std::array<std::array<std::vector<double>,n_subspace_vectors>,n_subspace_vectors> integrand_C;
+    std::array<std::vector<double>,n_subspace_vectors> integrand_d_wv;
+    std::array<std::vector<double>,n_subspace_vectors> integrand_d_wf;
+    std::vector<double> integrand_d_vf(nsteps + 1);
+    std::array<std::vector<double>,n_subspace_vectors> integrand_d_wfs;
+    std::vector<double> integrand_d_vfs(nsteps + 1);
+    std::vector<double> integrand_d_Js(nsteps + 1);
+
+    for(unsigned int k1=0; k1<n_subspace_vectors; ++k1) 
     {
-        integrand_d[k].resize(nsteps+1);
+        integrand_d_wv[k1].resize(nsteps+1);
+        integrand_d_wf[k1].resize(nsteps+1);
+        integrand_d_wfs[k1].resize(nsteps+1);
+
+        for(unsigned int k2 = 0; k2<n_subspace_vectors; ++k2)
+        {
+            integrand_C[k1][k2].resize(nsteps+1);
+        }
     }
-    std::vector<double> integrand_h(nsteps+1);
-    std::vector<double> integrand_J_c(nsteps+1);
     VectorType f_c;
 
     pcout<<"Runs nonhomogeneous:"<<std::endl;
@@ -463,12 +480,24 @@ compute_R_b_d_h_Jc_vecs()
             if(j==nsteps)
             {
                 get_solution_at_time(current_time);
-                compute_df_dc_and_dJ_dc(f_c,integrand_J_c[j]);
-                for(unsigned int k=0; k<n_subspace_vectors; ++k)
+                compute_df_dc_and_dJ_dc(f_c,integrand_d_Js[j]);
+                VectorType Rhs = dg->right_hand_side;
+                VectorType f(dg->solution);
+                dg->global_inverse_mass_matrix.vmult(f,Rhs);
+                f.update_ghost_values();
+                for(unsigned int k1=0; k1<n_subspace_vectors; ++k1)
                 {
-                    integrand_d[k][j] = Y[k]*f_c;
+                    for(unsigned int k2=0; k2<n_subspace_vectors; ++k2)
+                    {
+                        integrand_C[k1][k2][j] = Y[k1]*Y[k2];
+                    }
+                    integrand_d_wv[k1][j] = Y[k1]*v;
+                    integrand_d_wf[k1][j] = Y[k1]*f;
+                    integrand_d_wfs[k1][j] = Y[k1]*f_c;
                 }
-                integrand_h[j] = v*f_c;
+
+                integrand_d_vf[j] = v*f;
+                integrand_d_vfs[j] = v*f_c;
             }
             pcout<<"Time: "<<current_time<<std::endl;
             get_solution_at_time(current_time-dt);
@@ -481,26 +510,41 @@ compute_R_b_d_h_Jc_vecs()
             // Compute integrands to be integrated
             //=========================================
             get_solution_at_time(current_time-dt);
-            compute_df_dc_and_dJ_dc(f_c,integrand_J_c[j-1]);
-            for(unsigned int k=0; k<n_subspace_vectors; ++k)
+            compute_df_dc_and_dJ_dc(f_c,integrand_d_Js[j-1]);
+            VectorType Rhs = dg->right_hand_side;
+            VectorType f(dg->solution);
+            dg->global_inverse_mass_matrix.vmult(f,Rhs);
+            f.update_ghost_values();
+            for(unsigned int k1=0; k1<n_subspace_vectors; ++k1)
             {
-                integrand_d[k][j-1] = Y_minus[k]*f_c;
+                for(unsigned int k2=0; k2<n_subspace_vectors; ++k2)
+                {
+                    integrand_C[k1][k2][j-1] = Y_minus[k1]*Y_minus[k2];
+                }
+                integrand_d_wv[k1][j-1] = Y_minus[k1]*v_minus;
+                integrand_d_wf[k1][j-1] = Y_minus[k1]*f;
+                integrand_d_wfs[k1][j-1] = Y_minus[k1]*f_c;
             }
-            integrand_h[j-1] = v_minus*f_c;
-            //========================================
+
+            integrand_d_vf[j-1] = v_minus*f;
+            integrand_d_vfs[j-1] = v_minus*f_c;        
         } // nsteps ends
         pcout<<"================================================================"<<std::endl;
         // Compute integrals
-        const double integral_jc = simpson_integration(integrand_J_c, nsteps, dt);
-        integral_jc_vec[i-1] = integral_jc;
-        const double integral_h = simpson_integration(integrand_h, nsteps, dt);
-        h_vec[i-1] = integral_h;
-        std::array<double,n_subspace_vectors> integrals_d;
-        for(unsigned int k=0; k<n_subspace_vectors; ++k)
+        for(unsigned int k1 = 0; k1<n_subspace_vectors; ++k1)
         {
-            integrals_d[k] = simpson_integration(integrand_d[k], nsteps, dt);
+            for(unsigned int k2=0; k2<n_subspace_vectors; ++k2)
+            {
+                C_vec[i-1][k1][k2] = simpson_integration(integrand_C[k1][k2],nsteps,dt);
+            }
+            d_wv_vec[i-1][k1] = simpson_integration(integrand_d_wv[k1],nsteps,dt);
+            d_wf_vec[i-1][k1] = simpson_integration(integrand_d_wf[k1],nsteps,dt);
+            d_wfs_vec[i-1][k1] = simpson_integration(integrand_d_wfs[k1],nsteps,dt);
         }
-        d_vec[i-1] = integrals_d;
+
+        d_vf_vec[i-1] = simpson_integration(integrand_d_vf,nsteps,dt);
+        d_vfs_vec[i-1] = simpson_integration(integrand_d_vfs,nsteps,dt);
+        d_Js_vec[i-1] = simpson_integration(integrand_d_Js,nsteps,dt);
 
         // Compute QR and variables for the next iteration
         compute_QR_decomposition<n_subspace_vectors>(Y_minus, Q, R);
@@ -549,9 +593,23 @@ output_adjoint_restarts(const std::array<VectorType,n_subspace_vectors> & Q,
     {
         std::ofstream cout_R("restart_files/R_vec_T" + std::to_string(current_time)  + ".txt"); 
         std::ofstream cout_b("restart_files/b_vec_T" + std::to_string(current_time)  + ".txt"); 
-        std::ofstream cout_d("restart_files/d_vec_T" + std::to_string(current_time)  + ".txt"); 
-        std::ofstream cout_h("restart_files/h_vec_T" + std::to_string(current_time)  + ".txt"); 
-        std::ofstream cout_J_c("restart_files/integral_J_c_T" + std::to_string(current_time)  + ".txt"); 
+        std::ofstream cout_C("restart_files/C_vec_T" + std::to_string(current_time)  + ".txt"); 
+        std::ofstream cout_d_wv("restart_files/d_wv_vec_T" + std::to_string(current_time)  + ".txt"); 
+        std::ofstream cout_d_wf("restart_files/d_wf_vec_T" + std::to_string(current_time)  + ".txt"); 
+        std::ofstream cout_d_vf("restart_files/d_vf_vec_T" + std::to_string(current_time)  + ".txt"); 
+        std::ofstream cout_d_wfs("restart_files/d_wfs_vec_T" + std::to_string(current_time)  + ".txt"); 
+        std::ofstream cout_d_vfs("restart_files/d_vfs_vec_T" + std::to_string(current_time)  + ".txt"); 
+        std::ofstream cout_d_Js("restart_files/d_Js_vec_T" + std::to_string(current_time)  + ".txt"); 
+
+        std::ofstream cout_R_copy("restart_files/R_vec.txt"); 
+        std::ofstream cout_b_copy("restart_files/b_vec.txt"); 
+        std::ofstream cout_C_copy("restart_files/C_vec.txt"); 
+        std::ofstream cout_d_wv_copy("restart_files/d_wv_vec.txt"); 
+        std::ofstream cout_d_wf_copy("restart_files/d_wf_vec.txt"); 
+        std::ofstream cout_d_vf_copy("restart_files/d_vf_vec.txt"); 
+        std::ofstream cout_d_wfs_copy("restart_files/d_wfs_vec.txt"); 
+        std::ofstream cout_d_vfs_copy("restart_files/d_vfs_vec.txt"); 
+        std::ofstream cout_d_Js_copy("restart_files/d_Js_vec.txt"); 
 
         int index_end = std::round(current_time/delT);
         for(int i=K; i>index_end; --i)
@@ -562,19 +620,47 @@ output_adjoint_restarts(const std::array<VectorType,n_subspace_vectors> & Q,
                 for(unsigned int k2 = 0; k2<n_subspace_vectors; ++k2)
                 {
                     cout_R<<std::setprecision(16)<<R_vec[i-1][k1][k2]<<std::endl;
+                    cout_R_copy<<std::setprecision(16)<<R_vec[i-1][k1][k2]<<std::endl;
+                    cout_C<<std::setprecision(16)<<C_vec[i-1][k1][k2]<<std::endl;
+                    cout_C_copy<<std::setprecision(16)<<C_vec[i-1][k1][k2]<<std::endl;
                 }
+
                 cout_b<<std::setprecision(16)<<b_vec[i-1][k1]<<std::endl;
-                cout_d<<std::setprecision(16)<<d_vec[i-1][k1]<<std::endl;
+                cout_b_copy<<std::setprecision(16)<<b_vec[i-1][k1]<<std::endl;
+                cout_d_wv<<std::setprecision(16)<<d_wv_vec[i-1][k1]<<std::endl;
+                cout_d_wv_copy<<std::setprecision(16)<<d_wv_vec[i-1][k1]<<std::endl;
+                cout_d_wf<<std::setprecision(16)<<d_wf_vec[i-1][k1]<<std::endl;
+                cout_d_wf_copy<<std::setprecision(16)<<d_wf_vec[i-1][k1]<<std::endl;
+                cout_d_wfs<<std::setprecision(16)<<d_wfs_vec[i-1][k1]<<std::endl;
+                cout_d_wfs_copy<<std::setprecision(16)<<d_wfs_vec[i-1][k1]<<std::endl;
             }
-            cout_J_c<<std::setprecision(16)<<integral_jc_vec[i-1]<<std::endl;
-            cout_h<<std::setprecision(16)<<h_vec[i-1]<<std::endl;        
+            cout_d_vf<<std::setprecision(16)<<d_vf_vec[i-1]<<std::endl;
+            cout_d_vf_copy<<std::setprecision(16)<<d_vf_vec[i-1]<<std::endl;
+            cout_d_vfs<<std::setprecision(16)<<d_vfs_vec[i-1]<<std::endl;
+            cout_d_vfs_copy<<std::setprecision(16)<<d_vfs_vec[i-1]<<std::endl;
+            cout_d_Js<<std::setprecision(16)<<d_Js_vec[i-1]<<std::endl;
+            cout_d_Js_copy<<std::setprecision(16)<<d_Js_vec[i-1]<<std::endl;
         }
         
         cout_R.close(); 
         cout_b.close(); 
-        cout_d.close(); 
-        cout_h.close(); 
-        cout_J_c.close();
+        cout_C.close(); 
+        cout_d_wv.close(); 
+        cout_d_wf.close(); 
+        cout_d_vf.close(); 
+        cout_d_wfs.close(); 
+        cout_d_vfs.close(); 
+        cout_d_Js.close(); 
+
+        cout_R_copy.close(); 
+        cout_b_copy.close(); 
+        cout_C_copy.close(); 
+        cout_d_wv_copy.close(); 
+        cout_d_wf_copy.close(); 
+        cout_d_vf_copy.close(); 
+        cout_d_wfs_copy.close(); 
+        cout_d_vfs_copy.close(); 
+        cout_d_Js_copy.close(); 
     }
     
     #if PHILIP_DIM > 1
@@ -596,9 +682,13 @@ read_adjoint_restarts(std::array<VectorType,n_subspace_vectors> & Q,
 {
     std::ifstream cin_R("restart_files/R_vec_T" + std::to_string(current_time)  + ".txt"); 
     std::ifstream cin_b("restart_files/b_vec_T" + std::to_string(current_time)  + ".txt"); 
-    std::ifstream cin_d("restart_files/d_vec_T" + std::to_string(current_time)  + ".txt"); 
-    std::ifstream cin_h("restart_files/h_vec_T" + std::to_string(current_time)  + ".txt"); 
-    std::ifstream cin_J_c("restart_files/integral_J_c_T" + std::to_string(current_time)  + ".txt"); 
+    std::ifstream cin_C("restart_files/C_vec_T" + std::to_string(current_time)  + ".txt"); 
+    std::ifstream cin_d_wv("restart_files/d_wv_vec_T" + std::to_string(current_time)  + ".txt"); 
+    std::ifstream cin_d_wf("restart_files/d_wf_vec_T" + std::to_string(current_time)  + ".txt"); 
+    std::ifstream cin_d_vf("restart_files/d_vf_vec_T" + std::to_string(current_time)  + ".txt"); 
+    std::ifstream cin_d_wfs("restart_files/d_wfs_vec_T" + std::to_string(current_time)  + ".txt"); 
+    std::ifstream cin_d_vfs("restart_files/d_vfs_vec_T" + std::to_string(current_time)  + ".txt"); 
+    std::ifstream cin_d_Js("restart_files/d_Js_vec_T" + std::to_string(current_time)  + ".txt"); 
 
     int index_end = std::round(current_time/delT);
     for(int i=K; i>index_end; --i)
@@ -609,19 +699,27 @@ read_adjoint_restarts(std::array<VectorType,n_subspace_vectors> & Q,
             for(unsigned int k2 = 0; k2<n_subspace_vectors; ++k2)
             {
                 cin_R>>R_vec[i-1][k1][k2];
+                cin_C>>C_vec[i-1][k1][k2];
             }
             cin_b>>b_vec[i-1][k1];
-            cin_d>>d_vec[i-1][k1];
+            cin_d_wv>>d_wv_vec[i-1][k1];
+            cin_d_wf>>d_wf_vec[i-1][k1];
+            cin_d_wfs>>d_wfs_vec[i-1][k1];
         }
-        cin_J_c>>integral_jc_vec[i-1];
-        cin_h>>h_vec[i-1];        
+        cin_d_vf>>d_vf_vec[i-1];
+        cin_d_vfs>>d_vfs_vec[i-1];
+        cin_d_Js>>d_Js_vec[i-1];
     }
     
     cin_R.close(); 
     cin_b.close(); 
-    cin_d.close(); 
-    cin_h.close(); 
-    cin_J_c.close(); 
+    cin_C.close(); 
+    cin_d_wv.close(); 
+    cin_d_wf.close(); 
+    cin_d_vf.close(); 
+    cin_d_wfs.close(); 
+    cin_d_vfs.close(); 
+    cin_d_Js.close(); 
     
     #if PHILIP_DIM > 1
     for(unsigned int k=0; k<n_subspace_vectors;++k)
