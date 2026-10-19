@@ -1108,7 +1108,7 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_volume_term_strong(
     std::array<std::vector<adtype>,nstate> entropy_var_at_q;
     std::array<std::vector<adtype>,nstate> projected_entropy_var_at_q;
     std::array<std::vector<adtype>,nstate> entropy_var_coeffs;
-    if (((this->all_parameters->use_split_form || this->all_parameters->use_curvilinear_split_form) && this->uncollocated_flux_nodes) || this->all_parameters->use_viscous_br2_entropystable){
+    if (((this->all_parameters->use_split_form || this->all_parameters->use_curvilinear_split_form) && this->uncollocated_flux_nodes) || (this->all_parameters->use_viscous_br2_entropystable || this->all_parameters->use_viscous_cdg_entropystable)){
         for(int istate=0; istate<nstate; istate++){
             entropy_var_at_q[istate].resize(n_quad_pts);
             projected_entropy_var_at_q[istate].resize(n_quad_pts);
@@ -1627,7 +1627,7 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_volume_term_viscous_p
     std::vector<adtype>     &vol_term_viscous) const
 {
     vol_term_viscous.resize(n_dofs_cell);   
-    if(this->all_parameters->use_viscous_br2_entropystable)
+    if((this->all_parameters->use_viscous_br2_entropystable||this->all_parameters->use_viscous_cdg_entropystable))
     {
         EntropyStable_viscousBR2<dim,nspecies,nstate,real,MeshType>::assemble_volume_term_entropystable_br2(
         poly_degree,
@@ -1981,7 +1981,7 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_boundary_term_strong(
     std::array<std::vector<adtype>,nstate> projected_entropy_var_vol;
     std::array<std::vector<adtype>,nstate> projected_entropy_var_surf;
     std::array<std::vector<adtype>,nstate> entropy_var_coeffs;
-    if(this->uncollocated_flux_nodes || this->all_parameters->use_viscous_br2_entropystable)
+    if(this->uncollocated_flux_nodes || (this->all_parameters->use_viscous_br2_entropystable || this->all_parameters->use_viscous_cdg_entropystable))
     {
         for(unsigned int iquad=0; iquad<n_quad_pts_vol; iquad++){
             std::array<adtype,nstate> soln_state;
@@ -2354,7 +2354,7 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_boundary_term_viscous
 {
     boundary_term_viscous.resize(n_dofs_cell);   
     
-    if(this->all_parameters->use_viscous_br2_entropystable)
+    if((this->all_parameters->use_viscous_br2_entropystable || this->all_parameters->use_viscous_cdg_entropystable))
     {
         EntropyStable_viscousBR2<dim,nspecies,nstate,real,MeshType>::assemble_boundary_term_entropystable_br2(
         face_orientation,
@@ -3101,7 +3101,7 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_face_term_strong(
     std::array<std::vector<adtype>,nstate> entropy_var_coeffs_int;
     std::array<std::vector<adtype>,nstate> entropy_var_coeffs_ext;
     
-    if (this->uncollocated_flux_nodes || this->all_parameters->use_viscous_br2_entropystable) {
+    if (this->uncollocated_flux_nodes || (this->all_parameters->use_viscous_br2_entropystable||this->all_parameters->use_viscous_cdg_entropystable)) {
         for(unsigned int iquad=0; iquad<n_quad_pts_vol_int; iquad++){
             std::array<adtype,nstate> soln_state;
             for(int istate=0; istate<nstate; istate++){
@@ -3700,9 +3700,12 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_face_term_viscous_pri
 {
     viscous_face_term_int.resize(n_dofs_cell_int);
     viscous_face_term_ext.resize(n_dofs_cell_ext);
-    if(this->all_parameters->use_viscous_br2_entropystable)
+    if((this->all_parameters->use_viscous_br2_entropystable||this->all_parameters->use_viscous_cdg_entropystable))
     {
         EntropyStable_viscousBR2<dim,nspecies,nstate,real,MeshType>::assemble_face_term_entropystable_br2(
+        this->all_parameters->use_viscous_br2_entropystable,
+        this->all_parameters->use_viscous_cdg_entropystable,
+         penalty,
          face_orientation_int,
          face_orientation_ext,
          iface_int,
@@ -4331,6 +4334,9 @@ void EntropyStable_viscousBR2<dim,nspecies,nstate,real,MeshType>::assemble_volum
 template <int dim, int nspecies, int nstate, typename real, typename MeshType>
 template <typename adtype>
 void EntropyStable_viscousBR2<dim,nspecies,nstate,real,MeshType>::assemble_face_term_entropystable_br2(
+    const bool                                                         use_viscous_br2_entropystable,
+    const bool                                                         use_viscous_cdg_entropystable,
+    const real                                                         penalty,
     std::vector<bool>                                                  face_orientation_int,
     std::vector<bool>                                                  face_orientation_ext,
     const unsigned int                                                 iface_int,
@@ -4423,19 +4429,36 @@ void EntropyStable_viscousBR2<dim,nspecies,nstate,real,MeshType>::assemble_face_
     n_vol_quad_pts_int,
     is_interior_face,
     re_int);
+
+    if(use_viscous_cdg_entropystable)
+    {
+        for(unsigned int s=0; s<nstate; ++s)
+        {
+            for(unsigned int d=0; d<dim; ++d)
+            {
+                for(unsigned int q=0; q<n_vol_quad_pts_int; ++q)
+                {
+                    re_int[s][d][q]*=2.0;
+                }
+            }
+        }
+    }
     
     std::array<dealii::Tensor<1,dim,std::vector<adtype>>,nstate> re_ext;
-    compute_lift_polynomial(
-    face_orientation_ext,
-    iface_ext,
-    entropy_var_jump_at_face,
-    JxW_face,
-    JxW_vol_ext,
-    flux_basis_ext,
-    n_face_quad_pts,
-    n_vol_quad_pts_ext,
-    is_interior_face,
-    re_ext);
+    if(use_viscous_br2_entropystable)
+    {
+        compute_lift_polynomial(
+        face_orientation_ext,
+        iface_ext,
+        entropy_var_jump_at_face,
+        JxW_face,
+        JxW_vol_ext,
+        flux_basis_ext,
+        n_face_quad_pts,
+        n_vol_quad_pts_ext,
+        is_interior_face,
+        re_ext);
+    }
 
     const double br2_factor = 2.0*dim + 1.0; // n_faces = 2*dim. br2_factor > n_faces for entropy stability.
 
@@ -4456,7 +4479,14 @@ void EntropyStable_viscousBR2<dim,nspecies,nstate,real,MeshType>::assemble_face_
         {
             for(unsigned int d=0; d<dim; ++d)
             {
-                tensor_int[s][d][q] = entropy_var_phys_grad_int[s][d][q] + br2_factor*re_int[s][d][q];
+                if(use_viscous_br2_entropystable)
+                {
+                    tensor_int[s][d][q] = entropy_var_phys_grad_int[s][d][q] + br2_factor*re_int[s][d][q];
+                }
+                else
+                {
+                    tensor_int[s][d][q] = entropy_var_phys_grad_int[s][d][q] + re_int[s][d][q];
+                }
             }
         }       
     }
@@ -4467,7 +4497,14 @@ void EntropyStable_viscousBR2<dim,nspecies,nstate,real,MeshType>::assemble_face_
         {
             for(unsigned int d=0; d<dim; ++d)
             {
-                tensor_ext[s][d][q] = entropy_var_phys_grad_ext[s][d][q] + br2_factor*re_ext[s][d][q];
+                if(use_viscous_br2_entropystable)
+                {
+                    tensor_ext[s][d][q] = entropy_var_phys_grad_ext[s][d][q] + br2_factor*re_ext[s][d][q];
+                }
+                else
+                {
+                    tensor_ext[s][d][q] = entropy_var_phys_grad_ext[s][d][q];
+                }
             }
         }       
     }
@@ -4525,6 +4562,30 @@ void EntropyStable_viscousBR2<dim,nspecies,nstate,real,MeshType>::assemble_face_
         }
     }
 
+    if(use_viscous_cdg_entropystable)
+    {
+        std::array<std::vector<adtype>,nstate> sigma_e_jump;
+        for(unsigned int s=0; s<nstate; ++s)
+        {
+            sigma_e_jump[s].resize(n_face_quad_pts);
+            for(unsigned int q=0; q<n_face_quad_pts; ++q)
+            {
+                for(unsigned int d=0; d<dim; ++d)
+                {
+                    sigma_e_jump[s][q] += (sigma_at_face_int[s][d][q] - sigma_at_face_ext[s][d][q])*unit_phys_normal_int[q][d];
+                }
+            }
+        }
+        for(unsigned int q=0; q<n_face_quad_pts; ++q)
+        {
+            for(unsigned int s=0; s<nstate; ++s)
+            {
+                sigma_at_face_avg_dot_n_int[s][q] += -penalty*(entropy_var_at_surf_int[s][q]-entropy_var_at_surf_ext[s][q]) + sigma_e_jump[s][q]/2.0;
+                sigma_at_face_avg_dot_n_ext[s][q] += penalty*(entropy_var_at_surf_int[s][q]-entropy_var_at_surf_ext[s][q]) - sigma_e_jump[s][q]/2.0;
+            }
+        }
+    }
+
     std::vector<adtype> int_face_integral_e;
     std::vector<adtype> ext_face_integral_e;
     std::vector<adtype> int_face_integral_k;
@@ -4558,17 +4619,20 @@ void EntropyStable_viscousBR2<dim,nspecies,nstate,real,MeshType>::assemble_face_
     pde_physics,
     re_int,
     int_face_integral_k);
-
-    compute_gradbasis_diffusionmatrix_times_input_vol_integral(
-    entropy_var_at_vol_ext,
-    n_vol_quad_pts_ext,
-    n_dofs_cell_ext,
-    soln_basis_ext,
-    metric_oper_ext,
-    vol_quad_weights_ext,
-    pde_physics,
-    re_ext,
-    ext_face_integral_k);
+    
+    if(use_viscous_br2_entropystable)
+    {
+        compute_gradbasis_diffusionmatrix_times_input_vol_integral(
+        entropy_var_at_vol_ext,
+        n_vol_quad_pts_ext,
+        n_dofs_cell_ext,
+        soln_basis_ext,
+        metric_oper_ext,
+        vol_quad_weights_ext,
+        pde_physics,
+        re_ext,
+        ext_face_integral_k);
+    }
 
     for(unsigned int idof =0; idof<n_dofs_cell_int; ++idof)
     {
@@ -4577,7 +4641,14 @@ void EntropyStable_viscousBR2<dim,nspecies,nstate,real,MeshType>::assemble_face_
 
     for(unsigned int idof =0; idof<n_dofs_cell_ext; ++idof)
     {
-        face_term_ext[idof] = ext_face_integral_k[idof] - ext_face_integral_e[idof];
+        if(use_viscous_br2_entropystable)
+        {
+            face_term_ext[idof] = ext_face_integral_k[idof] - ext_face_integral_e[idof];
+        }
+        else
+        {
+            face_term_ext[idof] =  - ext_face_integral_e[idof];
+        }
     }
 }
     

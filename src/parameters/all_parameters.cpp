@@ -165,6 +165,10 @@ void AllParameters::declare_parameters (dealii::ParameterHandler &prm)
                       dealii::Patterns::Bool(),
                       "Use entropy stable BR2 discretization of the viscous terms.");
     
+    prm.declare_entry("use_viscous_cdg_entropystable", "false",
+                      dealii::Patterns::Bool(),
+                      "Use entropy stable CDG discretization of the viscous terms.");
+    
     prm.declare_entry("energy_file", "energy_file",
                       dealii::Patterns::FileName(dealii::Patterns::FileName::FileType::input),
                       "Input file for energy test.");
@@ -193,6 +197,7 @@ void AllParameters::declare_parameters (dealii::ParameterHandler &prm)
                       " shock_1d | "
                       " euler_naca0012 | "
                       " lid_driven_cavity | "
+                      " channel_flow_paper | "
                       " reduced_order | "
                       " unsteady_reduced_order |"
                       " convection_diffusion_periodicity |"
@@ -251,6 +256,7 @@ void AllParameters::declare_parameters (dealii::ParameterHandler &prm)
                       "  shock_1d | "
                       "  euler_naca0012 | "
                       "  lid_driven_cavity | "
+                      "  channel_flow_paper | "
                       "  convection_diffusion_periodicity |"
                       "  reduced_order | "
                       "  unsteady_reduced_order | "
@@ -472,6 +478,7 @@ const std::string test_string = prm.get("test_type");
     else if (test_string == "finite_difference_sensitivity")            { test_type = finite_difference_sensitivity; }
     else if (test_string == "euler_naca0012")                           { test_type = euler_naca0012; }
     else if (test_string == "lid_driven_cavity")                        { test_type = lid_driven_cavity; }
+    else if (test_string == "channel_flow_paper")                       { test_type = channel_flow_paper; }
     else if (test_string == "optimization_inverse_manufactured")        { test_type = optimization_inverse_manufactured; }
     else if (test_string == "dual_weighted_residual_mesh_adaptation")   { test_type = dual_weighted_residual_mesh_adaptation; }
     else if (test_string == "anisotropic_mesh_adaptation")              { test_type = anisotropic_mesh_adaptation; }
@@ -597,10 +604,11 @@ const std::string test_string = prm.get("test_type");
     use_inverse_mass_on_the_fly = prm.get_bool("use_inverse_mass_on_the_fly");
     check_valid_metric_Jacobian = prm.get_bool("check_valid_metric_Jacobian");
     use_viscous_br2_entropystable = prm.get_bool("use_viscous_br2_entropystable");
+    use_viscous_cdg_entropystable = prm.get_bool("use_viscous_cdg_entropystable");
     if(!use_weak_form){
         check_valid_metric_Jacobian = false;
     }
-    if(use_weak_form && use_viscous_br2_entropystable)
+    if(use_weak_form && (use_viscous_br2_entropystable||use_viscous_cdg_entropystable))
     {
         std::cout<<"Viscous entropy stable BR2 is not implemented for Weak DG. Aborting..."<<std::endl;
         std::abort();

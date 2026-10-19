@@ -52,6 +52,7 @@ set(TESTS_SOURCE
     dipole_wall_collision_unsteady_quantity_check.cpp
     turbulent_channel_flow_unsteady_quantity_check.cpp
     lid_driven_cavity.cpp
+    channelflow_paper.cpp
     )
 
 foreach(dim RANGE 1 3)

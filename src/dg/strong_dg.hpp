@@ -1238,6 +1238,9 @@ class EntropyStable_viscousBR2
     /// Assemble BR2 face term.
     template <typename adtype>
     static void assemble_face_term_entropystable_br2(
+        const bool                                                         use_viscous_br2_entropystable,
+        const bool                                                         use_viscous_cdg_entropystable,
+        const real                                                         penalty,
         std::vector<bool>                                                  face_orientation_int,
         std::vector<bool>                                                  face_orientation_ext,
         const unsigned int                                                 iface_int,

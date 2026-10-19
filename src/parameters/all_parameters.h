@@ -160,6 +160,9 @@ public:
     
     /// Flag to use entropy stable viscous BR2.
     bool use_viscous_br2_entropystable;
+    
+    /// Flag to use entropy stable viscous CDG.
+    bool use_viscous_cdg_entropystable;
 
     /// Energy file.
     std::string energy_file;
@@ -192,6 +195,7 @@ public:
         shock_1d,
         euler_naca0012,
         lid_driven_cavity,
+        channel_flow_paper,
         reduced_order,
         unsteady_reduced_order,
         convection_diffusion_periodicity,

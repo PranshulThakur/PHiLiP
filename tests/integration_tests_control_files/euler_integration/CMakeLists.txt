@@ -487,6 +487,19 @@ set_tests_labels(3D_LID_DRIVEN_CAVITY_ENTROPY_STABILITY         EULER_INTEGRATIO
                                                                 UNCOLLOCATED
                                                                 INTEGRATION_TEST)
 
+configure_file(2d_wallbc_convergencerate.prm 2d_wallbc_convergencerate.prm COPYONLY)
+add_test(
+  NAME 2D_CHANNEL_FLOW_PAPER
+  COMMAND mpirun -np ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_2D -i ${CMAKE_CURRENT_BINARY_DIR}/2d_wallbc_convergencerate.prm
+  WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
+)
+set_tests_labels(2D_CHANNEL_FLOW_PAPER                          EULER_INTEGRATION
+                                                                2D
+                                                                PARALLEL
+                                                                NAVIER_STOKES
+                                                                STRONG
+                                                                UNCOLLOCATED
+                                                                INTEGRATION_TEST)
 # Vortex test case takes wayyy too much time. It works, so uncomment below if you want to wait.
 # configure_file(2d_euler_vortex.prm 2d_euler_vortex.prm COPYONLY)
 # add_test(
