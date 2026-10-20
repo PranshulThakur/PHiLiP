@@ -47,8 +47,56 @@ int EulerNACA0012<dim,nstate>
 
     adjoint_march->compute_R_b_d_h_Jc_vecs();
     //adjoint_march->compute_lyapunov_exponents_forward_tangent();
+/*
+//=============================================================================================================================
+    // Output adjoint solution
+    const double time_ = 1400;
+    dealii::LinearAlgebra::distributed::Vector<double> v(flow_solver->dg->solution);
+    const int n_hom_vectors = 15;
+    std::array<dealii::LinearAlgebra::distributed::Vector<double>,n_hom_vectors> Q;
+    for(int i = 0; i<n_hom_vectors; ++i)
+    {
+        const std::string filename = "restart_files/Q_T" + std::to_string(time_) + "_subspacevec_" + std::to_string(i);
+        Q[i].reinit(flow_solver->dg->solution);
+        adjoint_march->load_vector(Q[i],filename);
+    }
+    const std::string filename = "restart_files/v_T" + std::to_string(time_);
+    adjoint_march->load_vector(v,filename);
+
+    std::array<double,n_hom_vectors> a;
+a[ 0 ] =  -1393.0890071994322 ;
+a[ 1 ] =  -2097.14120017846 ;
+a[ 2 ] =  42.94065309403623 ;
+a[ 3 ] =  -41.263653114169486 ;
+a[ 4 ] =  -16.912475984833765 ;
+a[ 5 ] =  24.812125064810022 ;
+a[ 6 ] =  13.924478596325676 ;
+a[ 7 ] =  1.2766485838421404 ;
+a[ 8 ] =  2.343703550935791 ;
+a[ 9 ] =  25.160345271970858 ;
+a[ 10 ] =  12.351923611135025 ;
+a[ 11 ] =  -36.88144592275777 ;
+a[ 12 ] =  6.992177851644485 ;
+a[ 13 ] =  -18.5343771115758 ;
+a[ 14 ] =  -7.017642550908791 ;
+    dealii::LinearAlgebra::distributed::Vector<double> adjoint_solution(flow_solver->dg->solution);
+    adjoint_solution = 0;
+    for(int i=0; i<n_hom_vectors; ++i)
+    {
+        adjoint_solution.add(a[i],Q[i]);
+    }
+    adjoint_solution.add(1.0,v);
+    adjoint_solution.update_ghost_values();
+    flow_solver->dg->solution = adjoint_solution;
+    flow_solver->dg->output_results_vtk(1000);
+     adjoint_march->load_vector(flow_solver->dg->solution,"restart_files/restart-000004");
+     flow_solver->dg->output_results_vtk(1001);
+//=============================================================================================================================
+*/
+
     
     /*
+    //Compute partial derivative df/ds
 {
     for(int i=3; i<8; ++i)
     {
