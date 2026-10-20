@@ -87,10 +87,13 @@ int LidDrivenCavity<dim,nspecies,nstate>
         flow_solver->ode_solver->current_iteration += 1;
 
         //get the change in entropy
-        const double current_change_entropy = compute_change_in_entropy(flow_solver->dg, param.flow_solver_param.poly_degree);
-        pcout << "Change in Entropy at time " << flow_solver->ode_solver->current_time << " is " << current_change_entropy<< std::endl;
+        const double v_times_rhs = compute_change_in_entropy(flow_solver->dg, param.flow_solver_param.poly_degree);
+        flow_solver->dg->assemble_only_viscous_residual = true;
+        const double v_times_rhs_viscous = compute_change_in_entropy(flow_solver->dg, param.flow_solver_param.poly_degree);
+        flow_solver->dg->assemble_only_viscous_residual = false;
+        pcout << "\n Time: " << flow_solver->ode_solver->current_time <<std::endl<<"v_times_rhs = "<<v_times_rhs<<std::endl<<"v_times_rhs_viscous = "<<v_times_rhs_viscous << std::endl;
         //check if change in entropy is non-positive
-        if(current_change_entropy > 1e-12){
+        if(v_times_rhs > 1e-12){
           pcout << " Change in entropy should be negative. Test failed..." << std::endl;
           return 1;
         }

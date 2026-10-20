@@ -452,6 +452,7 @@ public:
      *  the Physics to compute maximum wavespeeds.
      */
     dealii::Vector<double> cell_volume;
+    bool assemble_only_viscous_residual = false;
 
     /// Time it takes for the maximum wavespeed to cross the cell domain.
     /** Uses evaluate_CFL() which would be defined in the subclasses.

@@ -1451,6 +1451,10 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_volume_term_strong(
     for(unsigned int idof = 0; idof<n_dofs_cell; ++idof)
     {
         local_rhs_int_cell[idof] += viscous_rhs_vol[idof];
+        if(this->assemble_only_viscous_residual)
+        {
+            local_rhs_int_cell[idof] = viscous_rhs_vol[idof];
+        }
     }
 }
     
@@ -2316,6 +2320,10 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_boundary_term_strong(
     for(unsigned int idof=0; idof<n_dofs; ++idof)
     {
         local_rhs_cell[idof]+= boundary_term_viscous[idof];
+        if(this->assemble_only_viscous_residual)
+        {
+            local_rhs_cell[idof] = boundary_term_viscous[idof];
+        }
     }
 }
 
@@ -3637,10 +3645,18 @@ void DGStrong<dim,nspecies,nstate,real,MeshType>::assemble_face_term_strong(
     for(unsigned int idof=0; idof<n_dofs_int; ++idof)
     {
         local_rhs_int_cell[idof] += viscous_face_term_int[idof];
+        if(this->assemble_only_viscous_residual)
+        {
+            local_rhs_int_cell[idof] = viscous_face_term_int[idof];
+        }
     }
     for(unsigned int idof=0; idof<n_dofs_ext; ++idof)
     {
         local_rhs_ext_cell[idof] += viscous_face_term_ext[idof];
+        if(this->assemble_only_viscous_residual)
+        {
+            local_rhs_ext_cell[idof] = viscous_face_term_ext[idof];
+        }
     }
 }
 
