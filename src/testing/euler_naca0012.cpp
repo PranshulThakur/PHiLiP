@@ -37,11 +37,12 @@ int EulerNACA0012<dim,nstate>
     
     
     const double dt = param.flow_solver_param.constant_time_step;
+    const int n_soln_steps_stored = 10000;
     const double delT = 1.0;
-    const double T = 3000;
-    const double T_extra = 500;
+    const double T = 3000 - (3000 % (int)(dt*n_soln_steps_stored));
+    const double T_extra = 500 - (500 % (int)(dt*n_soln_steps_stored)); // Note: T and T_extra must be divisible by dt*n_soln_steps_stored. T and T_extra must be divisible by delT. delT must be divisible by dt.
     pcout<<"Functional average used for stablized march = "<<std::setprecision(16)<<functional_avg<<std::endl;
-    const int restart_index_terminal = param.flow_solver_param.final_time/(10000*dt);
+    const int restart_index_terminal = param.flow_solver_param.final_time/(n_soln_steps_stored*dt);
     pcout<<"restart index terminal = "<<restart_index_terminal<<std::endl;
     std::unique_ptr<AdjointMarch<dim, nstate, 15>> adjoint_march = std::make_unique<AdjointMarch<dim, nstate, 15>>(flow_solver->dg,restart_index_terminal,dt,delT,T,T_extra, functional_avg, param.flow_solver_param.use_adjoint_restart_files, param.flow_solver_param.adjoint_restart_time);  
 
