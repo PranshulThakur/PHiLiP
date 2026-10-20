@@ -1577,9 +1577,9 @@ void Euler<dim,nspecies,nstate,real>
         // Note: Convective flux uses the same BC as solid slip wall. The dissipative flux uses a different BC to account for the moving wall.
         // With this boundary_type, a different BC is used in NavierStokes::boundary_face_values_entropy_var() for the viscous terms. 
         boundary_wall (normal_int, soln_int, soln_grad_int, soln_bc, soln_grad_bc);
-        if(! this->all_parameters->use_viscous_br2_entropystable)
+        if(! (this->all_parameters->use_viscous_br2_entropystable || this->all_parameters->use_viscous_cdg_entropystable))
         {
-            std::cout<<"Boundary type 1010 is only implemented for use_viscous_br2_entropystable = true. Aborting..."<<std::endl;
+            std::cout<<"Boundary type 1010 is only implemented for use_viscous_br2_entropystable or use_viscous_cdg_entropystable= true. Aborting..."<<std::endl;
             std::abort();
         }
     }
