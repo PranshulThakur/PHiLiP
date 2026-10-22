@@ -1102,7 +1102,7 @@ void NavierStokes<dim,nstate,real>
            soln_grad_bc);
         
         v_bc_at_q = this->compute_entropy_variables(soln_bc);
-        std::array<dealii::Tensor<1,dim,real>,nstate> grad_entropyvar_bc = apply_d_entropy_var_d_conservative_var(soln_grad_bc,v_bc_at_q);
+        std::array<dealii::Tensor<1,dim,real>,nstate> grad_entropyvar_bc = apply_d_entropy_var_d_conservative_var(soln_grad_bc,v_int_at_q);
         sigma_bc_at_q = dissipative_flux_entropy_based (v_bc_at_q, grad_entropyvar_bc);    
     }
 }

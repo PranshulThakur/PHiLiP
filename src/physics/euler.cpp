@@ -1578,7 +1578,7 @@ void Euler<dim,nstate,real>
    std::array<real,nstate> &soln_bc) const
 {
    const real density_bc = density_inf;
-   const real pressure_bc = 1.0/(gam*mach_inf_sqr);
+   const real pressure_bc = pressure_inf;
    std::array<real,nstate> primitive_boundary_values;
    primitive_boundary_values[0] = density_bc;
    for (int d=0;d<dim;d++) { primitive_boundary_values[1+d] = velocities_inf[d]; } // minus since it's inflow
@@ -1680,7 +1680,8 @@ void Euler<dim,nstate,real>
     } 
     else if (boundary_type == 1004) {
         // Riemann-based farfield boundary condition
-        boundary_riemann (normal_int, soln_int, soln_bc);
+        //boundary_riemann (normal_int, soln_int, soln_bc);
+        boundary_farfield(soln_bc);
         // Characteristics-based farfield boundary condition
         //boundary_characteristics (normal_int, soln_int, soln_bc);
         for(unsigned int s=0; s<nstate; ++s)
