@@ -179,7 +179,7 @@ void RungeKuttaODESolver<dim,nspecies,real,n_rk_stages,MeshType>::allocate_runge
 
 
 // Define a sequence of indices representing the range of nstates
-#define POSSIBLE_NSTATE (1)(2)(3)(4)
+#define POSSIBLE_NSTATE (1)(2)(3)(4)(5)
 
 // using default MeshType = Triangulation
 // 1D: dealii::Triangulation<dim>;

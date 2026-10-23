@@ -169,7 +169,113 @@ void DIRK3Implicit<dim,real,MeshType> :: set_c()
     const double butcher_tableau_c_values[3] = {gam, c2, 1};
     this->butcher_tableau_c.fill(butcher_tableau_c_values);
 }
+//##################################################################
 
+
+
+template <int dim, typename real, typename MeshType>
+
+
+void DIRK4Implicit<dim,real,MeshType> :: set_a()
+
+
+{
+
+
+    const double butcher_tableau_a_values[25] ={  
+
+
+         1.0 / 4.0,   0.0,         0.0,        0.0,          0.0       ,
+
+
+        -1.0 / 4.0,   1.0 / 4.0,   0.0,        0.0,          0.0       ,
+
+
+         1.0 / 8.0,   1.0 / 8.0,   1.0 / 4.0,  0.0,          0.0       ,
+
+
+        -3.0 / 2.0,   3.0 / 4.0,   3.0 / 2.0,  1.0 / 4.0,    0.0       ,
+
+
+         0.0,         1.0 / 6.0,   2.0 / 3.0, -1.0 / 12.0,   1.0 / 4.0 };
+
+
+    this->butcher_tableau_a.fill(butcher_tableau_a_values);
+
+
+}
+
+
+
+
+
+template <int dim, typename real, typename MeshType>
+
+
+void DIRK4Implicit<dim,real,MeshType> :: set_b()
+
+
+{
+
+
+    const double butcher_tableau_b_values[5] ={0.0,
+
+
+        1.0 / 6.0,
+
+
+        2.0 / 3.0,
+
+
+        -1.0 / 12.0,
+
+
+        1.0 / 4.0};
+
+
+    this->butcher_tableau_b.fill(butcher_tableau_b_values);
+
+
+}
+
+
+
+
+
+template <int dim, typename real, typename MeshType>
+
+
+void DIRK4Implicit<dim,real,MeshType> :: set_c()
+
+
+{
+
+
+    const double butcher_tableau_c_values[5] = {
+
+
+        1.0 / 4.0,
+
+
+        0.0,
+
+
+        1.0 / 2.0,
+
+
+        1.0,
+
+
+        1.0
+
+
+    };
+
+
+    this->butcher_tableau_c.fill(butcher_tableau_c_values);
+
+
+}
 //##################################################################
 template class SSPRK3Explicit<PHILIP_DIM, double, dealii::Triangulation<PHILIP_DIM> >;
 template class SSPRK3Explicit<PHILIP_DIM, double, dealii::parallel::shared::Triangulation<PHILIP_DIM> >;
@@ -212,6 +318,18 @@ template class DIRK3Implicit<PHILIP_DIM, double, dealii::parallel::shared::Trian
 #if PHILIP_DIM != 1
     template class DIRK3Implicit<PHILIP_DIM, double, dealii::parallel::distributed::Triangulation<PHILIP_DIM> >;
 #endif
+template class DIRK4Implicit<PHILIP_DIM, double, dealii::Triangulation<PHILIP_DIM> >;
 
+
+template class DIRK4Implicit<PHILIP_DIM, double, dealii::parallel::shared::Triangulation<PHILIP_DIM> >;
+
+
+#if PHILIP_DIM != 1
+
+
+    template class DIRK4Implicit<PHILIP_DIM, double, dealii::parallel::distributed::Triangulation<PHILIP_DIM> >;
+
+
+#endif
 } // ODESolver namespace
 } // PHiLiP namespace
