@@ -2622,7 +2622,7 @@ void DGBase<dim,nspecies,real,MeshType>::assemble_residual (const bool compute_d
             if (l2_norm_node == 0.0) {
                 if (CFL_mass_dRdW == CFL_mass) {
                     pcout << " which is already assembled..." << std::endl;
-                    return;
+                    //return;
                 }
             }
         }
@@ -3760,8 +3760,8 @@ void DGBase<dim,nspecies,real,MeshType>::evaluate_mass_matrices (bool do_inverse
     OPERATOR::local_Flux_Reconstruction_operator_aux<dim,2*dim> reference_FR_aux(1, max_degree, init_grid_degree, FR_Type_Aux);
     OPERATOR::derivative_p<dim,2*dim> deriv_p(1, max_degree, init_grid_degree);
 
-    auto first_cell = dof_handler.begin_active();
-    const bool Cartesian_first_element = (first_cell->manifold_id() == dealii::numbers::flat_manifold_id);
+    //auto first_cell = dof_handler.begin_active();
+    const bool Cartesian_first_element = false;
 
     reinit_operators_for_mass_matrix(Cartesian_first_element, max_degree, init_grid_degree, mapping_basis, basis, reference_mass_matrix, reference_FR, reference_FR_aux, deriv_p);
 
@@ -3771,7 +3771,7 @@ void DGBase<dim,nspecies,real,MeshType>::evaluate_mass_matrices (bool do_inverse
 
         if (!cell->is_locally_owned()) continue;
 
-        const bool Cartesian_element = (cell->manifold_id() == dealii::numbers::flat_manifold_id);
+        const bool Cartesian_element = false;//(cell->manifold_id() == dealii::numbers::flat_manifold_id);
 
         const unsigned int fe_index_curr_cell = cell->active_fe_index();
         const unsigned int curr_grid_degree   = high_order_grid->fe_system.tensor_degree();//in the future the metric cell's should store a local grid degree. currently high_order_grid dof_handler_grid doesn't have that capability
@@ -4113,8 +4113,8 @@ void DGBase<dim,nspecies,real,MeshType>::apply_inverse_global_mass_matrix(
     const unsigned int n_metric_dofs = high_order_grid->fe_system.dofs_per_cell;
     auto metric_cell = high_order_grid->dof_handler_grid.begin_active();
 
-    auto first_cell = dof_handler.begin_active();
-    const bool Cartesian_first_element = (first_cell->manifold_id() == dealii::numbers::flat_manifold_id) ? true : false;
+    //auto first_cell = dof_handler.begin_active();
+    const bool Cartesian_first_element = false;
 
     if(Cartesian_first_element){//then we can factor out det of Jac and rapidly simplify
         if(use_auxiliary_eq){
@@ -4147,7 +4147,7 @@ void DGBase<dim,nspecies,real,MeshType>::apply_inverse_global_mass_matrix(
         current_dofs_indices.resize(n_dofs_cell);
         soln_cell->get_dof_indices (current_dofs_indices);
 
-        const bool Cartesian_element = (soln_cell->manifold_id() == dealii::numbers::flat_manifold_id);
+        const bool Cartesian_element = false;//(soln_cell->manifold_id() == dealii::numbers::flat_manifold_id);
 
         // if poly degree, the element manifold type, or grid degree changed for this cell, reinitialize the reference operator
         if((poly_degree != mass_inv.current_degree && Cartesian_element && !use_auxiliary_eq) || 
@@ -4290,8 +4290,8 @@ void DGBase<dim,nspecies,real,MeshType>::apply_global_mass_matrix(
     const unsigned int n_metric_dofs = high_order_grid->fe_system.dofs_per_cell;
     auto metric_cell = high_order_grid->dof_handler_grid.begin_active();
 
-    auto first_cell = dof_handler.begin_active();
-    const bool Cartesian_first_element = (first_cell->manifold_id() == dealii::numbers::flat_manifold_id);
+    //auto first_cell = dof_handler.begin_active();
+    const bool Cartesian_first_element = false; // (first_cell->manifold_id() == dealii::numbers::flat_manifold_id);
 
     if(use_auxiliary_eq){
         mass_aux.build_1D_volume_operator(oneD_fe_collection_1state[max_degree], oneD_quadrature_collection[max_degree]);
@@ -4315,7 +4315,7 @@ void DGBase<dim,nspecies,real,MeshType>::apply_global_mass_matrix(
         current_dofs_indices.resize(n_dofs_cell);
         soln_cell->get_dof_indices (current_dofs_indices);
 
-        const bool Cartesian_element = (soln_cell->manifold_id() == dealii::numbers::flat_manifold_id) ? true : false;
+        const bool Cartesian_element = false; //(soln_cell->manifold_id() == dealii::numbers::flat_manifold_id) ? true : false;
 
         //if poly degree changed for this cell, rinitialize
         if((poly_degree != mass.current_degree && (grid_degree == 1 || Cartesian_element) && !use_auxiliary_eq) || 
