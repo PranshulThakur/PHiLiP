@@ -98,6 +98,7 @@ int LidDrivenCavity<dim,nspecies,nstate>
           return 1;
         }
     }
+    flow_solver->dg->output_results_vtk(1111);
     return 0;
 }
 template<int dim, int nspecies, int nstate>
