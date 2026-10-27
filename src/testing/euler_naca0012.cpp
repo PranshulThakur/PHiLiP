@@ -22,6 +22,22 @@ template<int dim, int nstate>
 int EulerNACA0012<dim,nstate>
 ::run_test () const
 {
+    // Test vector size and if it is initialized to zero.
+    std::vector<codi::RealReverseIndexVec<1>> v1(10);
+    std::vector<codi::RealReverseIndexVec<1>> v2;
+    v2.resize(10);
+    for(int i=0; i<10; ++i)
+    {
+        const bool v1_is_zero = (v1[i].value() == 0);
+        const bool v2_is_zero = (v2[i].value() == 0);
+        const bool good_initialization = (v1_is_zero && v2_is_zero);
+        if(!good_initialization)
+        {
+            std::cout<<"std::vector<adtype> is initialized to a nonzero value. Aborting.."<<std::endl<<std::flush;
+            std::abort();
+        }
+    }
+    std::cout<<"Initializations of AD vectortypes are good"<<std::endl;
 
     // Code to compute R, b, d and h vecs and store in file
     Parameters::AllParameters param = *(TestsBase::all_parameters);

@@ -113,7 +113,7 @@ dealii::Tensor<1,dim,real2> NavierStokes<dim,nstate,real>
 
     dealii::Tensor<1,dim,real2> temperature_gradient;
     for (int d=0; d<dim; d++) {
-        temperature_gradient[d] = (this->gam*primitive_soln_gradient[nstate-1][d] - temperature*primitive_soln_gradient[0][d])/density;
+        temperature_gradient[d] = (this->gam*this->mach_inf_sqr*primitive_soln_gradient[nstate-1][d] - temperature*primitive_soln_gradient[0][d])/density;
     }
     return temperature_gradient;
 }
@@ -161,8 +161,8 @@ inline real2 NavierStokes<dim,nstate,real>
     /* Scaled nondimensionalized viscosity coefficient, $\hat{\mu}^{*}$
      * Reference: Masatsuka 2018 "I do like CFD", p.148, eq.(4.14.14)
      */
-    const real2 scaled_viscosity_coefficient = viscosity_coefficient*this->mach_inf/reynolds_number_inf;
-    
+    const real2 scaled_viscosity_coefficient = viscosity_coefficient/reynolds_number_inf; 
+
     return scaled_viscosity_coefficient;
 }
 
@@ -188,7 +188,7 @@ inline real2 NavierStokes<dim,nstate,real>
     /* Scaled nondimensionalized heat conductivity, $\hat{\kappa}^{*}$, given the scaled viscosity coefficient
      * Reference: Masatsuka 2018 "I do like CFD", p.148, eq.(4.14.13)
      */
-    const real2 scaled_heat_conductivity = scaled_viscosity_coefficient/(this->gamm1*prandtl_number_input);
+    const real2 scaled_heat_conductivity = scaled_viscosity_coefficient/(this->gamm1*this->mach_inf_sqr*prandtl_number_input);
     
     return scaled_heat_conductivity;
 }
