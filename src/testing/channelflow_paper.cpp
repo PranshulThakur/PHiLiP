@@ -37,8 +37,15 @@ int ChannelFlowPaper<dim,nspecies,nstate>
         for(unsigned int igrid = 0; igrid<n_grids_input; ++igrid)
         {
             Parameters::AllParameters param = *(TestsBase::all_parameters);
-            param.flow_solver_param.number_of_mesh_refinements += igrid; 
-            param.flow_solver_param.constant_time_step /= pow(2.0,2*igrid); 
+            param.flow_solver_param.number_of_mesh_refinements += igrid;
+            if(param.ode_solver_param.runge_kutta_method == Parameters::ODESolverParam::RKMethodEnum::dirk_3_im || param.ode_solver_param.runge_kutta_method == Parameters::ODESolverParam::RKMethodEnum::dirk_4_im)
+            {
+                // Do nothing
+            }
+            else
+            {
+                param.flow_solver_param.constant_time_step /= pow(2.0,2*igrid); 
+            }
             param.flow_solver_param.poly_degree = poly_degree;
             param.flow_solver_param.max_poly_degree_for_adaptation = poly_degree;
         //=====================================================================================================================
@@ -173,6 +180,14 @@ int ChannelFlowPaper<dim,nspecies,nstate>
                 convergence_table.add_value("DoFs", n_dofs);
                 convergence_table.add_value("dx", dx);
                 convergence_table.add_value("L2error", l2error_mpi_sum);
+                if(param.use_viscous_br2_entropystable)
+                {
+                    flow_solver->dg->output_results_vtk(1002);
+                }
+                else if(param.use_viscous_cdg_entropystable)
+                {
+                    flow_solver->dg->output_results_vtk(1003);
+                }
         }
         pcout << " ********************************************" << std::endl
              << " Convergence rates for p = " << poly_degree << std::endl

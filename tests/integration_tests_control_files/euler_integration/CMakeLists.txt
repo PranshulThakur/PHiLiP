@@ -473,13 +473,13 @@ set_tests_labels(2D_LID_DRIVEN_CAVITY_ENTROPY_STABILITY         EULER_INTEGRATIO
                                                                 UNCOLLOCATED
                                                                 INTEGRATION_TEST)
 
-configure_file(3d_lid_driven_cavity.prm 3d_lid_driven_cavity.prm COPYONLY)
+configure_file(3d_lid_driven_cavity_br2.prm 3d_lid_driven_cavity_br2.prm COPYONLY)
 add_test(
-  NAME 3D_LID_DRIVEN_CAVITY_ENTROPY_STABILITY
-  COMMAND mpirun -np ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_3D -i ${CMAKE_CURRENT_BINARY_DIR}/3d_lid_driven_cavity.prm
+  NAME 3D_LID_DRIVEN_CAVITY_ENTROPY_STABILITY_BR2
+  COMMAND mpirun -np ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_3D -i ${CMAKE_CURRENT_BINARY_DIR}/3d_lid_driven_cavity_br2.prm
   WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
 )
-set_tests_labels(3D_LID_DRIVEN_CAVITY_ENTROPY_STABILITY         EULER_INTEGRATION
+set_tests_labels(3D_LID_DRIVEN_CAVITY_ENTROPY_STABILITY_BR2     EULER_INTEGRATION
                                                                 3D
                                                                 PARALLEL
                                                                 NAVIER_STOKES
@@ -487,13 +487,41 @@ set_tests_labels(3D_LID_DRIVEN_CAVITY_ENTROPY_STABILITY         EULER_INTEGRATIO
                                                                 UNCOLLOCATED
                                                                 INTEGRATION_TEST)
 
-configure_file(2d_wallbc_convergencerate.prm 2d_wallbc_convergencerate.prm COPYONLY)
+configure_file(3d_lid_driven_cavity_cdg.prm 3d_lid_driven_cavity_cdg.prm COPYONLY)
 add_test(
-  NAME 2D_CHANNEL_FLOW_PAPER
-  COMMAND mpirun -np ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_2D -i ${CMAKE_CURRENT_BINARY_DIR}/2d_wallbc_convergencerate.prm
+  NAME 3D_LID_DRIVEN_CAVITY_ENTROPY_STABILITY_CDG
+  COMMAND mpirun -np ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_3D -i ${CMAKE_CURRENT_BINARY_DIR}/3d_lid_driven_cavity_cdg.prm
   WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
 )
-set_tests_labels(2D_CHANNEL_FLOW_PAPER                          EULER_INTEGRATION
+set_tests_labels(3D_LID_DRIVEN_CAVITY_ENTROPY_STABILITY_CDG     EULER_INTEGRATION
+                                                                3D
+                                                                PARALLEL
+                                                                NAVIER_STOKES
+                                                                STRONG
+                                                                UNCOLLOCATED
+                                                                INTEGRATION_TEST)
+
+configure_file(2d_wallbc_convergencerate_br2.prm 2d_wallbc_convergencerate_br2.prm COPYONLY)
+add_test(
+  NAME 2D_CHANNEL_FLOW_PAPER_BR2
+  COMMAND mpirun -np ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_2D -i ${CMAKE_CURRENT_BINARY_DIR}/2d_wallbc_convergencerate_br2.prm
+  WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
+)
+set_tests_labels(2D_CHANNEL_FLOW_PAPER_BR2                      EULER_INTEGRATION
+                                                                2D
+                                                                PARALLEL
+                                                                NAVIER_STOKES
+                                                                STRONG
+                                                                UNCOLLOCATED
+                                                                INTEGRATION_TEST)
+
+configure_file(2d_wallbc_convergencerate_cdg.prm 2d_wallbc_convergencerate_cdg.prm COPYONLY)
+add_test(
+  NAME 2D_CHANNEL_FLOW_PAPER_CDG
+  COMMAND mpirun -np ${MPIMAX} ${EXECUTABLE_OUTPUT_PATH}/PHiLiP_2D -i ${CMAKE_CURRENT_BINARY_DIR}/2d_wallbc_convergencerate_cdg.prm
+  WORKING_DIRECTORY ${TEST_OUTPUT_DIR}
+)
+set_tests_labels(2D_CHANNEL_FLOW_PAPER_CDG                      EULER_INTEGRATION
                                                                 2D
                                                                 PARALLEL
                                                                 NAVIER_STOKES

@@ -98,7 +98,14 @@ int LidDrivenCavity<dim,nspecies,nstate>
           return 1;
         }
     }
-    flow_solver->dg->output_results_vtk(1111);
+    if(param.use_viscous_br2_entropystable)
+    {
+        flow_solver->dg->output_results_vtk(1000);
+    }
+    else if(param.use_viscous_cdg_entropystable)
+    {
+        flow_solver->dg->output_results_vtk(1001);
+    }
     return 0;
 }
 template<int dim, int nspecies, int nstate>
