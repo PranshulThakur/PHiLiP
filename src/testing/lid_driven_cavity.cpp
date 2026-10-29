@@ -52,7 +52,7 @@ int LidDrivenCavity<dim,nspecies,nstate>
     std::unique_ptr<FlowSolver::FlowSolver<dim,nspecies,nstate>> flow_solver = FlowSolver::FlowSolverFactory<dim,nspecies,nstate>::select_flow_case(&param, parameter_handler);
     std::shared_ptr<HighOrderGrid<dim,double>> cube_grid = std::make_shared<HighOrderGrid<dim,double>>(1,grid,true,true,false);
     flow_solver->dg->set_high_order_grid(cube_grid);
-    flow_solver->dg->allocate_system(false,false,false);
+    flow_solver->dg->allocate_system(true,false,false);
     // Initialize solution
     Physics::Euler<dim,nspecies,nstate,double> euler_physics_double = Physics::Euler<dim, nspecies, nstate, double>(
             &param,
