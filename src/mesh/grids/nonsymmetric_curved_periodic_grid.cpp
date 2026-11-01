@@ -14,8 +14,8 @@ void nonsymmetric_curved_grid(
 {
     double left, right;
     if constexpr(dim==3){
-        left = 0.0;
-        right = 2.0 * atan(1) * 4.0;
+        left = -1.0;
+        right = 1.0;
     } else{
         left = -1.0;
         right = 1.0;
@@ -26,24 +26,15 @@ void nonsymmetric_curved_grid(
     // const double right = 1.0;
     const bool colorize = true;
     dealii::GridGenerator::hyper_cube (grid, left, right, colorize);
-
-    std::vector<dealii::GridTools::PeriodicFacePair<typename TriangulationType::cell_iterator> > matched_pairs;
-    if constexpr(dim>=1) {
-        matched_pairs.clear();
-        dealii::GridTools::collect_periodic_faces(grid,0,1,0,matched_pairs);
-        grid.add_periodicity(matched_pairs);
+    for (typename TriangulationType::active_cell_iterator cell = grid.begin_active(); cell != grid.end(); ++cell) {
+        for (unsigned int face=0; face<dealii::GeometryInfo<dim>::faces_per_cell; ++face) {
+            if (cell->face(face)->at_boundary()) {
+                unsigned int current_id = cell->face(face)->boundary_id();
+                if (current_id == 3 ) {cell->face(face)->set_boundary_id (1010);} // top
+                else {cell->face(face)->set_boundary_id (1001);}
+            }
+        }
     }
-    if constexpr(dim>=2) {
-        matched_pairs.clear();
-        dealii::GridTools::collect_periodic_faces(grid,2,3,1,matched_pairs);
-        grid.add_periodicity(matched_pairs);
-    }
-    if constexpr(dim>=3) {
-        matched_pairs.clear();
-        dealii::GridTools::collect_periodic_faces(grid,4,5,2,matched_pairs);
-        grid.add_periodicity(matched_pairs);
-    }
-
     grid.refine_global(n_subdivisions);
 
     const NonsymmetricCurvedGridManifold<dim,dim,dim> periodic_nonsym_curved_manifold;
@@ -85,9 +76,9 @@ dealii::Point<spacedim,real> NonsymmetricCurvedGridManifold<dim,spacedim,chartdi
     }
     if constexpr(dim==3) {
         // periodic non sym 
-        q[0] = p[0] + beta * std::sin(p[0]) * std::sin(p[1]) * std::sin(2.0*p[2]);
-        q[1] = p[1] + beta * std::sin(4.0*p[0]) * std::sin(p[1]) * std::sin(3.0*p[2]);
-        q[2] = p[2] + beta * std::sin(2.0*p[0]) * std::sin(5.0*p[1]) * std::sin(p[2]);
+        q[0] = p[0] + beta * std::sin(p[0]/ldiv_) * std::sin(p[1]/ldiv_) * std::sin(2.0*p[2]/ldiv_);
+        q[1] = p[1] + beta * std::sin(4.0*p[0]/ldiv_) * std::sin(p[1]/ldiv_) * std::sin(3.0*p[2]/ldiv_);
+        q[2] = p[2] + beta * std::sin(2.0*p[0]/ldiv_) * std::sin(5.0*p[1]/ldiv_) * std::sin(p[2]/ldiv_);
     }
 
     return q;
@@ -117,9 +108,9 @@ dealii::Point<chartdim> NonsymmetricCurvedGridManifold<dim,spacedim,chartdim>
             function[1] = x_ref[1] - x_phys[1] +beta*std::sin(2.0*pi*(x_ref[0]))*std::cos(pi/2.0*x_ref[1]);
         }
         else if constexpr(dim==3) {
-            function[0] = x_ref[0] - x_phys[0] + beta * std::sin(x_ref[0]) * std::sin(x_ref[1]) * std::sin(2.0*x_ref[2]);
-            function[1] = x_ref[1] - x_phys[1] + beta * std::sin(4.0*x_ref[0]) * std::sin(x_ref[1]) * std::sin(3.0*x_ref[2]);
-            function[2] = x_ref[2] - x_phys[2] + beta * std::sin(2.0*x_ref[0]) * std::sin(5.0*x_ref[1]) * std::sin(x_ref[2]);
+            function[0] = x_ref[0] - x_phys[0] + beta * std::sin(x_ref[0]/ldiv_) * std::sin(x_ref[1]/ldiv_) * std::sin(2.0*x_ref[2]/ldiv_);
+            function[1] = x_ref[1] - x_phys[1] + beta * std::sin(4.0*x_ref[0]/ldiv_) * std::sin(x_ref[1]/ldiv_) * std::sin(3.0*x_ref[2]/ldiv_);
+            function[2] = x_ref[2] - x_phys[2] + beta * std::sin(2.0*x_ref[0]/ldiv_) * std::sin(5.0*x_ref[1]/ldiv_) * std::sin(x_ref[2]/ldiv_);
         }
         //set derivative value
         if constexpr(dim==1) {
@@ -133,17 +124,17 @@ dealii::Point<chartdim> NonsymmetricCurvedGridManifold<dim,spacedim,chartdim>
             derivative[1][1] =  1.0 -beta*pi/2.0*std::sin(2.0*pi*(x_ref[0]))*std::sin(pi/2.0*x_ref[1]);  
         }
         else if constexpr(dim==3) {
-            derivative[0][0] = 1.0 + beta * std::cos(x_ref[0]) * std::sin(x_ref[1]) * std::sin(2.0*x_ref[2]); 
-            derivative[0][1] = beta * std::sin(x_ref[0]) * std::cos(x_ref[1]) * std::sin(2.0*x_ref[2]); 
-            derivative[0][2] = beta * std::sin(x_ref[0]) * std::sin(x_ref[1]) * 2.0* std::cos(2.0*x_ref[2]); 
+            derivative[0][0] = 1.0 + beta * std::cos(x_ref[0]/ldiv_) *1.0/ldiv_ * std::sin(x_ref[1]/ldiv_) * std::sin(2.0*x_ref[2]/ldiv_); 
+            derivative[0][1] = beta * std::sin(x_ref[0]/ldiv_) * std::cos(x_ref[1]/ldiv_) * std::sin(2.0*x_ref[2]/ldiv_)*1.0/ldiv_; 
+            derivative[0][2] = beta * std::sin(x_ref[0]/ldiv_) * std::sin(x_ref[1]/ldiv_) * 2.0* std::cos(2.0*x_ref[2]/ldiv_)*1.0/ldiv_; 
         
-            derivative[1][0] = beta * 4.0 * std::cos(4.0*x_ref[0]) * std::sin(x_ref[1]) * std::sin(3.0*x_ref[2]); 
-            derivative[1][1] = 1.0 + beta * std::sin(4.0*x_ref[0]) * std::cos(x_ref[1]) * std::sin(3.0*x_ref[2]); 
-            derivative[1][2] = beta * std::sin(4.0*x_ref[0]) * std::sin(x_ref[1]) * 3.0 * std::cos(3.0*x_ref[2]);
+            derivative[1][0] = beta * 4.0 * std::cos(4.0*x_ref[0]/ldiv_) * std::sin(x_ref[1]/ldiv_) * std::sin(3.0*x_ref[2]/ldiv_)*1.0/ldiv_; 
+            derivative[1][1] = 1.0 + beta * std::sin(4.0*x_ref[0]/ldiv_) * std::cos(x_ref[1]/ldiv_) * std::sin(3.0*x_ref[2]/ldiv_)*1.0/ldiv_; 
+            derivative[1][2] = beta * std::sin(4.0*x_ref[0]/ldiv_) * std::sin(x_ref[1]/ldiv_) * 3.0 * std::cos(3.0*x_ref[2]/ldiv_)*1.0/ldiv_;
 
-            derivative[2][0] = beta * 2.0 * std::cos(2.0*x_ref[0])*std::sin(5.0*x_ref[1])*std::sin(x_ref[2]);
-            derivative[2][1] = beta * std::sin(2.0*x_ref[0])*5.0*std::cos(5.0*x_ref[1]) *std::sin(x_ref[2]);
-            derivative[2][2] = 1.0 + beta * std::sin(2.0*x_ref[0])*std::sin(5.0*x_ref[1]) * std::cos(x_ref[2]);
+            derivative[2][0] = beta * 2.0 * std::cos(2.0*x_ref[0]/ldiv_)*std::sin(5.0*x_ref[1]/ldiv_)*std::sin(x_ref[2]/ldiv_)*1.0/ldiv_;
+            derivative[2][1] = beta * std::sin(2.0*x_ref[0]/ldiv_)*5.0*std::cos(5.0*x_ref[1]/ldiv_) *std::sin(x_ref[2]/ldiv_)*1.0/ldiv_;
+            derivative[2][2] = 1.0 + beta * std::sin(2.0*x_ref[0]/ldiv_)*std::sin(5.0*x_ref[1]/ldiv_) * std::cos(x_ref[2]/ldiv_)*1.0/ldiv_;
         }
 
         dealii::FullMatrix<double> Jacobian_inv(dim);
@@ -168,9 +159,9 @@ dealii::Point<chartdim> NonsymmetricCurvedGridManifold<dim,spacedim,chartdim>
         function_check[1] = x_ref[1] + beta*std::sin(2.0*pi*(x_ref[0]))*std::cos(pi/2.0*x_ref[1]);
     }
     else if constexpr(dim==3) {
-        function_check[0] = x_ref[0] + beta * std::sin(x_ref[0]) * std::sin(x_ref[1]) * std::sin(2.0*x_ref[2]);
-        function_check[1] = x_ref[1] + beta * std::sin(4.0*x_ref[0]) * std::sin(x_ref[1]) * std::sin(3.0*x_ref[2]);
-        function_check[2] = x_ref[2] + beta * std::sin(2.0*x_ref[0]) * std::sin(5.0*x_ref[1]) * std::sin(x_ref[2]);
+        function_check[0] = x_ref[0] + beta * std::sin(x_ref[0]/ldiv_) * std::sin(x_ref[1]/ldiv_) * std::sin(2.0*x_ref[2]/ldiv_);
+        function_check[1] = x_ref[1] + beta * std::sin(4.0*x_ref[0]/ldiv_) * std::sin(x_ref[1]/ldiv_) * std::sin(3.0*x_ref[2]/ldiv_);
+        function_check[2] = x_ref[2] + beta * std::sin(2.0*x_ref[0]/ldiv_) * std::sin(5.0*x_ref[1]/ldiv_) * std::sin(x_ref[2]/ldiv_);
     }
     std::vector<double> error(dim);
     for(int idim=0; idim<dim; idim++) 
@@ -213,17 +204,17 @@ dealii::DerivativeForm<1,chartdim,spacedim> NonsymmetricCurvedGridManifold<dim,s
         dphys_dref[1][1] =  1.0 -beta*pi/2.0*std::sin(2.0*pi*(x_ref[0]))*std::sin(pi/2.0*x_ref[1]);  
     }
     else if constexpr(dim==3) {
-        dphys_dref[0][0] = 1.0 + beta * std::cos(x_ref[0]) * std::sin(x_ref[1]) * std::sin(2.0*x_ref[2]); 
-        dphys_dref[0][1] = beta * std::sin(x_ref[0]) * std::cos(x_ref[1]) * std::sin(2.0*x_ref[2]); 
-        dphys_dref[0][2] = beta * std::sin(x_ref[0]) * std::sin(x_ref[1]) * 2.0* std::cos(2.0*x_ref[2]); 
+        dphys_dref[0][0] = 1.0 + beta * std::cos(x_ref[0]/ldiv_) * std::sin(x_ref[1]/ldiv_) * std::sin(2.0*x_ref[2]/ldiv_)*1.0/ldiv_; 
+        dphys_dref[0][1] = beta * std::sin(x_ref[0]/ldiv_) * std::cos(x_ref[1]/ldiv_) * std::sin(2.0*x_ref[2]/ldiv_)*1.0/ldiv_; 
+        dphys_dref[0][2] = beta * std::sin(x_ref[0]/ldiv_) * std::sin(x_ref[1]/ldiv_) * 2.0* std::cos(2.0*x_ref[2]/ldiv_)*1.0/ldiv_; 
         
-        dphys_dref[1][0] = beta * 4.0 * std::cos(4.0*x_ref[0]) * std::sin(x_ref[1]) * std::sin(3.0*x_ref[2]); 
-        dphys_dref[1][1] = 1.0 + beta * std::sin(4.0*x_ref[0]) * std::cos(x_ref[1]) * std::sin(3.0*x_ref[2]); 
-        dphys_dref[1][2] = beta * std::sin(4.0*x_ref[0]) * std::sin(x_ref[1]) * 3.0 * std::cos(3.0*x_ref[2]);
+        dphys_dref[1][0] = beta * 4.0 * std::cos(4.0*x_ref[0]/ldiv_) * std::sin(x_ref[1]/ldiv_) * std::sin(3.0*x_ref[2]/ldiv_)*1.0/ldiv_; 
+        dphys_dref[1][1] = 1.0 + beta * std::sin(4.0*x_ref[0]/ldiv_) * std::cos(x_ref[1]/ldiv_) * std::sin(3.0*x_ref[2]/ldiv_)*1.0/ldiv_; 
+        dphys_dref[1][2] = beta * std::sin(4.0*x_ref[0]/ldiv_) * std::sin(x_ref[1]/ldiv_) * 3.0 * std::cos(3.0*x_ref[2]/ldiv_)*1.0/ldiv_;
 
-        dphys_dref[2][0] = beta * 2.0 * std::cos(2.0*x_ref[0])*std::sin(5.0*x_ref[1])*std::sin(x_ref[2]);
-        dphys_dref[2][1] = beta * std::sin(2.0*x_ref[0])*5.0*std::cos(5.0*x_ref[1]) *std::sin(x_ref[2]);
-        dphys_dref[2][2] = 1.0 + beta * std::sin(2.0*x_ref[0])*std::sin(5.0*x_ref[1]) * std::cos(x_ref[2]);
+        dphys_dref[2][0] = beta * 2.0 * std::cos(2.0*x_ref[0]/ldiv_)*std::sin(5.0*x_ref[1]/ldiv_)*std::sin(x_ref[2]/ldiv_)*1.0/ldiv_;
+        dphys_dref[2][1] = beta * std::sin(2.0*x_ref[0]/ldiv_)*5.0*std::cos(5.0*x_ref[1]/ldiv_) *std::sin(x_ref[2]/ldiv_)*1.0/ldiv_;
+        dphys_dref[2][2] = 1.0 + beta * std::sin(2.0*x_ref[0]/ldiv_)*std::sin(5.0*x_ref[1]/ldiv_) * std::cos(x_ref[2]/ldiv_)*1.0/ldiv_;
     }
 
     return dphys_dref;

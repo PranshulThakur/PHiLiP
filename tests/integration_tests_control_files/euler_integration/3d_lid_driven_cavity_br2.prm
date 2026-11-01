@@ -18,6 +18,7 @@ set use_curvilinear_split_form = true
 set use_viscous_br2_entropystable = true
 
 #set output_face_results_vtk = true
+set output_high_order_grid = true
 
 subsection euler
   set reference_length = 1.0
@@ -44,7 +45,7 @@ subsection flow_solver
   set steady_state = false
   subsection grid
     set number_of_mesh_refinements = 3
-    set grid_degree = 1
+    set grid_degree = 3
   end
 end
 

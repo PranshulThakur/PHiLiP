@@ -6,6 +6,7 @@
 #include "flow_solver/flow_solver_factory.h"
 #include <deal.II/grid/grid_generator.h>
 #include <deal.II/grid/grid_tools.h>
+#include "mesh/grids/nonsymmetric_curved_periodic_grid.hpp"
 
 namespace PHiLiP {
 namespace Tests {
@@ -24,6 +25,14 @@ int LidDrivenCavity<dim,nspecies,nstate>
 {
     Parameters::AllParameters param = *(TestsBase::all_parameters);
     // Create grid
+    std::shared_ptr<Triangulation> grid = std::make_shared<Triangulation>(
+        #if PHILIP_DIM!=1
+        this->mpi_communicator
+        #endif
+    );
+    PHiLiP::Grids::nonsymmetric_curved_grid<dim,Triangulation>(*grid, param.flow_solver_param.number_of_mesh_refinements);
+
+    /*
     dealii::Point<dim> p1;
     dealii::Point<dim> p2;
     for(unsigned int d=0; d<dim; ++d)
@@ -31,11 +40,6 @@ int LidDrivenCavity<dim,nspecies,nstate>
         p1[d] = -1.0;
         p2[d] = 1.0;
     }
-    std::shared_ptr<Triangulation> grid = std::make_shared<Triangulation>(
-        #if PHILIP_DIM!=1
-        this->mpi_communicator
-        #endif
-    );
     
     dealii::GridGenerator::hyper_rectangle	( *grid, p1, p2,true );
     for (typename dealii::parallel::distributed::Triangulation<dim>::active_cell_iterator cell = grid->begin_active(); cell != grid->end(); ++cell) {
@@ -48,9 +52,10 @@ int LidDrivenCavity<dim,nspecies,nstate>
         }
     }
     grid->refine_global(param.flow_solver_param.number_of_mesh_refinements);
+    */
     // Create flow solver
     std::unique_ptr<FlowSolver::FlowSolver<dim,nspecies,nstate>> flow_solver = FlowSolver::FlowSolverFactory<dim,nspecies,nstate>::select_flow_case(&param, parameter_handler);
-    std::shared_ptr<HighOrderGrid<dim,double>> cube_grid = std::make_shared<HighOrderGrid<dim,double>>(1,grid,true,true,false);
+    std::shared_ptr<HighOrderGrid<dim,double>> cube_grid = std::make_shared<HighOrderGrid<dim,double>>(param.flow_solver_param.grid_degree,grid,true,true,false);
     flow_solver->dg->set_high_order_grid(cube_grid);
     flow_solver->dg->allocate_system(true,false,false);
     // Initialize solution
