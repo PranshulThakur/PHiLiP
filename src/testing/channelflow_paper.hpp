@@ -38,6 +38,9 @@ public:
     /// Tests entropy stability
     int run_test () const;
 
+    /// Computes change in entropy i.e. entropy_variable * right_hand_side.
+    double compute_change_in_entropy(const std::shared_ptr < DGBase<dim, nspecies, double> > &dg, unsigned int poly_degree) const;
+
 };
 
 /// Function used to evaluate initial conservative solution. Using the same initial condition and the test case as in Chan, Jesse, Yimin Lin, and Tim Warburton. "Entropy stable modal discontinuous Galerkin schemes and wall boundary conditions for the compressible Navier-Stokes equations." Journal of Computational Physics 448 (2022).

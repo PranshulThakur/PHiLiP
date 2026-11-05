@@ -133,6 +133,17 @@ int ChannelFlowPaper<dim,nspecies,nstate>
             //integrate in time
             flow_solver->ode_solver->step_in_time(dt, false);
             flow_solver->ode_solver->current_iteration += 1;
+            //get the change in entropy
+            const double v_times_rhs = compute_change_in_entropy(flow_solver->dg, param.flow_solver_param.poly_degree);
+            flow_solver->dg->assemble_only_viscous_residual = true;
+            const double v_times_rhs_viscous = compute_change_in_entropy(flow_solver->dg, param.flow_solver_param.poly_degree);
+            flow_solver->dg->assemble_only_viscous_residual = false;
+            pcout << "\n Time: " << flow_solver->ode_solver->current_time <<std::endl<<"v_times_rhs = "<<v_times_rhs<<std::endl<<"v_times_rhs_viscous = "<<v_times_rhs_viscous << std::endl;
+            //check if change in entropy is non-positive
+            if(v_times_rhs > 1e-12){
+              pcout << " Change in entropy should be negative. Test failed..." << std::endl;
+              return 1;
+            }
         }
     //============================================================================================================
             // Compute error at the wall
@@ -211,6 +222,83 @@ int ChannelFlowPaper<dim,nspecies,nstate>
 //=========================================================================================================================
 
     return 0;
+}
+
+template<int dim, int nspecies, int nstate>
+double ChannelFlowPaper<dim,nspecies, nstate>::compute_change_in_entropy(const std::shared_ptr < DGBase<dim,nspecies, double> > &dg, unsigned int poly_degree) const
+{
+    const unsigned int n_dofs_cell = dg->fe_collection[poly_degree].dofs_per_cell;
+    const unsigned int n_quad_pts = dg->volume_quadrature_collection[poly_degree].size();
+    const unsigned int n_shape_fns = n_dofs_cell / nstate;
+    //We have to project the vector of entropy variables because the mass matrix has an interpolation from solution nodes built into it.
+    OPERATOR::vol_projection_operator<dim,2*dim> vol_projection(1, poly_degree, dg->max_grid_degree);
+    vol_projection.build_1D_volume_operator(dg->oneD_fe_collection_1state[poly_degree], dg->oneD_quadrature_collection[poly_degree]);
+
+
+    OPERATOR::basis_functions<dim,2*dim> soln_basis(1, poly_degree, dg->max_grid_degree);
+    soln_basis.build_1D_volume_operator(dg->oneD_fe_collection_1state[poly_degree], dg->oneD_quadrature_collection[poly_degree]);
+
+
+    dealii::LinearAlgebra::distributed::Vector<double> entropy_var_hat_global(dg->right_hand_side);
+    std::vector<dealii::types::global_dof_index> dofs_indices (n_dofs_cell);
+
+    std::shared_ptr < Physics::Euler<dim,nspecies, nstate, double > > euler_double  = std::dynamic_pointer_cast<Physics::Euler<dim,nspecies,dim+2,double>>(PHiLiP::Physics::PhysicsFactory<dim,nspecies,nstate,double>::create_Physics(dg->all_parameters));
+
+    for (auto cell = dg->dof_handler.begin_active(); cell!=dg->dof_handler.end(); ++cell) {
+        if (!cell->is_locally_owned()) continue;
+        cell->get_dof_indices (dofs_indices);
+
+        //get solution modal coeff
+        std::array<std::vector<double>,nstate> soln_coeff;
+        for(unsigned int idof=0; idof<n_dofs_cell; idof++){
+            const unsigned int istate = dg->fe_collection[poly_degree].system_to_component_index(idof).first;
+            const unsigned int ishape = dg->fe_collection[poly_degree].system_to_component_index(idof).second;
+            if(ishape == 0)
+                soln_coeff[istate].resize(n_shape_fns);
+            soln_coeff[istate][ishape] = dg->solution(dofs_indices[idof]);
+        }
+
+        //interpolate solution to quadrature points
+        std::array<std::vector<double>,nstate> soln_at_q;
+        for(int istate=0; istate<nstate; istate++){
+            soln_at_q[istate].resize(n_quad_pts);
+            soln_basis.matrix_vector_mult_1D(soln_coeff[istate], soln_at_q[istate],
+                                             soln_basis.oneD_vol_operator);
+        }
+        //compute entropy and kinetic energy "entropy" variables at quad points
+        std::array<std::vector<double>,nstate> entropy_var_at_q;
+        for(unsigned int iquad=0; iquad<n_quad_pts; iquad++){
+            std::array<double,nstate> soln_state;
+            for(int istate=0; istate<nstate; istate++){
+                soln_state[istate] = soln_at_q[istate][iquad];
+            }
+            std::array<double,nstate> entropy_var_state = euler_double->compute_entropy_variables(soln_state);
+            for(int istate=0; istate<nstate; istate++){
+                if(iquad==0){
+                    entropy_var_at_q[istate].resize(n_quad_pts);
+                }
+                entropy_var_at_q[istate][iquad] = entropy_var_state[istate];
+            }
+        }
+        //project the enrtopy and KE var to modal coefficients
+        //then write it into a global vector
+        for(int istate=0; istate<nstate; istate++){
+            //Projected vector of entropy variables.
+            std::vector<double> entropy_var_hat(n_shape_fns);
+            vol_projection.matrix_vector_mult_1D(entropy_var_at_q[istate], entropy_var_hat,
+                                                 vol_projection.oneD_vol_operator);
+
+            for(unsigned int ishape=0; ishape<n_shape_fns; ishape++){
+                const unsigned int idof = istate * n_shape_fns + ishape;
+                entropy_var_hat_global[dofs_indices[idof]] = entropy_var_hat[ishape];
+            }
+        }
+    }
+    entropy_var_hat_global.update_ghost_values();;
+
+    //evaluate the change in entropy and change in KE
+    dg->assemble_residual();
+    return entropy_var_hat_global * dg->right_hand_side;
 }
 
 #if PHILIP_DIM>=2 && PHILIP_SPECIES==1
