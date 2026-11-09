@@ -2,8 +2,8 @@ Include "airfoil_naca0012.geo";
 Split Curve(1) {57, 73};
 Split Curve(3) {130};
 // 2. Define Farfield
-lc_farfield = 4.0;
-farfield_distance = 10;
+lc_farfield = 75.0;
+farfield_distance = 500;
 //Point(131) = {0.5, 0.0, 0.0};
 Point(132) = {-farfield_distance+0.0,0.0,0.0,lc_farfield};
 Point(133) = {0.0,farfield_distance,0.0,lc_farfield};
